@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/static/css/main.18c476ba.css",
-    "main.js": "/static/js/main.57ed187d.js",
+    "main.js": "/static/js/main.f0e7f7ff.js",
     "static/js/415.4d6acbeb.chunk.js": "/static/js/415.4d6acbeb.chunk.js",
     "static/js/787.1ed0c42c.chunk.js": "/static/js/787.1ed0c42c.chunk.js",
     "static/media/leaf.png": "/static/media/leaf.ff2616f664c8c0ceab91.png",
@@ -26,8 +26,8 @@
     "static/media/Java-Dark.svg": "/static/media/Java-Dark.36ec00d682bc90d73bdbcb4bfa1038a7.svg",
     "static/media/PHP-Dark.svg": "/static/media/PHP-Dark.0694fcf3a635efc733a223e1a3bc2487.svg",
     "static/media/pre.svg": "/static/media/pre.d4812f51c8c80976eaab.svg",
-    "index.html": "/index.html",
     "static/media/Python-Dark.svg": "/static/media/Python-Dark.bf36a7c430d4004862f45f6478928de7.svg",
+    "index.html": "/index.html",
     "static/media/DotNet.svg": "/static/media/DotNet.cd39e186d56311da51d7a4843277fce4.svg",
     "static/media/JavaScript.svg": "/static/media/JavaScript.9a071f2801f9f92598764d48c7225305.svg",
     "static/media/Flutter-Dark.svg": "/static/media/Flutter-Dark.2b30aec73f8a837a9441384ced08185f.svg",
@@ -35,12 +35,12 @@
     "static/media/HTML.svg": "/static/media/HTML.ca0db580ffd74f086f2dc2a71dacd660.svg",
     "static/media/logo_rr.svg": "/static/media/logo_rr.3607c095c08bd9921174c4084aac07ca.svg",
     "main.18c476ba.css.map": "/static/css/main.18c476ba.css.map",
-    "main.57ed187d.js.map": "/static/js/main.57ed187d.js.map",
+    "main.f0e7f7ff.js.map": "/static/js/main.f0e7f7ff.js.map",
     "415.4d6acbeb.chunk.js.map": "/static/js/415.4d6acbeb.chunk.js.map",
     "787.1ed0c42c.chunk.js.map": "/static/js/787.1ed0c42c.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.18c476ba.css",
-    "static/js/main.57ed187d.js"
+    "static/js/main.f0e7f7ff.js"
   ]
 }

@@ -581,6 +581,19 @@ button:focus {
   line-height: 1.6 !important;
 }
 
+/* Ícones de linguagem (Node, React, TypeScript) responsivos */
+.language-icon-wrapper {
+  aspect-ratio: 1;
+}
+.language-icon-wrapper svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 80px;
+  max-height: 80px;
+  min-width: 24px;
+  min-height: 24px;
+}
+
 .quote-card-view {
   border: none !important;
   color: white !important;

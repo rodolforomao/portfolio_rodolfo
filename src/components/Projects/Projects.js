@@ -2,20 +2,13 @@ import React from "react";
 import { Container, Row, Col } from "react-bootstrap";
 import ProjectCard from "./ProjectCards";
 import Particle from "../Particle";
-import leaf from "../../Assets/Projects/leaf.png";
-import emotion from "../../Assets/Projects/emotion.png";
-import editor from "../../Assets/Projects/codeEditor.png";
-import chatify from "../../Assets/Projects/chatify.png";
 import logoSupra from "../../Assets/Projects/supra.png";
 import logoPortalCidadao from "../../Assets/Projects/portalcidadao.png";
 import logoScm from "../../Assets/Projects/scm.png";
 import logoAtlasApp from "../../Assets/Projects/smart-phone-atlas-app.png";
 import logoPortalApp from "../../Assets/Projects/smart-phone-portalcidadao-app.png";
 import logoScmApp from "../../Assets/Projects/smart-phone-scm-app.png";
-
-
-import suicide from "../../Assets/Projects/suicide.png";
-import bitsOfCode from "../../Assets/Projects/blog.png";
+import imgCodeEditor from "../../Assets/Projects/codeEditor.png";
 
 function Projects() {
   return (
@@ -95,6 +88,39 @@ function Projects() {
               description="The app DICI 'Data, Information, Knowledge and Intelligence System' is Anatel's telecommunications sector data collection system, and it is mandatory for all providers to report data relating to the services provided, in addition to economic and infrastructure data."
               subdescription="O app DICI 'Sistema de Dados, Informações, Conhecimento e Inteligência' é o sistema de coleta de dados setoriais de telecomunicações da Anatel, sendo obrigatório a todos os provedores informarem os dados referentes aos serviços prestados, além de dados econômicos e de infraestrutura."
               website="https://play.google.com/store/apps/details?id=br.com.scmengenharia.dicii&pcampaignid=web_share"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={imgCodeEditor}
+              isBlog={false}
+              title="Polybit"
+              description="Web platform for weekly raffles in Laravel, inspired by the Mega-Sena model. PHP 8+, MySQL/MariaDB, Laravel Mix for front-end assets."
+              subdescription="Plataforma web em Laravel para sorteios semanais. Requisitos: PHP 8+, MySQL/MariaDB, Composer e Node/NPM para assets."
+              ghLink="https://github.com/rodolforomao/polybit"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={imgCodeEditor}
+              isBlog={false}
+              title="Smart Condo"
+              description="Complete condominium management system built with Laravel 11, centralizing the entire condominium routine in a single digital platform. PHP 8+, MySQL, optional Redis."
+              subdescription="Sistema de gestão condominial em Laravel 11: rotinas centralizadas, backend PHP 8+, MySQL (XAMPP), cache e storage configuráveis."
+              ghLink="https://github.com/rodolforomao/smart_condo"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={imgCodeEditor}
+              isBlog={false}
+              title="DICI Simples (Anatel/SCM)"
+              description="Simplified DICI (Data, Information, Knowledge and Intelligence) interface for Anatel's sector data. Built with React, TypeScript, Vite and modern UI (e.g. Radix/shadcn)."
+              subdescription="Interface simplificada do sistema DICI da Anatel. Stack: React, TypeScript, Vite, formulários e UI moderna."
+              ghLink="https://github.com/RodrigoSCM1/dici-simples-anatel-scm-engenharia"
             />
           </Col>
         </Row>

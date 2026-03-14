@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Build / output
+build/
+dist/
+*.tgz
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Cache
+.npm
+.eslintcache
+.cache
+.parcel-cache
+.vite
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# TypeScript
+typings/
+
+# REPL
+.node_repl_history
+
+# Yarn
+.yarn-integrity
+.pnp
+.pnp.js
+
+# Binary addons
+build/Release
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Optional: descomente se usar Cursor rules só localmente
+# .cursor/

@@ -54,15 +54,30 @@ This project was built using these technologies.
 
 Clone down this repository. You will need `node.js` and `git` installed globally on your machine.
 
-## 🛠 Installation and Setup Instructions
+## 🛠 Rodar no seu computador (local)
 
-1. Installation: `npm install`
+1. **Requisitos:** Node.js e Yarn (ou npm) instalados.
 
-2. In the project directory, you can run: `npm start`
+2. **Instalar dependências:**
+   ```bash
+   yarn install
+   # ou: npm install
+   ```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-The page will reload if you make edits.
+3. **Subir o projeto em modo desenvolvimento:**
+   ```bash
+   yarn start
+   # ou: npm start
+   ```
+
+4. Abra [http://localhost:3000](http://localhost:3000) no navegador. A página recarrega ao editar os arquivos.
+
+> O campo `homepage` no `package.json` é usado só no **build de produção** (ex.: deploy no GitHub Pages). Em desenvolvimento o app roda na raiz (`/`) em localhost:3000.
+
+## Installation and Setup Instructions (en)
+
+1. Installation: `yarn install` or `npm install`
+2. Run: `yarn start` or `npm start` — opens [http://localhost:3000](http://localhost:3000).
 
 ## Usage Instructions
 
