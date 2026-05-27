@@ -2,6 +2,12 @@ import React from "react";
 import { Container, Row, Col } from "react-bootstrap";
 import ProjectCard from "./ProjectCards";
 import Particle from "../Particle";
+import logoProofchain from "../../Assets/Projects/proofchain.png";
+import logoFinancialiq from "../../Assets/Projects/financialiq.png";
+import logoSmartcondo from "../../Assets/Projects/smartcondo.png";
+import logoBitbooking from "../../Assets/Projects/bitbooking.png";
+import logoAtendente from "../../Assets/Projects/atendente.png";
+import logoResidencialOliveiras from "../../Assets/Projects/residencial-oliveiras.png";
 import logoSupra from "../../Assets/Projects/supra.png";
 import logoPortalCidadao from "../../Assets/Projects/portalcidadao.png";
 import logoScm from "../../Assets/Projects/scm.png";
@@ -16,13 +22,96 @@ function Projects() {
       <Particle />
       <Container>
         <h1 className="project-heading">
-          My biggest <strong className="purple">Works </strong> | Maiores <strong className="purple">Trabalhos </strong> 
+          My <strong className="purple">Platforms</strong> | Minhas{" "}
+          <strong className="purple">Plataformas</strong>
         </h1>
         <p style={{ color: "white" }}>
-          Here are a few projects I've worked on recently.
+          SaaS products and web platforms I designed and built — blockchain
+          forensics, finance, condominiums, hospitality, short-term rentals, and
+          AI-powered customer service.
         </p>
         <p style={{ color: "white" }}>
-          Aqui estão alguns dos maiores trabalhos que realizei.
+          Produtos SaaS e plataformas web que projetei e desenvolvi — forense
+          blockchain, finanças, condomínios, hospedagem, aluguel por temporada e
+          atendimento com IA.
+        </p>
+        <Row style={{ justifyContent: "center", paddingBottom: "10px" }}>
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={logoProofchain}
+              isBlog={false}
+              title="Proofchain"
+              description="SaaS platform for blockchain investigation, asset tracing, and court-admissible forensic intelligence. Laravel API, React dashboard, and Python workers deliver cross-chain analysis, entity graphs, confidence scoring, and auditable evidence chains for legal and compliance teams."
+              subdescription="Plataforma SaaS de investigação blockchain, rastreamento de ativos e inteligência forense com integridade probatória. API Laravel, painel React e workers Python para análise multi-chain, grafos de entidades, scores de confiança e cadeias de evidência auditáveis para jurídico e compliance."
+              website="https://proofchain.rodolforomao.com.br"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={logoFinancialiq}
+              isBlog={false}
+              title="FinancialIQ"
+              description="Enterprise financial intelligence SaaS: cash flow, bank reconciliation, semantic AI categorization, OCR for receipts, smart alerts, and multi-tenant workspaces. Modular Laravel architecture with Telegram/WhatsApp notifications and CFO-grade dashboards."
+              subdescription="SaaS financeiro enterprise: fluxo de caixa, conciliação bancária, categorização semântica com IA, OCR de comprovantes, alertas inteligentes e workspaces multi-tenant. Arquitetura modular em Laravel com notificações Telegram/WhatsApp e painéis para decisão financeira."
+              website="https://financialiq.rodolforomao.com.br"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={logoSmartcondo}
+              isBlog={false}
+              title="Smart Condo"
+              description="All-in-one condominium management: syndics, administrators, residents, and staff share finance (charges, payables, chart of accounts), notices, service tickets, units, and granular role-based menus in a single Laravel platform."
+              subdescription="Gestão condominial completa: síndicos, administradores, moradores e equipe usam financeiro (cobranças, despesas, plano de contas), avisos, ocorrências, unidades e menus com permissões granulares em uma única plataforma Laravel."
+              website="https://smartcondo.rodolforomao.com.br"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={logoBitbooking}
+              isBlog={false}
+              title="BitBooking"
+              description="Short-term rental marketplace with instant PIX checkout, automatic reservation confirmation, host property management, guest bookings, and map-based discovery — built for the Brazilian market with Liquid/Depix settlement for hosts."
+              subdescription="Marketplace de aluguel por temporada com checkout PIX instantâneo, confirmação automática de reservas, gestão de imóveis para anfitriões, reservas de hóspedes e busca no mapa — focado no Brasil, com liquidação Liquid/Depix para anfitriões."
+              website="https://bitbooking.rodolforomao.com.br"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={logoAtendente}
+              isBlog={false}
+              title="Atendente"
+              description="WhatsApp-first customer service SaaS: configurable AI agents, conversation inbox, leads, appointments, PIX billing, analytics, and Telegram integrations — one panel for teams that need speed, control, and human handoff."
+              subdescription="SaaS de atendimento via WhatsApp: agentes de IA configuráveis, caixa de conversas, leads, agendamentos, cobrança PIX, métricas e integrações Telegram — um painel para equipes que precisam de velocidade, controle e repasse humano."
+              website="https://atendente.rodolforomao.com.br"
+            />
+          </Col>
+
+          <Col md={4} className="project-card">
+            <ProjectCard
+              imgPath={logoResidencialOliveiras}
+              isBlog={false}
+              title="Residencial Oliveiras"
+              description="Hospitality website for a lodging business in Brasília: responsive landing page, apartment photo galleries (Owl Carousel), WhatsApp and email contact, and a PHP receipt module for booking records. Built with HTML5, CSS3, Vanilla JavaScript, and jQuery — deployed on VPS with Cloudflare and HestiaCP."
+              subdescription="Site institucional de hospedagem em Brasília: página responsiva, galerias de apartamentos (Owl Carousel), contato por WhatsApp e e-mail, e módulo PHP de comprovantes de reserva. Desenvolvido com HTML5, CSS3, JavaScript vanilla e jQuery — em produção na VPS com Cloudflare e HestiaCP."
+              website="https://residencialoliveiras.rodolforomao.com.br"
+            />
+          </Col>
+        </Row>
+
+        <h1 className="project-heading" style={{ marginTop: "2.5rem" }}>
+          My biggest <strong className="purple">Works</strong> | Maiores{" "}
+          <strong className="purple">Trabalhos</strong>
+        </h1>
+        <p style={{ color: "white" }}>
+          Here are a few enterprise projects I&apos;ve worked on recently.
+        </p>
+        <p style={{ color: "white" }}>
+          Aqui estão alguns dos maiores trabalhos corporativos que realizei.
         </p>
         <Row style={{ justifyContent: "center", paddingBottom: "10px" }}>
           <Col md={4} className="project-card">
@@ -54,7 +143,7 @@ function Projects() {
               title="SCM - DICI"
               description="The DICI 'Data, Information, Knowledge and Intelligence System' is Anatel's telecommunications sector data collection system, and it is mandatory for all providers to report data relating to the services provided, in addition to economic and infrastructure data."
               subdescription="O DICI 'Sistema de Dados, Informações, Conhecimento e Inteligência' é o sistema de coleta de dados setoriais de telecomunicações da Anatel, sendo obrigatório a todos os provedores informarem os dados referentes aos serviços prestados, além de dados econômicos e de infraestrutura."
-              website="http://dici.scmengenharia.com.br"          
+              website="http://dici.scmengenharia.com.br"
             />
           </Col>
 
@@ -65,7 +154,7 @@ function Projects() {
               title="Atlas - App"
               description="The Atlas application is used to download a .PDF by state in Brazil, showing all highway construction works and their status, strategic information for decision making."
               subdescription="O aplicativo Atlas é usado para realizar download de um .PDF por estados do Brasil, mostrando todas as obras de construção de rodovias e sua situação, informações estratégias para tomadas de decisão. "
-              website="https://play.google.com/store/apps/details?id=br.gov.dnit.supra.atlas&pcampaignid=web_share"   
+              website="https://play.google.com/store/apps/details?id=br.gov.dnit.supra.atlas&pcampaignid=web_share"
             />
           </Col>
 
