@@ -23,43 +23,43 @@ import {
 function Toolstack() {
   return (
     <Row style={{ justifyContent: "center", paddingBottom: "50px" }}>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiVisualstudio />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiVisualstudiocode />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiPostman />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiLinux />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiDebian />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiUbuntu />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiWindows />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiApachenetbeanside />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiMicrosoftsqlserver />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiDocker />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiNotepadplusplus />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiApache />
       </Col>
-      <Col xs={4} md={2} className="tech-icons">
+      <Col xs={4} sm={3} md={2} className="tech-icons">
         <SiNano />
       </Col>
     </Row>

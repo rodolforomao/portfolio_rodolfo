@@ -15,13 +15,12 @@ import imageLanguageFlutter from "../Assets/Languages/Flutter-Dark.svg";
 import imageLanguageNode from "../Assets/Languages/Node-Dark.svg";
 import imageLanguageReact from "../Assets/Languages/React-Dark.svg";
 
-const colStyle = { paddingBottom: 20 };
-const iconWrapperStyle = (bg) => ({
-  ...colStyle,
+const colStyle = {
+  paddingBottom: 12,
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-});
+};
 
 const LANGUAGES = [
   { src: imageLanguagePhp, alt: "PHP" },
@@ -47,22 +46,22 @@ const LANGUAGES = [
 
 function Languages() {
   return (
-    <Row sm={12} md={12} lg={12}>
+    <Row className="justify-content-center align-items-center" style={{ marginBottom: 16 }}>
       {LANGUAGES.map((item, index) => (
         <Col
           key={item.alt || index}
-          sm={1}
-          md={1}
+          xs={3}
+          sm={2}
+          md={2}
           lg={1}
-          style={item.type === "icon" ? iconWrapperStyle(item.bg) : colStyle}
+          style={colStyle}
         >
           {item.type === "icon" ? (
             <div
               className="language-icon-wrapper"
               style={{
-                width: "100%",
-                maxWidth: 80,
-                maxHeight: 80,
+                width: 52,
+                height: 52,
                 backgroundColor: item.bg,
                 borderRadius: "20%",
                 padding: 4,
@@ -71,14 +70,14 @@ function Languages() {
                 justifyContent: "center",
               }}
             >
-              <item.Icon style={{ color: item.color }} />
+              <item.Icon style={{ color: item.color, fontSize: "2.2em" }} />
             </div>
           ) : (
             <img
               src={item.src}
               alt={item.alt}
               className="img-fluid"
-              style={{ maxHeight: "250px" }}
+              style={{ maxHeight: "52px", width: "auto" }}
             />
           )}
         </Col>

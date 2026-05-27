@@ -15,8 +15,8 @@ function Home() {
         <Particle />
         <Container className="home-content">
           <Languages/>
-          <Row>
-            <Col md={7} className="home-header">
+          <Row className="align-items-center">
+            <Col xs={12} md={7} className="home-header">
               <h1 style={{ paddingBottom: 15 }} className="heading">
                 Hi There, what's up? (Olá, tudo bem?){" "}
                 <span className="wave" role="img" aria-labelledby="wave">
@@ -29,19 +29,19 @@ function Home() {
                 <strong className="main-name"> Rodolfo Romão</strong>
               </h1>
 
-              <div style={{ padding: 50, textAlign: "left" }}>
+              <div style={{ paddingTop: 30, paddingBottom: 20, textAlign: "left" }}>
                 <Type />
               </div>
             </Col>
 
-            <Col md={5} style={{ paddingBottom: 20 }}>
+            <Col xs={12} md={5} className="text-center" style={{ paddingBottom: 20 }}>
               <img
                 src={homeLogo}
                 alt="home pic"
                 className="img-fluid"
-                style={{ maxHeight: "450px" }}
+                style={{ maxHeight: "400px", width: "100%" }}
               />
-              </Col>
+            </Col>
           </Row>
         </Container>
       </Container>

@@ -329,19 +329,28 @@ function ResumeNew() {
 
   const c = CONTENT[lang];
 
+  const [downloading, setDownloading] = useState(false);
+
   const downloadPDF = async () => {
-    const html2pdf = (await import("html2pdf.js")).default;
-    const element = document.getElementById("resume-printable");
-    html2pdf()
-      .set({
-        margin: 10,
-        filename: `Rodolfo-Romao-CV-${lang.toUpperCase()}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      })
-      .from(element)
-      .save();
+    setDownloading(true);
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      const element = document.getElementById("resume-printable");
+      await html2pdf()
+        .set({
+          margin: 10,
+          filename: `Rodolfo-Romao-CV-${lang.toUpperCase()}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        })
+        .from(element)
+        .save();
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -350,15 +359,8 @@ function ResumeNew() {
         <Particle />
 
         {/* Controls */}
-        <Row
-          style={{
-            justifyContent: "center",
-            alignItems: "center",
-            paddingBottom: "20px",
-            gap: "12px",
-          }}
-        >
-          <Col xs="auto" style={{ display: "flex", gap: 6 }}>
+        <Row className="justify-content-center align-items-center g-2" style={{ paddingBottom: "20px" }}>
+          <Col xs={12} sm="auto" className="d-flex justify-content-center flex-wrap" style={{ gap: 6 }}>
             {Object.entries(LANG_LABELS).map(([key, label]) => (
               <button
                 key={key}
@@ -372,22 +374,28 @@ function ResumeNew() {
                   cursor: "pointer",
                   fontWeight: lang === key ? 700 : 400,
                   fontSize: 13,
+                  minWidth: 60,
                 }}
               >
                 {label}
               </button>
             ))}
           </Col>
-          <Col xs="auto">
-            <Button variant="primary" onClick={downloadPDF} style={{ maxWidth: 220 }}>
+          <Col xs={12} sm="auto" className="d-flex justify-content-center">
+            <Button
+              variant="primary"
+              onClick={downloadPDF}
+              disabled={downloading}
+              style={{ minWidth: 160 }}
+            >
               <AiOutlineDownload />
-              &nbsp;{c.downloadBtn}
+              &nbsp;{downloading ? "Gerando..." : c.downloadBtn}
             </Button>
           </Col>
         </Row>
 
         {/* Resume */}
-        <Row style={{ justifyContent: "center", paddingBottom: "30px" }}>
+        <Row className="justify-content-center" style={{ paddingBottom: "30px" }}>
           <Col xs={12} md={10} lg={8} xl={7}>
             <div
               id="resume-printable"
@@ -411,7 +419,7 @@ function ResumeNew() {
               >
                 <h1
                   style={{
-                    fontSize: 26,
+                    fontSize: "clamp(20px, 5vw, 26px)",
                     fontWeight: 700,
                     color: "#1a1a2e",
                     margin: 0,
@@ -421,7 +429,7 @@ function ResumeNew() {
                 </h1>
                 <p
                   style={{
-                    fontSize: 15,
+                    fontSize: "clamp(13px, 3vw, 15px)",
                     color: "#c770f0",
                     fontWeight: 600,
                     margin: "4px 0",
@@ -429,13 +437,13 @@ function ResumeNew() {
                 >
                   {c.role}
                 </p>
-                <p style={{ fontSize: 12, color: "#666", margin: "4px 0" }}>
+                <p style={{ fontSize: "clamp(11px, 2.5vw, 12px)", color: "#666", margin: "4px 0" }}>
                   Brasília, DF, Brazil &nbsp;·&nbsp; {c.ageStr}
                 </p>
-                <p style={{ fontSize: 12, color: "#666", margin: "4px 0" }}>
-                  engenheirorodolforomao@gmail.com &nbsp;·&nbsp; +55 61
-                  98111-9944 &nbsp;·&nbsp; linkedin.com/in/rodolfo-romao-oliveira
-                  &nbsp;·&nbsp; github.com/rodolforomao
+                <p style={{ fontSize: "clamp(10px, 2vw, 12px)", color: "#666", margin: "4px 0", wordBreak: "break-word" }}>
+                  engenheirorodolforomao@gmail.com &nbsp;·&nbsp; +55 61 98111-9944
+                  <br />
+                  linkedin.com/in/rodolfo-romao-oliveira &nbsp;·&nbsp; github.com/rodolforomao
                 </p>
               </div>
 
@@ -569,11 +577,16 @@ function ResumeNew() {
         </Row>
 
         {/* Bottom download */}
-        <Row style={{ justifyContent: "center", paddingBottom: "20px" }}>
-          <Col xs="auto">
-            <Button variant="primary" onClick={downloadPDF} style={{ maxWidth: 220 }}>
+        <Row className="justify-content-center" style={{ paddingBottom: "20px" }}>
+          <Col xs={12} sm="auto" className="d-flex justify-content-center">
+            <Button
+              variant="primary"
+              onClick={downloadPDF}
+              disabled={downloading}
+              style={{ minWidth: 160 }}
+            >
               <AiOutlineDownload />
-              &nbsp;{c.downloadBtn}
+              &nbsp;{downloading ? "Gerando..." : c.downloadBtn}
             </Button>
           </Col>
         </Row>

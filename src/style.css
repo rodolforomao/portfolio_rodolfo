@@ -89,6 +89,13 @@ button:focus {
   font-size: 1.2rem !important;
 }
 
+@media (max-width: 480px) {
+  .navbar {
+    padding: 0.5rem 1rem !important;
+    font-size: 1rem !important;
+  }
+}
+
 .navbar-toggler {
   position: relative !important;
   background-color: transparent !important;
@@ -281,6 +288,28 @@ button:focus {
   padding-left: 45px !important;
 }
 
+@media (max-width: 767px) {
+  .heading {
+    font-size: 1.7em !important;
+    padding-left: 15px !important;
+  }
+  .heading-name {
+    font-size: 1.8em !important;
+    padding-left: 15px !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .heading {
+    font-size: 2em !important;
+    padding-left: 25px !important;
+  }
+  .heading-name {
+    font-size: 2.1em !important;
+    padding-left: 25px !important;
+  }
+}
+
 .main-name {
   color: #cd5ff8;
 }
@@ -335,6 +364,26 @@ button:focus {
   padding-top: 50px;
   font-size: 1.2em !important;
   text-align: left;
+}
+
+@media (max-width: 767px) {
+  .home-about-description {
+    padding-top: 30px !important;
+    padding-bottom: 10px !important;
+  }
+  .home-about-body {
+    padding-top: 20px;
+    font-size: 1em !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .home-about-description {
+    padding-top: 50px !important;
+  }
+  .home-about-body {
+    padding-top: 30px;
+  }
 }
 
 .home-about-social {
@@ -420,10 +469,22 @@ button:focus {
 @media (max-width: 767px) {
   .footer-copywright {
     text-align: center !important;
+    padding-top: 6px !important;
+    padding-bottom: 4px !important;
   }
 
   .footer-body {
     text-align: center !important;
+    padding-top: 4px !important;
+  }
+
+  .footer h3 {
+    font-size: 0.85em !important;
+  }
+
+  .social-icons {
+    padding-right: 8px;
+    padding-left: 8px;
   }
 }
 
@@ -458,6 +519,31 @@ button:focus {
   padding-left: 25px !important;
   padding-right: 25px !important;
   height: auto !important;
+}
+
+@media (max-width: 767px) {
+  .project-section {
+    padding-top: 80px !important;
+  }
+  .project-card {
+    padding-top: 25px !important;
+    padding-bottom: 25px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .project-heading {
+    font-size: 1.7em !important;
+    text-align: center;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .project-section {
+    padding-top: 100px !important;
+  }
+  .project-heading {
+    font-size: 2em !important;
+  }
 }
 
 .project-card-view {
@@ -551,6 +637,18 @@ button:focus {
   color: white !important;
 }
 
+@media (max-width: 767px) {
+  .about-section {
+    padding-top: 80px !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .about-section {
+    padding-top: 100px !important;
+  }
+}
+
 .tech-icons {
   font-size: 4.5em !important;
   margin: 15px !important;
@@ -568,7 +666,17 @@ button:focus {
 
 @media (max-width: 767px) {
   .tech-icons {
-    margin: 10px !important;
+    font-size: 3.5em !important;
+    margin: 8px !important;
+    padding: 8px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .tech-icons {
+    font-size: 3em !important;
+    margin: 6px !important;
+    padding: 6px !important;
   }
 }
 
@@ -622,6 +730,24 @@ button:focus {
   padding-bottom: 30px !important;
   background-image: var(--section-background-color) !important;
   color: white !important;
+}
+
+@media (max-width: 767px) {
+  .resume-section {
+    padding-top: 80px !important;
+  }
+  #resume-printable {
+    padding: 24px 16px !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .resume-section {
+    padding-top: 90px !important;
+  }
+  #resume-printable {
+    padding: 32px 32px !important;
+  }
 }
 
 .resume {
