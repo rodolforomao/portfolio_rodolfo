@@ -18,6 +18,7 @@ import { loadSession, clearSession, resolveWsUrl } from './config';
 import AssetsPanel from './AssetsPanel';
 import OrdersPanel from './OrdersPanel';
 import OrderPlacementPanel from './OrderPlacementPanel';
+import TransactionsPanel from './TransactionsPanel';
 import OrderMarginBadge from './OrderMarginBadge';
 import MessagesModal from './MessagesModal';
 import { buildMessageFeed } from './utils/messages';
@@ -240,6 +241,7 @@ const CommandPanel = React.memo(function CommandPanel({
     const params = { pid };
     if (!cancelPick?.all) {
       if (cancelPick?.pending) {
+        params.pending = true;
         params.base = cancelPick.base;
         params.quote = cancelPick.quote;
         params.trade_dir = cancelPick.trade_dir;
@@ -248,7 +250,7 @@ const CommandPanel = React.memo(function CommandPanel({
         if (oid) params.order_id = oid;
       }
     }
-    if (!cancelPick?.all && !params.order_id && !params.base) return;
+    if (!cancelPick?.all && !params.order_id && !params.pending) return;
     await run('cancel_order', params);
   };
 
@@ -1147,6 +1149,11 @@ export default function DealerConsole() {
                 lastRefresh={lastAssetRefresh}
               />
               <OrdersPanel dealer={selectedDealer} />
+              <TransactionsPanel
+                dealer={selectedDealer}
+                sendCommand={sendCommand}
+                wsStatus={status}
+              />
               <OrderPlacementPanel
                 dealer={selectedDealer}
                 assets={marketData.assets}
