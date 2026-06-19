@@ -5,14 +5,14 @@ import {
   buildPairSubscriptions,
   buildSubscriptionKey,
   computePlacement,
+  marketPairKeyFromNames,
   pairKeyFromIds,
-  assetIdForName,
 } from './utils/sideswapBook';
 
 const RECONNECT_BASE_MS = 12000;
 const RECONNECT_MAX_MS = 60000;
 
-export default function useSideswapBook(ownOrders, assets, enabled = true) {
+export default function useSideswapBook(ownOrders, assets, enabled = true, combinations = []) {
   const [books, setBooks] = useState({});
   const [indPrices, setIndPrices] = useState({});
   const [status, setStatus] = useState('idle');
@@ -33,12 +33,12 @@ export default function useSideswapBook(ownOrders, assets, enabled = true) {
 
   const subscriptionKey = useMemo(() => {
     if (!enabled || !(ownOrders?.length)) return '';
-    return buildSubscriptionKey(ownOrders, assets);
-  }, [enabled, ownOrders, assets]);
+    return buildSubscriptionKey(ownOrders, assets, combinations);
+  }, [enabled, ownOrders, assets, combinations]);
 
   const pairs = useMemo(
-    () => (subscriptionKey ? buildPairSubscriptions(ownOrders, assets) : []),
-    [subscriptionKey, ownOrders, assets],
+    () => (subscriptionKey ? buildPairSubscriptions(ownOrders, assets, combinations) : []),
+    [subscriptionKey, ownOrders, assets, combinations],
   );
 
   const updateBook = useCallback((pairKey, updater) => {
@@ -51,9 +51,7 @@ export default function useSideswapBook(ownOrders, assets, enabled = true) {
   }, []);
 
   const placements = useMemo(() => (ownOrders || []).map((order) => {
-    const baseId = assetIdForName(order.base, assets);
-    const quoteId = assetIdForName(order.quote, assets);
-    const key = baseId && quoteId ? pairKeyFromIds(baseId, quoteId) : null;
+    const key = marketPairKeyFromNames(order.base, order.quote, assets, combinations);
     const book = key ? (books[key] || []) : [];
     const placement = computePlacement(book, order);
     const pairMeta = pairs.find((p) => p.key === key);
@@ -65,7 +63,7 @@ export default function useSideswapBook(ownOrders, assets, enabled = true) {
       backendFound: order.book_found,
       ...placement,
     };
-  }), [ownOrders, assets, books, pairs]);
+  }), [ownOrders, assets, combinations, books, pairs]);
 
   const clearReconnectTimer = useCallback(() => {
     if (reconnectRef.current) {

@@ -1039,6 +1039,7 @@ export default function DealerConsole() {
               <OrderPlacementPanel
                 dealer={selectedDealer}
                 assets={marketData.assets}
+                combinations={marketData.combinations}
               />
             </div>
           </Col>

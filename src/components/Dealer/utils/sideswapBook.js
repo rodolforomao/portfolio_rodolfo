@@ -2,6 +2,56 @@ import { canonicalAssetName } from './dealerFormat';
 
 export const SIDESWAP_WS_URL = 'wss://api.sideswap.io/json-rpc-ws';
 
+/** Mercados públicos SideSwap (orientação canônica — igual ao manager_dealer). */
+export const SIDESWAP_CANONICAL_PAIRS = [
+  { base: 'L-BTC', quote: 'DePix' },
+  { base: 'L-BTC', quote: 'USDt' },
+  { base: 'USDt', quote: 'DePix' },
+];
+
+function matchesAssetPair(base, quote, catalogBase, catalogQuote) {
+  return canonicalAssetName(base) === canonicalAssetName(catalogBase)
+    && canonicalAssetName(quote) === canonicalAssetName(catalogQuote);
+}
+
+/**
+ * SideSwap só expõe um sentido por mercado (ex.: L-BTC/USDt, nunca USDt/L-BTC).
+ * Mapeia o par do dealer para a orientação do livro público.
+ */
+export function resolveSideswapMarketPair(base, quote, combinations = []) {
+  const dealerBase = canonicalAssetName(base);
+  const dealerQuote = canonicalAssetName(quote);
+  const catalog = combinations?.length ? combinations : SIDESWAP_CANONICAL_PAIRS;
+
+  const direct = catalog.find((c) => matchesAssetPair(dealerBase, dealerQuote, c.base, c.quote));
+  if (direct) {
+    return {
+      marketBase: canonicalAssetName(direct.base),
+      marketQuote: canonicalAssetName(direct.quote),
+      inverted: false,
+    };
+  }
+
+  const swapped = catalog.find((c) => matchesAssetPair(dealerQuote, dealerBase, c.base, c.quote));
+  if (swapped) {
+    return {
+      marketBase: canonicalAssetName(swapped.base),
+      marketQuote: canonicalAssetName(swapped.quote),
+      inverted: true,
+    };
+  }
+
+  return { marketBase: dealerBase, marketQuote: dealerQuote, inverted: false };
+}
+
+export function marketPairKeyFromNames(base, quote, assets, combinations = []) {
+  const { marketBase, marketQuote } = resolveSideswapMarketPair(base, quote, combinations);
+  const baseId = assetIdForName(marketBase, assets);
+  const quoteId = assetIdForName(marketQuote, assets);
+  if (!baseId || !quoteId) return null;
+  return pairKeyFromIds(baseId, quoteId);
+}
+
 export function assetIdForName(name, assets = []) {
   const canon = canonicalAssetName(name);
   const hit = (assets || []).find((a) => canonicalAssetName(a.name || a) === canon);
@@ -107,39 +157,60 @@ export function applySideswapMessage(bookOrders, message) {
   return bookOrders;
 }
 
-export function buildPairSubscriptions(ownOrders, assets) {
-  const seen = new Set();
-  const pairs = [];
+export function buildPairSubscriptions(ownOrders, assets, combinations = []) {
+  const byKey = new Map();
 
   (ownOrders || []).forEach((order) => {
-    const baseId = assetIdForName(order.base, assets);
-    const quoteId = assetIdForName(order.quote, assets);
+    const { marketBase, marketQuote, inverted } = resolveSideswapMarketPair(
+      order.base,
+      order.quote,
+      combinations,
+    );
+    const baseId = assetIdForName(marketBase, assets);
+    const quoteId = assetIdForName(marketQuote, assets);
     if (!baseId || !quoteId) return;
+
     const key = pairKeyFromIds(baseId, quoteId);
-    if (seen.has(key)) return;
-    seen.add(key);
-    pairs.push({
-      key,
-      base: order.base,
-      quote: order.quote,
-      baseId,
-      quoteId,
-      marketUrl: sideswapMarketUrl(baseId, quoteId),
-    });
+    const dealerLabel = `${canonicalAssetName(order.base)}/${canonicalAssetName(order.quote)}`;
+
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        key,
+        base: marketBase,
+        quote: marketQuote,
+        baseId,
+        quoteId,
+        marketUrl: sideswapMarketUrl(baseId, quoteId),
+        dealerLabels: new Set(),
+        hasInverted: false,
+      });
+    }
+
+    const entry = byKey.get(key);
+    entry.dealerLabels.add(dealerLabel);
+    if (inverted) entry.hasInverted = true;
   });
 
-  return pairs;
+  return [...byKey.values()].map((pair) => ({
+    ...pair,
+    dealerLabels: [...pair.dealerLabels].sort(),
+  }));
 }
 
 /** Chave estável — evita reconectar quando só a referência do array muda. */
-export function buildSubscriptionKey(ownOrders, assets) {
+export function buildSubscriptionKey(ownOrders, assets, combinations = []) {
   const orders = (ownOrders || [])
     .map((o) => `${o.order_id}|${o.base}|${o.quote}|${o.trade_dir}`)
     .sort()
     .join(';');
+  const marketKeys = [...new Set(
+    (ownOrders || [])
+      .map((o) => marketPairKeyFromNames(o.base, o.quote, assets, combinations))
+      .filter(Boolean),
+  )].sort().join(';');
   const ids = (assets || [])
     .map((a) => `${a.name || ''}:${a.id || ''}`)
     .sort()
     .join(';');
-  return `${orders}||${ids}`;
+  return `${orders}||${marketKeys}||${ids}`;
 }

@@ -36,11 +36,11 @@ function MiniBook({ orders, tradeDir, highlightId, limit = 6 }) {
   );
 }
 
-export default function OrderPlacementPanel({ dealer, assets }) {
+export default function OrderPlacementPanel({ dealer, assets, combinations = [] }) {
   const ownOrders = dealer?.orders || [];
   const {
     status, error, lastUpdate, pairs, books, indPrices, placements, reconnect,
-  } = useSideswapBook(ownOrders, assets, ownOrders.length > 0);
+  } = useSideswapBook(ownOrders, assets, ownOrders.length > 0, combinations);
 
   if (!dealer) {
     return (
@@ -188,11 +188,21 @@ export default function OrderPlacementPanel({ dealer, assets }) {
         );
       })}
 
-      {pairs.map((pair) => (
-        <div key={pair.key} className="dealer-placement-pair-meta">
-          {pair.base}/{pair.quote} — {(books[pair.key] || []).length} ordens no book público
-        </div>
-      ))}
+      {pairs.map((pair) => {
+        const count = (books[pair.key] || []).length;
+        const marketLabel = `${pair.base}/${pair.quote}`;
+        const dealerOnly = pair.dealerLabels?.filter((l) => l !== marketLabel) || [];
+        return (
+          <div key={pair.key} className="dealer-placement-pair-meta">
+            {marketLabel} — {count} ordens no book público
+            {dealerOnly.length > 0 && (
+              <span className="dealer-placement-pair-note">
+                {' '}(ordens locais em {dealerOnly.join(', ')} → mercado {marketLabel})
+              </span>
+            )}
+          </div>
+        );
+      })}
     </section>
   );
 }
