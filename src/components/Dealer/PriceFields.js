@@ -19,15 +19,44 @@ export function parsePriceInput(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-export function buildPriceParams({ price, pricePorc, priceMin }) {
+export function buildPriceParams({
+  price, pricePorc, priceMin, followTarget, followTargetOrderId,
+}) {
   const p = {};
+  const min = parsePercentInput(priceMin);
+  if (followTarget) {
+    p.follow_target = true;
+    if (min !== null) p.price_min = min;
+    const pin = String(followTargetOrderId || '').trim();
+    if (pin) p.follow_target_order_id = pin;
+    return p;
+  }
   const fixed = parsePriceInput(price);
   const porc = parsePercentInput(pricePorc);
-  const min = parsePercentInput(priceMin);
   if (fixed !== null) p.price = fixed;
   if (porc !== null) p.price_porc = porc;
   if (min !== null) p.price_min = min;
   return p;
+}
+
+export function validatePriceForm({ price, pricePorc, priceMin, followTarget }) {
+  if (followTarget) {
+    if (parsePercentInput(priceMin) === null) {
+      return {
+        ok: false,
+        error: 'Spread mín. (pm %) obrigatório com seguir alvo ativo.',
+      };
+    }
+    return { ok: true };
+  }
+  const fields = buildPriceParams({ price, pricePorc, priceMin });
+  if (!fields.price && fields.price_porc == null && fields.price_min == null) {
+    return {
+      ok: false,
+      error: 'Preencha preço fixo, spread (%) ou spread mín. (pm %).',
+    };
+  }
+  return { ok: true };
 }
 
 /** Decimal do backend (0.0035) → entrada humana ("0,35"). */
@@ -49,6 +78,20 @@ export function formatPriceForInput(value) {
 
 export function formatOrderSpreadSummary(order) {
   if (!order) return '—';
+  if (order.follow_target) {
+    const pm = order.price_min != null && order.price_min !== ''
+      ? `pm ${formatPercentForInput(order.price_min)}%`
+      : 'pm —';
+    const ref = order.follow_ref_order_id
+      ? ` → #${order.follow_ref_order_id}`
+      : order.follow_target_order_id
+        ? ` pin #${order.follow_target_order_id}`
+        : '';
+    const live = order.price_porc != null && order.price_porc !== ''
+      ? ` (${formatPercentForInput(order.price_porc)}%)`
+      : '';
+    return `follow ${pm}${ref}${live}`;
+  }
   if (order.price != null && order.price !== '') {
     return `preço fixo ${formatPriceForInput(order.price)}`;
   }
@@ -63,7 +106,16 @@ export function formatOrderSpreadSummary(order) {
 
 export function orderToSpreadForm(order) {
   if (!order) {
-    return { base: 'L-BTC', quote: 'USDt', tradeDir: 'Buy', price: '', pricePorc: '', priceMin: '' };
+    return {
+      base: 'L-BTC',
+      quote: 'USDt',
+      tradeDir: 'Buy',
+      price: '',
+      pricePorc: '',
+      priceMin: '',
+      followTarget: false,
+      followTargetOrderId: '',
+    };
   }
   return {
     base: order.base || 'L-BTC',
@@ -74,6 +126,9 @@ export function orderToSpreadForm(order) {
       ? formatPercentForInput(order.price_porc) : '',
     priceMin: order.price_min != null && order.price_min !== ''
       ? formatPercentForInput(order.price_min) : '',
+    followTarget: !!order.follow_target,
+    followTargetOrderId: order.follow_target_order_id
+      ? String(order.follow_target_order_id) : '',
   };
 }
 
@@ -90,16 +145,41 @@ export default function PriceFields({
   pricePorc,
   priceMin,
   amount,
+  followTarget = false,
+  followTargetOrderId = '',
   onPriceChange,
   onPricePorcChange,
   onPriceMinChange,
   onAmountChange,
+  onFollowTargetChange,
+  onFollowTargetOrderIdChange,
+  showFollowOptions = true,
   showAmount = true,
 }) {
   return (
     <div className="dealer-price-fields">
+      {showFollowOptions && onFollowTargetChange && (
+        <div className="dealer-follow-block mb-3">
+          <Form.Check
+            type="switch"
+            id="dealer-follow-target"
+            className="dealer-follow-switch"
+            label="Seguir alvo no book (follow_target)"
+            checked={!!followTarget}
+            onChange={(e) => onFollowTargetChange(e.target.checked)}
+          />
+          <p className="dealer-follow-hint mb-0">
+            {followTarget
+              ? 'Segue o dealer imediatamente acima, mantendo pm % como piso de lucro. Spread calculado automaticamente (ex.: 1,49% vs alvo 1,50%).'
+              : 'Modo clássico: preencha apenas um campo de preço/spread abaixo.'}
+          </p>
+        </div>
+      )}
+
       <p className="dealer-price-intro">
-        Preencha <strong>apenas um</strong> dos três campos abaixo (como no terminal).
+        {followTarget
+          ? <>Com follow ativo, informe o <strong>pm %</strong> (lucro mínimo). Spread fixo é opcional.</>
+          : <>Preencha <strong>apenas um</strong> dos três campos abaixo (como no terminal).</>}
       </p>
 
       <Row className="g-2">
@@ -114,6 +194,7 @@ export default function PriceFields({
             inputMode="decimal"
             placeholder="ex: 119000"
             value={price}
+            disabled={followTarget}
             onChange={(e) => onPriceChange(e.target.value)}
           />
         </Col>
@@ -126,26 +207,45 @@ export default function PriceFields({
             size="sm"
             type="text"
             inputMode="decimal"
-            placeholder="ex: 0,35"
+            placeholder={followTarget ? 'automático' : 'ex: 0,35'}
             value={pricePorc}
+            disabled={followTarget}
             onChange={(e) => onPricePorcChange(e.target.value)}
           />
         </Col>
         <Col xs={12} md={4}>
           <FieldLabel
             title="Spread mín. (pm %)"
-            hint="Piso dinâmico via order book. Ex.: 0,35 = pm 0,35% no terminal."
+            hint={followTarget
+              ? 'Piso de lucro — obrigatório com follow. Ex.: 1,2 = lucro mínimo 1,2%.'
+              : 'Piso dinâmico via order book. Ex.: 0,35 = pm 0,35% no terminal.'}
           />
           <Form.Control
             size="sm"
             type="text"
             inputMode="decimal"
-            placeholder="ex: 0,35"
+            placeholder={followTarget ? 'ex: 1,2' : 'ex: 0,35'}
             value={priceMin}
             onChange={(e) => onPriceMinChange(e.target.value)}
           />
         </Col>
       </Row>
+
+      {showFollowOptions && followTarget && onFollowTargetOrderIdChange && (
+        <div className="mt-2">
+          <FieldLabel
+            title="Pin alvo (order_id opcional)"
+            hint="Fixa um concorrente específico. Vazio = segue automaticamente quem está acima."
+          />
+          <Form.Control
+            size="sm"
+            type="text"
+            placeholder="ex: 1781867960816"
+            value={followTargetOrderId}
+            onChange={(e) => onFollowTargetOrderIdChange(e.target.value)}
+          />
+        </div>
+      )}
 
       {showAmount && (
         <div className="mt-2">

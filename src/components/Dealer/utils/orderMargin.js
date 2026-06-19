@@ -40,6 +40,10 @@ export function marginFromPriceDiff(order, referencePrice, source = 'reference')
 export function assessOrderLoss(order) {
   if (!order) return { hasLoss: false, label: null, pct: null };
 
+  if (order.follow_target) {
+    return { hasLoss: false, label: null, pct: null };
+  }
+
   const margin = computeOrderMargin(order);
   if (margin.kind === 'perda') {
     return { hasLoss: true, label: margin.label, pct: margin.absPct };
@@ -79,6 +83,8 @@ export function buildLossSendSignature(params) {
     price: params.price ?? null,
     price_porc: params.price_porc ?? null,
     price_min: params.price_min ?? null,
+    follow_target: params.follow_target ?? null,
+    follow_target_order_id: params.follow_target_order_id ?? null,
     amount: params.amount ?? null,
   });
 }

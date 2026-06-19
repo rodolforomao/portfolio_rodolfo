@@ -24,7 +24,10 @@ export function describeSendOrderResult(result) {
     return parts.join(' · ');
   }
   if (sr.status_code === 202 && sr.text === 'pending') {
-    return 'Ordem em spread — aguardando cálculo automático de preço (price monitor).';
+    const followNote = result?.data?.order?.follow_target
+      ? ' Modo follow ativo — spread será calculado automaticamente.'
+      : '';
+    return `Ordem registrada — aguardando cálculo de preço (price monitor).${followNote}`;
   }
   return sr.text || `Falha HTTP ${sr.status_code}`;
 }

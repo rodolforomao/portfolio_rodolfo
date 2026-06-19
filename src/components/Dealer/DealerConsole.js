@@ -8,10 +8,12 @@ import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
+import Nav from 'react-bootstrap/Nav';
 import {
   TbPlayerPlay, TbList, TbPlayerStop, TbSend, TbX,
   TbArrowsExchange, TbRefresh, TbHistory, TbMessage,
-  TbBug, TbLogout, TbWallet, TbBook, TbHeartbeat, TbCoins, TbLock,
+  TbBug, TbLogout, TbWallet, TbBook, TbHeartbeat, TbCoins,
+  TbSettings, TbLayoutDashboard,
 } from 'react-icons/tb';
 import useDealerWs from './useDealerWs';
 import { loadSession, clearSession, resolveWsUrl } from './config';
@@ -34,6 +36,7 @@ import PriceFields, {
   formatOrderSpreadSummary,
   orderToSpreadForm,
   orderToSendForm,
+  validatePriceForm,
 } from './PriceFields';
 import {
   loadOrderRegistry,
@@ -61,17 +64,12 @@ import {
   LOSS_SEND_CONFIRM_STEPS,
 } from './utils/orderMargin';
 import DealerStatusBadge from './DealerStatusBadge';
-import VaultSetup from './VaultSetup';
+import DealerSettings from './DealerSettings';
+import SystemStatusBar from './SystemStatusBar';
+import OrderStatusSignal from './OrderStatusSignal';
+import { loadDealerPreferences } from './utils/dealerPreferences';
+import { FollowRefLink } from './utils/followTarget';
 import './Dealer.css';
-
-function StatusDot({ ok, label }) {
-  return (
-    <span className={`dealer-status ${ok ? 'ok' : 'off'}`}>
-      <span className="dealer-status-dot" />
-      {label}
-    </span>
-  );
-}
 
 function DealerCard({ dealer, onSelect, selected }) {
   const assets = normalizeBalances(dealer.balances);
@@ -114,14 +112,19 @@ function DealerCard({ dealer, onSelect, selected }) {
           {displayOrders.map((o) => (
             <div
               key={`${o.base}-${o.quote}-${o.trade_dir}-${o.order_id || 'p'}`}
-              className={`dealer-order-chip ${o.order_id ? 'sent' : 'pending'}`}
+              className={`dealer-order-chip ${o.follow_target ? 'follow' : o.order_id ? 'sent' : 'pending'}`}
             >
               <div className="dealer-order-chip-main">
+                <OrderStatusSignal order={o} size="sm" />
                 <span>
                   {cleanPairName(o.base, o.quote)} {o.trade_dir}
-                  {!o.order_id && <Badge bg="secondary" className="ms-1">pendente</Badge>}
+                  {!o.order_id && !o.follow_target && (
+                    <Badge bg="secondary" className="ms-1">pendente</Badge>
+                  )}
                 </span>
-                <span className="dealer-order-chip-price">@ {o.price ?? o.price_porc ?? '—'}</span>
+                <span className="dealer-order-chip-price">
+                  {formatOrderSpreadSummary(o)}
+                </span>
               </div>
               <div className="dealer-order-chip-meta">
                 {o.order_id && <code className="dealer-order-chip-id">{o.order_id}</code>}
@@ -153,6 +156,7 @@ const CommandPanel = React.memo(function CommandPanel({
   busy,
   setBusy,
   setFeedback,
+  defaultHistoryDestination = 'api',
 }) {
   const [mnemonicIndex, setMnemonicIndex] = useState('1');
   const [walletName, setWalletName] = useState('');
@@ -164,6 +168,8 @@ const CommandPanel = React.memo(function CommandPanel({
   const [price, setPrice] = useState('');
   const [pricePorc, setPricePorc] = useState('');
   const [priceMin, setPriceMin] = useState('');
+  const [followTarget, setFollowTarget] = useState(false);
+  const [followTargetOrderId, setFollowTargetOrderId] = useState('');
   const [amount, setAmount] = useState('999999');
   const [orderId, setOrderId] = useState('');
   const [cancelPick, setCancelPick] = useState(null);
@@ -171,7 +177,11 @@ const CommandPanel = React.memo(function CommandPanel({
   const [orderPick, setOrderPick] = useState(null);
   const [lossSendConfirm, setLossSendConfirm] = useState({ signature: null, step: 0 });
   const [direction, setDirection] = useState('Buy');
-  const [histDest, setHistDest] = useState('api');
+  const [histDest, setHistDest] = useState(defaultHistoryDestination);
+
+  useEffect(() => {
+    setHistDest(defaultHistoryDestination);
+  }, [defaultHistoryDestination]);
 
   const run = async (action, params) => {
     if (wsStatus !== 'connected') {
@@ -305,6 +315,8 @@ const CommandPanel = React.memo(function CommandPanel({
     setPrice(form.price);
     setPricePorc(form.pricePorc);
     setPriceMin(form.priceMin);
+    setFollowTarget(form.followTarget);
+    setFollowTargetOrderId(form.followTargetOrderId);
   };
 
   const isSpreadItemSelected = (item) => (
@@ -314,13 +326,49 @@ const CommandPanel = React.memo(function CommandPanel({
   const handleChangeSpread = async () => {
     const pid = spreadTargetPid;
     if (!pid || !spreadPick) return;
+    const validation = validatePriceForm({
+      price, pricePorc, priceMin, followTarget,
+    });
+    if (!validation.ok) {
+      setFeedback({ ok: false, data: { error: validation.error } });
+      return;
+    }
     await run('change_spread', {
       pid,
       base,
       quote,
       trade_dir: tradeDir,
-      ...priceParams(),
+      ...buildPriceParams({
+        price, pricePorc, priceMin, followTarget, followTargetOrderId,
+      }),
     });
+  };
+
+  const handleSetFollowTarget = async (enabled) => {
+    const pid = spreadTargetPid;
+    if (!pid || !spreadPick) return;
+    const validation = validatePriceForm({
+      price: '', pricePorc: '', priceMin, followTarget: enabled,
+    });
+    if (enabled && !validation.ok) {
+      setFeedback({ ok: false, data: { error: validation.error } });
+      return;
+    }
+    const params = {
+      pid,
+      base,
+      quote,
+      trade_dir: tradeDir,
+      follow_target: enabled,
+    };
+    const pm = buildPriceParams({ priceMin, followTarget: true }).price_min;
+    if (pm != null) params.price_min = pm;
+    const pin = String(followTargetOrderId || '').trim();
+    if (pin) params.follow_target_order_id = pin;
+    const result = await run('set_follow_target', params);
+    if (result?.ok) {
+      setFollowTarget(enabled);
+    }
   };
 
   const orderHistoryChoices = useMemo(() => {
@@ -336,9 +384,11 @@ const CommandPanel = React.memo(function CommandPanel({
     base,
     quote,
     trade_dir: tradeDir,
-    ...buildPriceParams({ price, pricePorc, priceMin }),
+    ...buildPriceParams({
+      price, pricePorc, priceMin, followTarget, followTargetOrderId,
+    }),
     amount: parseInt(String(amount).replace(/\D/g, ''), 10) || 999999,
-  }), [orderTargetPid, base, quote, tradeDir, price, pricePorc, priceMin, amount]);
+  }), [orderTargetPid, base, quote, tradeDir, price, pricePorc, priceMin, followTarget, followTargetOrderId, amount]);
 
   useEffect(() => {
     if (lossSendConfirm.signature !== sendFormSignature) {
@@ -366,6 +416,8 @@ const CommandPanel = React.memo(function CommandPanel({
     setPrice(form.price);
     setPricePorc(form.pricePorc);
     setPriceMin(form.priceMin);
+    setFollowTarget(form.followTarget);
+    setFollowTargetOrderId(form.followTargetOrderId);
     setAmount(form.amount);
   };
 
@@ -382,11 +434,16 @@ const CommandPanel = React.memo(function CommandPanel({
       });
       return;
     }
-    const priceFields = buildPriceParams({ price, pricePorc, priceMin });
-    if (!priceFields.price && priceFields.price_porc == null && priceFields.price_min == null) {
+    const priceFields = buildPriceParams({
+      price, pricePorc, priceMin, followTarget, followTargetOrderId,
+    });
+    const validation = validatePriceForm({
+      price, pricePorc, priceMin, followTarget,
+    });
+    if (!validation.ok) {
       setFeedback({
         ok: false,
-        data: { error: 'Preencha preço fixo, spread (%) ou spread mín. (pm %).' },
+        data: { error: validation.error },
       });
       return;
     }
@@ -406,6 +463,7 @@ const CommandPanel = React.memo(function CommandPanel({
       price: params.price,
       price_porc: params.price_porc,
       price_min: params.price_min,
+      follow_target: params.follow_target,
       original_price: params.original_price,
     });
 
@@ -464,8 +522,6 @@ const CommandPanel = React.memo(function CommandPanel({
       }
     }
   };
-
-  const priceParams = () => buildPriceParams({ price, pricePorc, priceMin });
 
   return (
     <Tabs defaultActiveKey="run" className="dealer-tabs">
@@ -649,10 +705,14 @@ const CommandPanel = React.memo(function CommandPanel({
             price={price}
             pricePorc={pricePorc}
             priceMin={priceMin}
+            followTarget={followTarget}
+            followTargetOrderId={followTargetOrderId}
             amount={amount}
             onPriceChange={setPrice}
             onPricePorcChange={setPricePorc}
             onPriceMinChange={setPriceMin}
+            onFollowTargetChange={setFollowTarget}
+            onFollowTargetOrderIdChange={setFollowTargetOrderId}
             onAmountChange={setAmount}
           />
           <Button
@@ -708,7 +768,9 @@ const CommandPanel = React.memo(function CommandPanel({
                   )}
                 </span>
                 <span className="dealer-cancel-price">
-                  @ {item.order.price ?? item.order.price_porc ?? '—'}
+                  {item.isPending
+                    ? formatOrderSpreadSummary(item.order)
+                    : `@ ${item.order.price ?? item.order.price_porc ?? '—'}`}
                 </span>
                 {item.isPending ? (
                   <span className="dealer-cancel-id dealer-cancel-id-pending">sem ID — remove local</span>
@@ -813,6 +875,11 @@ const CommandPanel = React.memo(function CommandPanel({
                 <span>{spreadSelectedOrder.base}/{spreadSelectedOrder.quote} {spreadSelectedOrder.trade_dir}</span>
                 <strong>{formatOrderSpreadSummary(spreadSelectedOrder)}</strong>
               </div>
+              {spreadSelectedOrder.follow_ref_order_id && (
+                <div className="dealer-spread-current-ref">
+                  Alvo rastreado: <FollowRefLink orderId={spreadSelectedOrder.follow_ref_order_id} />
+                </div>
+              )}
               {spreadSelectedOrder.original_price != null && (
                 <div className="dealer-spread-current-ref">
                   Ref. original_price: {spreadSelectedOrder.original_price}
@@ -834,12 +901,26 @@ const CommandPanel = React.memo(function CommandPanel({
               price={price}
               pricePorc={pricePorc}
               priceMin={priceMin}
+              followTarget={followTarget}
+              followTargetOrderId={followTargetOrderId}
               showAmount={false}
               onPriceChange={setPrice}
               onPricePorcChange={setPricePorc}
               onPriceMinChange={setPriceMin}
+              onFollowTargetChange={setFollowTarget}
+              onFollowTargetOrderIdChange={setFollowTargetOrderId}
               onAmountChange={setAmount}
             />
+            <div className="dealer-follow-actions mt-2">
+              <Button
+                size="sm"
+                variant={followTarget ? 'outline-warning' : 'outline-info'}
+                disabled={busy || !spreadTargetPid}
+                onClick={() => handleSetFollowTarget(!followTarget)}
+              >
+                {followTarget ? 'Desativar follow (set_follow_target)' : 'Ativar follow (set_follow_target)'}
+              </Button>
+            </div>
             <Button
               className="dealer-btn-primary mt-3"
               disabled={busy || !spreadTargetPid}
@@ -925,10 +1006,6 @@ const CommandPanel = React.memo(function CommandPanel({
           </Button>
         </div>
       </Tab>
-
-      <Tab eventKey="vault" title={<><TbLock /> Vault</>}>
-        <VaultSetup />
-      </Tab>
     </Tabs>
   );
 });
@@ -945,6 +1022,8 @@ export default function DealerConsole() {
   const [marketFromApi, setMarketFromApi] = useState({ assets: [], combinations: [] });
   const [showMessages, setShowMessages] = useState(false);
   const [orderRegistryTick, setOrderRegistryTick] = useState(0);
+  const [mainView, setMainView] = useState('geral');
+  const [consolePrefs, setConsolePrefs] = useState(() => loadDealerPreferences());
 
   const bumpOrderRegistry = useCallback(() => setOrderRegistryTick((n) => n + 1), []);
 
@@ -1004,10 +1083,12 @@ export default function DealerConsole() {
 
   useEffect(() => {
     if (status !== 'connected') return undefined;
+    if (!consolePrefs.autoRefreshAssets) return undefined;
     refreshAssets();
-    const interval = setInterval(refreshAssets, 15000);
+    const ms = Math.max(5, consolePrefs.autoRefreshIntervalSec || 15) * 1000;
+    const interval = setInterval(refreshAssets, ms);
     return () => clearInterval(interval);
-  }, [status, refreshAssets]);
+  }, [status, refreshAssets, consolePrefs.autoRefreshAssets, consolePrefs.autoRefreshIntervalSec]);
 
   useEffect(() => {
     touchRegistryFromDealers(dealers);
@@ -1054,18 +1135,34 @@ export default function DealerConsole() {
 
   const showWsError = lastError && status === 'error';
   const showAgentOffline = status === 'connected' && !agentConnected;
-  const hasStatusBanner = showWsError || showAgentOffline;
 
   return (
-    <div className={`dealer-root${hasStatusBanner ? ' dealer-root-alert' : ''}`}>
-      <div className="dealer-topbar">
+    <div className="dealer-root">
+      <header className="dealer-topbar">
         <Container fluid>
           <div className="dealer-topbar-inner">
             <div className="dealer-topbar-left">
               <h2>Dealer Console</h2>
-              <StatusDot ok={status === 'connected'} label={status} />
-              <StatusDot ok={agentConnected} label={agentConnected ? 'agente online' : 'agente offline'} />
-              {state?.ts && <Badge bg="secondary" className="dealer-ts">{state.ts}</Badge>}
+              <Nav variant="pills" className="dealer-main-nav">
+                <Nav.Item>
+                  <Nav.Link
+                    active={mainView === 'geral'}
+                    onClick={() => setMainView('geral')}
+                    className="dealer-main-nav-link"
+                  >
+                    <TbLayoutDashboard /> Geral
+                  </Nav.Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Nav.Link
+                    active={mainView === 'config'}
+                    onClick={() => setMainView('config')}
+                    className="dealer-main-nav-link"
+                  >
+                    <TbSettings /> Configurações
+                  </Nav.Link>
+                </Nav.Item>
+              </Nav>
             </div>
             <div className="dealer-topbar-actions">
               <Button
@@ -1085,9 +1182,17 @@ export default function DealerConsole() {
               </Button>
             </div>
           </div>
+          <SystemStatusBar
+            wsStatus={status}
+            agentConnected={agentConnected}
+            dealers={dealers}
+            selectedDealer={mainView === 'geral' ? selectedDealer : null}
+            stateTs={state?.ts}
+          />
         </Container>
-      </div>
+      </header>
 
+      <div className="dealer-body">
       {showWsError && (
         <div className="dealer-status-banner dealer-status-banner-danger" role="alert">
           <Container fluid>
@@ -1105,8 +1210,9 @@ export default function DealerConsole() {
       {showAgentOffline && (
         <div className="dealer-status-banner dealer-status-banner-warning" role="alert">
           <Container fluid>
-            <strong>Agente offline.</strong>{' '}
-            Relay conectado, mas o manager_dealer ainda não está online no relay.
+            <strong>Manager offline.</strong>{' '}
+            Relay conectado, mas o <strong>manager_dealer</strong> não está conectado ao relay.
+            Isto <em>não</em> significa ausência de dealers — é o backend Python que envia state_update.
             {dealers.length > 0 && (
               <> Os dealers exibidos podem ser <strong>cache antigo</strong>.</>
             )}
@@ -1121,6 +1227,21 @@ export default function DealerConsole() {
       )}
 
       <Container fluid className="dealer-main">
+        {mainView === 'config' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-settings-panel">
+                <DealerSettings
+                  sendCommand={sendCommand}
+                  wsStatus={status}
+                  agentConnected={agentConnected}
+                  wsUrl={session?.wsUrl}
+                  onPreferencesChange={setConsolePrefs}
+                />
+              </div>
+            </Col>
+          </Row>
+        ) : (
         <Row className="g-3">
           <Col xs={12} lg={4}>
             <div className="dealer-panel dealer-panel-scroll">
@@ -1153,6 +1274,7 @@ export default function DealerConsole() {
                 dealer={selectedDealer}
                 sendCommand={sendCommand}
                 wsStatus={status}
+                syncOnSelect={consolePrefs.transactionsSyncOnSelect}
               />
               <OrderPlacementPanel
                 dealer={selectedDealer}
@@ -1167,7 +1289,7 @@ export default function DealerConsole() {
               <h3>Comandos {selectedPid ? `(PID ${selectedPid})` : ''}</h3>
               {!agentConnected && status === 'connected' && (
                 <div className="dealer-cmd-offline" role="alert">
-                  Agente offline — comandos podem falhar até o manager_dealer reconectar ao relay.
+                  Manager offline — comandos podem falhar até o manager_dealer reconectar ao relay.
                 </div>
               )}
               <CommandPanel
@@ -1185,6 +1307,7 @@ export default function DealerConsole() {
                 busy={busy}
                 setBusy={setBusy}
                 setFeedback={setFeedback}
+                defaultHistoryDestination={consolePrefs.defaultHistoryDestination}
               />
               {feedback && (
                 <pre className={`dealer-feedback ${feedback.ok ? 'ok' : 'err'}`}>
@@ -1194,7 +1317,9 @@ export default function DealerConsole() {
             </div>
           </Col>
         </Row>
+        )}
       </Container>
+      </div>
 
       <MessagesModal
         show={showMessages}

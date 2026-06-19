@@ -4,7 +4,9 @@ import Badge from 'react-bootstrap/Badge';
 import { TbExternalLink, TbRefresh, TbCircleCheck, TbCircleX, TbAlertTriangle } from 'react-icons/tb';
 import useSideswapBook from './useSideswapBook';
 import OrderMarginBadge from './OrderMarginBadge';
+import { FollowRefLink } from './utils/followTarget';
 import { computeExternalMargin, computeVsBookTop } from './utils/orderMargin';
+import { bookOrderAnchorId } from './utils/followTarget';
 import {
   describeMarketNormalize,
   formatBookPrice,
@@ -19,7 +21,7 @@ function PlacementBadge({ found, label }) {
   return <Badge bg="danger" className="dealer-placement-badge"><TbCircleX /> {label || 'offline'}</Badge>;
 }
 
-function MiniBook({ orders, tradeDir, highlightId, limit = 6 }) {
+function MiniBook({ orders, tradeDir, highlightId, followRefId, limit = 6 }) {
   const side = sortBookSide(orders, tradeDir).slice(0, limit);
   if (!side.length) {
     return <p className="dealer-empty">Sem ordens {tradeDir} no book.</p>;
@@ -28,12 +30,20 @@ function MiniBook({ orders, tradeDir, highlightId, limit = 6 }) {
     <div className="dealer-mini-book">
       {side.map((o, idx) => {
         const mine = String(o.order_id) === String(highlightId);
+        const followRef = followRefId && String(o.order_id) === String(followRefId);
+        const rowClass = [
+          'dealer-mini-book-row',
+          mine ? 'mine' : '',
+          followRef ? 'follow-ref' : '',
+        ].filter(Boolean).join(' ');
+        const anchor = bookOrderAnchorId(o.order_id);
         return (
-          <div key={o.order_id} className={`dealer-mini-book-row ${mine ? 'mine' : ''}`}>
+          <div key={o.order_id} id={anchor || undefined} className={rowClass}>
             <span className="dealer-mini-book-pos">{idx + 1}</span>
             <span className="dealer-mini-book-price">{formatBookPrice(o.price)}</span>
             <span className="dealer-mini-book-id">{o.order_id}</span>
             {mine && <span className="dealer-mini-book-tag">nossa</span>}
+            {followRef && !mine && <span className="dealer-mini-book-tag follow">alvo</span>}
           </div>
         );
       })}
@@ -150,6 +160,11 @@ export default function OrderPlacementPanel({ dealer, assets, combinations = [] 
                   : <em className="dealer-placement-unpublished">não publicada</em>}
               </span>
               <OrderMarginBadge order={order} showPm explicit />
+              {order.follow_ref_order_id && (
+                <span className="dealer-placement-follow-ref">
+                  alvo: <FollowRefLink orderId={order.follow_ref_order_id} />
+                </span>
+              )}
               <PlacementBadge found={found} label={found ? `posição ${label}` : 'não encontrada'} />
             </div>
 
@@ -228,6 +243,7 @@ export default function OrderPlacementPanel({ dealer, assets, combinations = [] 
                     orders={book.length ? book : sideOrders}
                     tradeDir={bookTradeDir}
                     highlightId={order.order_id}
+                    followRefId={order.follow_ref_order_id}
                   />
                 </div>
               </div>

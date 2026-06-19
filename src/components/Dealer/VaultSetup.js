@@ -35,7 +35,7 @@ function StatusBadge({ status }) {
 
 const MIN_LEN = 12;
 
-export default function VaultSetup() {
+export default function VaultSetup({ embedded = false }) {
   const [dealers, setDealers] = useState([]);
   const [loadingDealers, setLoadingDealers] = useState(false);
   const [dealerLoadErr, setDealerLoadErr] = useState('');
@@ -112,11 +112,22 @@ export default function VaultSetup() {
   };
 
   return (
-    <div className="dealer-form-block">
-      <p className="dealer-vault-desc">
-        <TbLock /> Split-key vault 2-of-2 — cifração <strong>no browser</strong> (X25519 + ChaCha20-Poly1305 + HKDF-SHA256).
-        {' '}Registre a passphrase após rodar <code>vault_setup.py</code> no manager.
-      </p>
+    <div className={embedded ? 'dealer-settings-section' : 'dealer-form-block'}>
+      {!embedded && (
+        <p className="dealer-vault-desc">
+          <TbLock /> Split-key vault 2-of-2 — cifração <strong>no browser</strong> (X25519 + ChaCha20-Poly1305 + HKDF-SHA256).
+          {' '}Registre a passphrase após rodar <code>vault_setup.py</code> no manager.
+        </p>
+      )}
+      {embedded && (
+        <>
+          <h4><TbLock /> Vault</h4>
+          <p className="dealer-settings-desc">
+            Split-key 2-of-2 — cifração <strong>no browser</strong>. Registre a passphrase após{' '}
+            <code>vault_setup.py</code> no manager.
+          </p>
+        </>
+      )}
 
       {/* Lista de dealers com status */}
       <div className="dealer-vault-dealers mb-3">

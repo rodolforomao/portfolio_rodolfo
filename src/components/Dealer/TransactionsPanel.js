@@ -20,6 +20,7 @@ export default function TransactionsPanel({
   dealer,
   sendCommand,
   wsStatus,
+  syncOnSelect = true,
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -51,8 +52,8 @@ export default function TransactionsPanel({
   }, [dealer?.pid, sendCommand, wsStatus]);
 
   useEffect(() => {
-    if (dealer?.pid) load(true);
-  }, [dealer?.pid, load]);
+    if (dealer?.pid) load(syncOnSelect);
+  }, [dealer?.pid, load, syncOnSelect]);
 
   const assets = report?.assets_tracked || ['L-BTC', 'USDt', 'DePix'];
   const summary = report?.asset_summary || {};
