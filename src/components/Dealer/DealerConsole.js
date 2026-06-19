@@ -239,25 +239,44 @@ const CommandPanel = React.memo(function CommandPanel({
     if (!pid) return;
     const params = { pid };
     if (!cancelPick?.all) {
-      const oid = cancelPick?.orderId || orderId.trim();
-      if (oid) params.order_id = oid;
+      if (cancelPick?.pending) {
+        params.base = cancelPick.base;
+        params.quote = cancelPick.quote;
+        params.trade_dir = cancelPick.trade_dir;
+      } else {
+        const oid = cancelPick?.orderId || orderId.trim();
+        if (oid) params.order_id = oid;
+      }
     }
+    if (!cancelPick?.all && !params.order_id && !params.base) return;
     await run('cancel_order', params);
   };
 
   const selectCancelOrder = (item) => {
-    setCancelPick({ pid: item.pid, orderId: item.order.order_id });
-    setOrderId(item.order.order_id);
+    if (item.isPending) {
+      setCancelPick({
+        pid: item.pid,
+        pending: true,
+        base: item.order.base,
+        quote: item.order.quote,
+        trade_dir: item.order.trade_dir,
+        cancelKey: item.cancelKey,
+      });
+      setOrderId('');
+      return;
+    }
+    setCancelPick({ pid: item.pid, orderId: item.order.order_id, cancelKey: item.cancelKey });
+    setOrderId(String(item.order.order_id));
   };
 
   const isCancelItemSelected = (item) => (
     cancelPick?.pid === item.pid
-    && cancelPick?.orderId === item.order.order_id
+    && cancelPick?.cancelKey === item.cancelKey
     && !cancelPick?.all
   );
 
   const spreadChoices = useMemo(
-    () => flattenDealerOrders(activeDealers, { pid: selectedPid || null }),
+    () => flattenDealerOrders(activeDealers, { pid: selectedPid || null, sentOnly: true }),
     [activeDealers, selectedPid],
   );
 
@@ -662,15 +681,16 @@ const CommandPanel = React.memo(function CommandPanel({
           {selectedPid
             ? `Ordens do PID ${selectedPid}${activeDealer?.wallet_name ? ` (${activeDealer.wallet_name})` : ''}`
             : 'Todas as ordens — escolha PID, wallet e ordem'}
+          {' '}· pendentes removem do config (sem order_id no SideSwap)
         </p>
 
         {cancelChoices.length > 0 ? (
           <div className="dealer-cancel-list">
             {cancelChoices.map((item) => (
               <button
-                key={`${item.pid}-${item.order.order_id}`}
+                key={`${item.pid}-${item.cancelKey}`}
                 type="button"
-                className={`dealer-cancel-item ${isCancelItemSelected(item) ? 'selected' : ''}`}
+                className={`dealer-cancel-item ${isCancelItemSelected(item) ? 'selected' : ''} ${item.isPending ? 'dealer-cancel-pending' : ''}`}
                 onClick={() => selectCancelOrder(item)}
                 disabled={busy}
               >
@@ -680,20 +700,27 @@ const CommandPanel = React.memo(function CommandPanel({
                   </span>
                 )}
                 <span className="dealer-cancel-pair">
-                  {item.order.base}/{item.order.quote} {item.order.trade_dir}
+                  {cleanPairName(item.order.base, item.order.quote)} {item.order.trade_dir}
+                  {item.isPending && (
+                    <Badge bg="secondary" className="ms-1">pendente</Badge>
+                  )}
                 </span>
                 <span className="dealer-cancel-price">
                   @ {item.order.price ?? item.order.price_porc ?? '—'}
                 </span>
-                <code className="dealer-cancel-id">{item.order.order_id}</code>
+                {item.isPending ? (
+                  <span className="dealer-cancel-id dealer-cancel-id-pending">sem ID — remove local</span>
+                ) : (
+                  <code className="dealer-cancel-id">{item.order.order_id}</code>
+                )}
               </button>
             ))}
           </div>
         ) : (
           <p className="dealer-empty mb-2">
             {selectedPid
-              ? 'Nenhuma ordem ativa neste PID.'
-              : 'Nenhuma ordem ativa nos dealers conhecidos.'}
+              ? 'Nenhuma ordem neste PID.'
+              : 'Nenhuma ordem nos dealers conhecidos.'}
           </p>
         )}
 
@@ -726,12 +753,13 @@ const CommandPanel = React.memo(function CommandPanel({
 
         <Button
           className="dealer-btn-danger"
-          disabled={busy || !cancelTargetPid}
+          disabled={busy || !cancelTargetPid || (!cancelPick?.all && !cancelPick?.orderId && !cancelPick?.pending && !orderId.trim())}
           onClick={handleCancelOrder}
         >
           cancel_order
           {cancelPick?.all && ' (todas)'}
-          {!cancelPick?.all && (cancelPick?.orderId || orderId) && ` (${cancelPick?.orderId || orderId})`}
+          {cancelPick?.pending && ` (${cleanPairName(cancelPick.base, cancelPick.quote)} ${cancelPick.trade_dir})`}
+          {!cancelPick?.all && !cancelPick?.pending && (cancelPick?.orderId || orderId) && ` (${cancelPick?.orderId || orderId})`}
         </Button>
       </Tab>
 

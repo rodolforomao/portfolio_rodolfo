@@ -1,3 +1,5 @@
+import { prepareDealerOrders } from './orderMarketNormalize';
+
 const LBTC_THRESHOLD = 0.01;
 const SATS_PER_LBTC = 1e8;
 
@@ -97,25 +99,36 @@ export function mergeDealers(wsDealers = [], fetched = []) {
   });
 }
 
-/** Lista ordens ativas para cancelamento (exclui dealers mortos). */
-export function flattenDealerOrders(dealers = [], { pid = null } = {}) {
+/** Lista ordens para cancelamento — inclui pendentes (sem order_id). */
+export function flattenDealerOrders(dealers = [], { pid = null, pendingOnly = false, sentOnly = false } = {}) {
   const items = [];
   (dealers || []).forEach((dealer) => {
     if (!dealer?.pid || dealer.dealerStatus === 'morto') return;
     if (pid != null && dealer.pid !== pid) return;
-    (dealer.orders || []).forEach((order) => {
-      if (!order?.order_id) return;
+
+    const { orders } = prepareDealerOrders(dealer.orders || []);
+    orders.forEach((order) => {
+      const isPending = order.order_id == null || order.order_id === '';
+      if (pendingOnly && !isPending) return;
+      if (sentOnly && isPending) return;
+
       items.push({
         pid: dealer.pid,
         wallet_name: dealer.wallet_name,
         dealerStatus: dealer.dealerStatus,
         order,
+        isPending,
+        cancelKey: isPending
+          ? `pending|${order.base}|${order.quote}|${order.trade_dir}`
+          : String(order.order_id),
       });
     });
   });
+
   return items.sort((a, b) => {
     const pidDiff = a.pid - b.pid;
     if (pidDiff) return pidDiff;
-    return String(a.order.order_id).localeCompare(String(b.order.order_id));
+    if (a.isPending !== b.isPending) return a.isPending ? 1 : -1;
+    return String(a.cancelKey).localeCompare(String(b.cancelKey));
   });
 }
