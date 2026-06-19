@@ -1,0 +1,103 @@
+/**
+ * Margem lucro/perda da ordem — mesma regra do terminal manager_dealer.
+ * Com preço fixo: (price - original_price) / original_price * 100
+ * Com spread: price_porc * 100
+ */
+function buildMarginResult(marginPct, source, referencePrice = null) {
+  if (marginPct == null || !Number.isFinite(marginPct)) {
+    return { pct: null, kind: null, label: '—', shortLabel: '—', source, referencePrice };
+  }
+
+  const absPct = Math.abs(marginPct);
+  const formatted = absPct.toFixed(2);
+  let kind = 'neutro';
+  if (marginPct > 0.004) kind = 'lucro';
+  else if (marginPct < -0.004) kind = 'perda';
+
+  const label = kind === 'neutro'
+    ? `Neutro ${formatted}%`
+    : `${kind === 'lucro' ? 'Lucro' : 'Perda'} ${formatted}%`;
+  const shortLabel = kind === 'neutro'
+    ? `±${formatted}%`
+    : `${kind === 'lucro' ? '+' : '-'}${formatted}%`;
+
+  return { pct: marginPct, kind, absPct, source, referencePrice, label, shortLabel };
+}
+
+export function marginFromPriceDiff(order, referencePrice, source = 'reference') {
+  const tradeDir = String(order?.trade_dir || 'Buy');
+  const price = parseFloat(order?.price);
+  const ref = parseFloat(referencePrice);
+  if (!Number.isFinite(price) || !Number.isFinite(ref) || ref === 0) {
+    return buildMarginResult(null, source, referencePrice);
+  }
+  const rawPct = ((price - ref) / ref) * 100;
+  const marginPct = tradeDir.toLowerCase() === 'buy' ? -rawPct : rawPct;
+  return buildMarginResult(marginPct, source, ref);
+}
+
+export function computeOrderMargin(order) {
+  if (!order) {
+    return { pct: null, kind: null, label: '—', shortLabel: '—', source: null };
+  }
+
+  const price = parseFloat(order.price);
+  const original = parseFloat(order.original_price);
+
+  if (Number.isFinite(price) && Number.isFinite(original) && original !== 0) {
+    return marginFromPriceDiff(order, original, 'dealer');
+  }
+
+  if (order.price_porc != null && order.price_porc !== '') {
+    const porc = Number(order.price_porc);
+    if (Number.isFinite(porc)) {
+      return buildMarginResult(porc * 100, 'spread', null);
+    }
+  }
+
+  return buildMarginResult(null, null, null);
+}
+
+/** Conferência externa: nossa ordem vs ind_price público da SideSwap. */
+export function computeExternalMargin(order, indPrice) {
+  return marginFromPriceDiff(order, indPrice, 'sideswap');
+}
+
+/** Distância do topo do book no mesmo lado (Buy/Sell). */
+export function computeVsBookTop(order, bookOrders = []) {
+  const tradeDir = String(order?.trade_dir || 'Buy');
+  const ourPrice = parseFloat(order?.price);
+  if (!Number.isFinite(ourPrice)) return null;
+
+  const side = (bookOrders || []).filter((o) => o.trade_dir === tradeDir);
+  if (!side.length) return null;
+
+  const sorted = tradeDir === 'Sell'
+    ? [...side].sort((a, b) => (a.price || 0) - (b.price || 0))
+    : [...side].sort((a, b) => (b.price || 0) - (a.price || 0));
+
+  const top = sorted[0];
+  const topPrice = parseFloat(top.price);
+  if (!Number.isFinite(topPrice) || topPrice === 0) return null;
+
+  const diffPct = ((ourPrice - topPrice) / topPrice) * 100;
+  const isOurs = String(top.order_id) === String(order.order_id);
+
+  return {
+    topPrice,
+    topOrderId: top.order_id,
+    diffPct,
+    isTop: isOurs,
+    label: isOurs
+      ? 'topo do book'
+      : `${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(3)}% vs topo ${tradeDir}`,
+  };
+}
+
+export function formatPriceMin(order) {
+  const pm = order?.price_min;
+  if (pm == null || pm === '') return null;
+  const n = Number(pm);
+  if (!Number.isFinite(n)) return null;
+  return `pm ${(n * 100).toFixed(2)}%`;
+}

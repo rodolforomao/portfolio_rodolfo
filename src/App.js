@@ -6,6 +6,8 @@ import About from "./components/About/About";
 import Projects from "./components/Projects/Projects";
 import Footer from "./components/Footer";
 import Resume from "./components/Resume/ResumeNew";
+import MacroDashboard from "./components/Dashboard/index";
+import DealerApp from "./components/Dealer/index";
 import {
   BrowserRouter as Router,
   Route,
@@ -39,6 +41,8 @@ function App() {
           <Route path="/project" element={<Projects />} />
           <Route path="/about" element={<About />} />
           <Route path="/resume" element={<Resume />} />
+          <Route path="/macro-dashboard" element={<MacroDashboard />} />
+          <Route path="/dealer/*" element={<DealerApp />} />
           <Route path="*" element={<Navigate to="/"/>} />
         </Routes>
         <Footer />

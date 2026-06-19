@@ -1,0 +1,68 @@
+const isBrowser = typeof window !== 'undefined';
+
+function isLocalDevHost() {
+  if (!isBrowser) return process.env.NODE_ENV !== 'production';
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1';
+}
+
+/** Escolhe a URL do relay conforme ambiente (.env tem precedência). */
+export function resolveWsUrl() {
+  if (process.env.REACT_APP_DEALER_WS_URL) {
+    return process.env.REACT_APP_DEALER_WS_URL;
+  }
+  if (isLocalDevHost()) {
+    return process.env.REACT_APP_DEALER_WS_URL_LOCAL || 'ws://127.0.0.1:8765';
+  }
+  if (isBrowser && window.location.protocol === 'https:') {
+    return process.env.REACT_APP_DEALER_WS_URL_PROD
+      || `wss://${window.location.host}/dealer-ws`;
+  }
+  return process.env.REACT_APP_DEALER_WS_URL_PROD || 'ws://rodolforomao.com.br:8765';
+}
+
+export const DEFAULT_WS_URL = resolveWsUrl();
+
+export const DEALER_USER = process.env.REACT_APP_DEALER_USER || '';
+export const DEALER_PASSWORD = process.env.REACT_APP_DEALER_PASSWORD || '';
+export const DEALER_WS_TOKEN = process.env.REACT_APP_DEALER_WS_TOKEN || '';
+
+export const SESSION_KEY = 'dealer_ws_session';
+
+export function validateCredentials(username, password) {
+  if (!DEALER_USER || !DEALER_PASSWORD) {
+    return { ok: false, error: 'Credenciais não configuradas no servidor (REACT_APP_DEALER_USER / REACT_APP_DEALER_PASSWORD).' };
+  }
+  if (!DEALER_WS_TOKEN) {
+    return { ok: false, error: 'Token WebSocket não configurado (REACT_APP_DEALER_WS_TOKEN).' };
+  }
+  if (username !== DEALER_USER || password !== DEALER_PASSWORD) {
+    return { ok: false, error: 'Usuário ou senha inválidos.' };
+  }
+  return { ok: true };
+}
+
+export function loadSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    const session = raw ? JSON.parse(raw) : null;
+    if (session?.authenticated) {
+      return { ...session, wsUrl: resolveWsUrl(), token: DEALER_WS_TOKEN || session.token };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSession() {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+    authenticated: true,
+    token: DEALER_WS_TOKEN,
+    wsUrl: resolveWsUrl(),
+  }));
+}
+
+export function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
