@@ -1,5 +1,6 @@
 import { computeOrderMargin } from './orderMargin';
 import { formatOrderSpreadSummary } from '../PriceFields';
+import { normalizeOrderMarket } from './orderMarketNormalize';
 
 export const ORDER_REGISTRY_KEY = 'dealer_order_registry';
 
@@ -36,22 +37,23 @@ function snapshotMargin(order) {
 }
 
 export function buildRegistryEntry(dealer, order, { source = 'live', now = new Date().toISOString() } = {}) {
-  const margin = snapshotMargin(order);
+  const { order: normalized } = normalizeOrderMarket(order);
+  const margin = snapshotMargin(normalized);
   const entry = {
     registryId: null,
     pid: dealer?.pid,
     wallet_name: dealer?.wallet_name,
-    order_id: order?.order_id || null,
-    base: order?.base,
-    quote: order?.quote,
-    trade_dir: order?.trade_dir,
-    price: order?.price ?? null,
-    original_price: order?.original_price ?? null,
-    price_porc: order?.price_porc ?? null,
-    price_min: order?.price_min ?? null,
-    amount: order?.amount ?? 999999,
-    book_label: order?.book_label ?? null,
-    book_position: order?.book_position ?? null,
+    order_id: normalized?.order_id || null,
+    base: normalized?.base,
+    quote: normalized?.quote,
+    trade_dir: normalized?.trade_dir,
+    price: normalized?.price ?? null,
+    original_price: normalized?.original_price ?? null,
+    price_porc: normalized?.price_porc ?? null,
+    price_min: normalized?.price_min ?? null,
+    amount: normalized?.amount ?? 999999,
+    book_label: normalized?.book_label ?? null,
+    book_position: normalized?.book_position ?? null,
     spreadSummary: formatOrderSpreadSummary(order),
     ...margin,
     source,
@@ -134,7 +136,7 @@ export function touchOrderRegistryFromDealers(dealers = []) {
 
 export function saveSentOrderToRegistry(pid, walletName, params, responseOrder = null) {
   const now = new Date().toISOString();
-  const order = {
+  const raw = {
     order_id: responseOrder?.order_id || null,
     base: params.base,
     quote: params.quote,
@@ -147,6 +149,7 @@ export function saveSentOrderToRegistry(pid, walletName, params, responseOrder =
     book_label: responseOrder?.book_label ?? null,
     book_position: responseOrder?.book_position ?? null,
   };
+  const { order } = normalizeOrderMarket(raw);
   const entry = buildRegistryEntry(
     { pid, wallet_name: walletName },
     order,

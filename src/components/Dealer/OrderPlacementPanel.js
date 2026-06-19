@@ -5,7 +5,12 @@ import { TbExternalLink, TbRefresh, TbCircleCheck, TbCircleX, TbAlertTriangle } 
 import useSideswapBook from './useSideswapBook';
 import OrderMarginBadge from './OrderMarginBadge';
 import { computeExternalMargin, computeVsBookTop } from './utils/orderMargin';
-import { formatBookPrice, sortBookSide } from './utils/sideswapBook';
+import {
+  describeMarketNormalize,
+  formatBookPrice,
+  sortBookSide,
+} from './utils/sideswapBook';
+import { prepareDealerOrders } from './utils/orderMarketNormalize';
 
 function PlacementBadge({ found, label }) {
   if (found) {
@@ -37,7 +42,8 @@ function MiniBook({ orders, tradeDir, highlightId, limit = 6 }) {
 }
 
 export default function OrderPlacementPanel({ dealer, assets, combinations = [] }) {
-  const ownOrders = dealer?.orders || [];
+  const { orders: prepared } = prepareDealerOrders(dealer?.orders || []);
+  const ownOrders = prepared.filter((o) => o.order_id);
   const {
     status, error, lastUpdate, pairs, books, indPrices, placements, reconnect,
   } = useSideswapBook(ownOrders, assets, ownOrders.length > 0, combinations);
@@ -52,10 +58,15 @@ export default function OrderPlacementPanel({ dealer, assets, combinations = [] 
   }
 
   if (!ownOrders.length) {
+    const pending = prepared.length - ownOrders.length;
     return (
       <section className="dealer-order-placement">
         <h3>Livro SideSwap (público)</h3>
-        <p className="dealer-empty">Nenhuma ordem ativa neste dealer.</p>
+        <p className="dealer-empty">
+          {pending > 0
+            ? `${pending} ordem(ns) pendente(s) — nenhuma enviada ao SideSwap ainda.`
+            : 'Nenhuma ordem ativa neste dealer.'}
+        </p>
       </section>
     );
   }
@@ -93,21 +104,35 @@ export default function OrderPlacementPanel({ dealer, assets, combinations = [] 
       )}
 
       {placements.map((item) => {
-        const { order, found, label, marketUrl, backendLabel, backendFound, sideOrders } = item;
+        const {
+          order, market, found, label, marketUrl, backendLabel, backendFound, sideOrders,
+        } = item;
         const book = books[item.pairKey] || [];
         const mismatch = backendFound != null && backendFound !== found;
         const marketRef = indPrices[item.pairKey];
-        const externalMargin = marketRef?.indPrice != null
+        const invertedPair = market?.inverted;
+        const unpublished = !order.order_id;
+        const canComparePrices = !invertedPair && !unpublished;
+        const externalMargin = canComparePrices && marketRef?.indPrice != null
           ? computeExternalMargin(order, marketRef.indPrice)
           : null;
-        const vsTop = computeVsBookTop(order, book.length ? book : sideOrders);
+        const bookTradeDir = market?.marketTradeDir || order.trade_dir;
+        const vsTop = canComparePrices
+          ? computeVsBookTop(
+            { ...order, trade_dir: bookTradeDir },
+            book.length ? book : sideOrders,
+          )
+          : null;
         const dealerRef = parseFloat(order.original_price);
         const refMatches = externalMargin?.referencePrice != null
           && Number.isFinite(dealerRef)
           && Math.abs(dealerRef - externalMargin.referencePrice) / externalMargin.referencePrice < 0.0005;
+        const cardKey = order.order_id
+          ? `${order.order_id}-${order.trade_dir}`
+          : `${order.base}-${order.quote}-${order.trade_dir}`;
 
         return (
-          <div key={`${order.order_id}-${order.trade_dir}`} className="dealer-placement-card">
+          <div key={cardKey} className="dealer-placement-card">
             <div className="dealer-placement-card-head">
               <strong>
                 {order.trade_dir} {order.base}/{order.quote}
@@ -118,10 +143,33 @@ export default function OrderPlacementPanel({ dealer, assets, combinations = [] 
             </div>
 
             <div className="dealer-placement-meta">
-              <span>ID: <code>{order.order_id}</code></span>
+              <span>
+                ID:{' '}
+                {order.order_id
+                  ? <code>{order.order_id}</code>
+                  : <em className="dealer-placement-unpublished">não publicada</em>}
+              </span>
               <OrderMarginBadge order={order} showPm explicit />
               <PlacementBadge found={found} label={found ? `posição ${label}` : 'não encontrada'} />
             </div>
+
+            {invertedPair && (
+              <p className="dealer-placement-warn dealer-placement-invert-note">
+                <TbAlertTriangle />
+                {' '}Par local <strong>{order.base}/{order.quote}</strong> não existe na SideSwap.
+                Livro público: <strong>{market.marketBase}/{market.marketQuote}</strong>
+                {' '}({describeMarketNormalize(order.base, order.quote, order.trade_dir, combinations)}).
+                Preços locais não são comparáveis ao ind_price desse mercado.
+              </p>
+            )}
+
+            {unpublished && (
+              <p className="dealer-placement-warn">
+                <TbAlertTriangle />
+                {' '}Ordem ainda sem <code>order_id</code> — submit falhou ou está pendente
+                (SideSwap rejeita <strong>USDt/L-BTC</strong>; use <strong>L-BTC/USDt</strong>).
+              </p>
+            )}
 
             <div className="dealer-placement-compare">
               <span>SideSwap público: <strong>{found ? label : 'ausente'}</strong></span>
@@ -135,7 +183,7 @@ export default function OrderPlacementPanel({ dealer, assets, combinations = [] 
               )}
             </div>
 
-            {externalMargin?.kind && (
+            {canComparePrices && externalMargin?.kind && (
               <div className="dealer-placement-verify">
                 <div className="dealer-placement-verify-title">Conferência externa (SideSwap)</div>
                 <div className="dealer-placement-verify-row">
@@ -154,7 +202,7 @@ export default function OrderPlacementPanel({ dealer, assets, combinations = [] 
                 )}
                 {vsTop && (
                   <div className="dealer-placement-verify-row">
-                    <span>Topo {order.trade_dir}: <strong>{formatBookPrice(vsTop.topPrice)}</strong></span>
+                    <span>Topo {bookTradeDir}: <strong>{formatBookPrice(vsTop.topPrice)}</strong></span>
                     <span>{vsTop.label}</span>
                   </div>
                 )}
@@ -168,17 +216,17 @@ export default function OrderPlacementPanel({ dealer, assets, combinations = [] 
                 rel="noopener noreferrer"
                 className="dealer-placement-link"
               >
-                <TbExternalLink /> Ver par no Swap Market
+                <TbExternalLink /> Ver {market?.marketBase}/{market?.marketQuote} no Swap Market
               </a>
             )}
 
             {found && (
               <div className="dealer-placement-book-preview">
                 <div className="dealer-placement-book-col">
-                  <div className="dealer-placement-book-title">Top {order.trade_dir}</div>
+                  <div className="dealer-placement-book-title">Top {bookTradeDir}</div>
                   <MiniBook
                     orders={book.length ? book : sideOrders}
-                    tradeDir={order.trade_dir}
+                    tradeDir={bookTradeDir}
                     highlightId={order.order_id}
                   />
                 </div>

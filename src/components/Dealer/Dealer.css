@@ -349,6 +349,90 @@
   height: auto;
 }
 
+.dealer-orders-panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #21262d;
+}
+
+.dealer-orders-header h3 {
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dealer-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.dealer-orders-table th {
+  text-align: left;
+  color: #6e7681;
+  font-weight: 500;
+  padding: 4px 6px;
+  border-bottom: 1px solid #30363d;
+}
+
+.dealer-orders-table td {
+  padding: 6px;
+  border-bottom: 1px solid #21262d;
+  vertical-align: top;
+}
+
+.dealer-order-pair {
+  display: block;
+  font-weight: 600;
+  color: #e6edf3;
+}
+
+.dealer-order-pair-full {
+  display: block;
+  font-size: 0.68rem;
+  color: #6e7681;
+}
+
+.dealer-order-normalized {
+  display: block;
+  font-size: 0.65rem;
+  color: #d29922;
+}
+
+.dealer-order-pending td {
+  opacity: 0.85;
+}
+
+.dealer-order-status {
+  font-size: 0.65rem;
+  font-weight: 500;
+}
+
+.dealer-orders-normalize-hint {
+  font-size: 0.68rem;
+  color: #d29922;
+  margin: 8px 0 0;
+}
+
+.dealer-order-chip.sent {
+  border-left: 2px solid #238636;
+}
+
+.dealer-order-chip.pending {
+  border-left: 2px solid #6e7681;
+  opacity: 0.9;
+}
+
+.dealer-order-chip-id {
+  font-size: 0.65rem;
+  color: #8b949e;
+}
+
 .dealer-assets-header {
   display: flex;
   justify-content: space-between;
@@ -987,6 +1071,27 @@
   color: #3fb950;
   font-size: 0.6rem;
   text-transform: uppercase;
+}
+
+.dealer-loss-confirm-hint {
+  font-size: 0.82rem;
+  color: var(--dealer-warn, #e8a838);
+  line-height: 1.4;
+}
+
+.dealer-btn-loss-confirm {
+  font-weight: 600;
+}
+
+.dealer-placement-invert-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.dealer-placement-unpublished {
+  color: var(--dealer-warn, #e8a838);
+  font-style: italic;
 }
 
 .dealer-placement-pair-meta {

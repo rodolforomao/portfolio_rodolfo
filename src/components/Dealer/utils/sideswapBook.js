@@ -52,6 +52,46 @@ export function marketPairKeyFromNames(base, quote, assets, combinations = []) {
   return pairKeyFromIds(baseId, quoteId);
 }
 
+/**
+ * Mesma regra do manager_dealer (order_market_normalize.py):
+ * USDt/L-BTC Buy → L-BTC/USDt Sell no livro público.
+ */
+export function normalizeMarketOrder(base, quote, tradeDir, combinations = []) {
+  const dealerBase = canonicalAssetName(base);
+  const dealerQuote = canonicalAssetName(quote);
+  const dealerTradeDir = tradeDir || 'Buy';
+  const resolved = resolveSideswapMarketPair(base, quote, combinations);
+
+  if (!resolved.inverted) {
+    return {
+      ...resolved,
+      dealerBase,
+      dealerQuote,
+      dealerTradeDir,
+      marketTradeDir: dealerTradeDir,
+    };
+  }
+
+  const dir = String(dealerTradeDir).toLowerCase();
+  const marketTradeDir = dir === 'buy' ? 'Sell' : 'Buy';
+  return {
+    ...resolved,
+    dealerBase,
+    dealerQuote,
+    dealerTradeDir,
+    marketTradeDir,
+  };
+}
+
+export function describeMarketNormalize(base, quote, tradeDir, combinations = []) {
+  const m = normalizeMarketOrder(base, quote, tradeDir, combinations);
+  if (!m.inverted) return `${m.dealerBase}/${m.dealerQuote} ${m.dealerTradeDir}`;
+  return (
+    `${m.dealerBase}/${m.dealerQuote} ${m.dealerTradeDir} → `
+    + `${m.marketBase}/${m.marketQuote} ${m.marketTradeDir} (SideSwap)`
+  );
+}
+
 export function assetIdForName(name, assets = []) {
   const canon = canonicalAssetName(name);
   const hit = (assets || []).find((a) => canonicalAssetName(a.name || a) === canon);

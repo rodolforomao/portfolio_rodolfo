@@ -6,6 +6,7 @@ import {
   buildSubscriptionKey,
   computePlacement,
   marketPairKeyFromNames,
+  normalizeMarketOrder,
   pairKeyFromIds,
 } from './utils/sideswapBook';
 
@@ -51,12 +52,24 @@ export default function useSideswapBook(ownOrders, assets, enabled = true, combi
   }, []);
 
   const placements = useMemo(() => (ownOrders || []).map((order) => {
+    const market = normalizeMarketOrder(
+      order.base,
+      order.quote,
+      order.trade_dir,
+      combinations,
+    );
     const key = marketPairKeyFromNames(order.base, order.quote, assets, combinations);
     const book = key ? (books[key] || []) : [];
-    const placement = computePlacement(book, order);
+    const placement = computePlacement(
+      book,
+      market.inverted
+        ? { ...order, trade_dir: market.marketTradeDir }
+        : order,
+    );
     const pairMeta = pairs.find((p) => p.key === key);
     return {
       order,
+      market,
       pairKey: key,
       marketUrl: pairMeta?.marketUrl || null,
       backendLabel: order.book_label || null,

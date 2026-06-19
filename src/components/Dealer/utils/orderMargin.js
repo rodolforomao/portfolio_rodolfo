@@ -36,6 +36,53 @@ export function marginFromPriceDiff(order, referencePrice, source = 'reference')
   return buildMarginResult(marginPct, source, ref);
 }
 
+/** Indica se a ordem seria enviada com prejuízo (mesma regra do manager_dealer). */
+export function assessOrderLoss(order) {
+  if (!order) return { hasLoss: false, label: null, pct: null };
+
+  const margin = computeOrderMargin(order);
+  if (margin.kind === 'perda') {
+    return { hasLoss: true, label: margin.label, pct: margin.absPct };
+  }
+
+  const porc = Number(order.price_porc);
+  if (Number.isFinite(porc) && porc < 0) {
+    const pct = Math.abs(porc) * 100;
+    return { hasLoss: true, label: `Perda ${pct.toFixed(2)}%`, pct };
+  }
+
+  const priceMin = Number(order.price_min);
+  if (
+    Number.isFinite(priceMin) && priceMin < 0
+    && Number.isFinite(porc) && porc < 0
+    && Math.abs(porc) >= Math.abs(priceMin) * 0.9
+  ) {
+    const pct = Math.abs(porc) * 100;
+    return {
+      hasLoss: true,
+      label: `Perda ${pct.toFixed(2)}% (limite pm)`,
+      pct,
+    };
+  }
+
+  return { hasLoss: false, label: margin.label, pct: margin.pct };
+}
+
+export const LOSS_SEND_CONFIRM_STEPS = 2;
+
+export function buildLossSendSignature(params) {
+  return JSON.stringify({
+    pid: params.pid,
+    base: params.base,
+    quote: params.quote,
+    trade_dir: params.trade_dir,
+    price: params.price ?? null,
+    price_porc: params.price_porc ?? null,
+    price_min: params.price_min ?? null,
+    amount: params.amount ?? null,
+  });
+}
+
 export function computeOrderMargin(order) {
   if (!order) {
     return { pct: null, kind: null, label: '—', shortLabel: '—', source: null };

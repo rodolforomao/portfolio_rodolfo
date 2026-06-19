@@ -16,6 +16,7 @@ import {
 import useDealerWs from './useDealerWs';
 import { loadSession, clearSession, resolveWsUrl } from './config';
 import AssetsPanel from './AssetsPanel';
+import OrdersPanel from './OrdersPanel';
 import OrderPlacementPanel from './OrderPlacementPanel';
 import OrderMarginBadge from './OrderMarginBadge';
 import MessagesModal from './MessagesModal';
@@ -26,6 +27,7 @@ import {
   describeSendOrderResult,
 } from './utils/commandResult';
 import PairSelectors from './PairSelectors';
+import { describeTrade, getMarketFromState } from './utils/marketCatalog';
 import PriceFields, {
   buildPriceParams,
   formatOrderSpreadSummary,
@@ -41,13 +43,22 @@ import {
   ORDER_REGISTRY_KEY,
 } from './utils/orderRegistry';
 import { formatAssetBalance, normalizeBalances, flattenDealerOrders } from './utils/dealerFormat';
+import {
+  prepareDealerOrders,
+  normalizeSendParams,
+  cleanPairName,
+} from './utils/orderMarketNormalize';
 import { buildDealerList, dealersSummaryLabel } from './utils/dealerStatus';
 import {
   touchRegistryFromDealers,
   removeDealerFromRegistry,
   DEALER_REGISTRY_KEY,
 } from './utils/dealerRegistry';
-import { getMarketFromState, describeTrade } from './utils/marketCatalog';
+import {
+  assessOrderLoss,
+  buildLossSendSignature,
+  LOSS_SEND_CONFIRM_STEPS,
+} from './utils/orderMargin';
 import DealerStatusBadge from './DealerStatusBadge';
 import VaultSetup from './VaultSetup';
 import './Dealer.css';
@@ -63,6 +74,7 @@ function StatusDot({ ok, label }) {
 
 function DealerCard({ dealer, onSelect, selected }) {
   const assets = normalizeBalances(dealer.balances);
+  const { orders: displayOrders } = prepareDealerOrders(dealer.orders || []);
   const isInactive = !dealer.isLive;
   return (
     <div
@@ -96,17 +108,24 @@ function DealerCard({ dealer, onSelect, selected }) {
           </span>
         )}
       </div>
-      {(dealer.orders || []).length > 0 && (
+      {displayOrders.length > 0 && (
         <div className="dealer-card-orders">
-          {(dealer.orders || []).map((o, i) => (
-            <div key={i} className="dealer-order-chip">
+          {displayOrders.map((o) => (
+            <div
+              key={`${o.base}-${o.quote}-${o.trade_dir}-${o.order_id || 'p'}`}
+              className={`dealer-order-chip ${o.order_id ? 'sent' : 'pending'}`}
+            >
               <div className="dealer-order-chip-main">
-                <span>{o.base}/{o.quote} {o.trade_dir}</span>
+                <span>
+                  {cleanPairName(o.base, o.quote)} {o.trade_dir}
+                  {!o.order_id && <Badge bg="secondary" className="ms-1">pendente</Badge>}
+                </span>
                 <span className="dealer-order-chip-price">@ {o.price ?? o.price_porc ?? '—'}</span>
               </div>
               <div className="dealer-order-chip-meta">
+                {o.order_id && <code className="dealer-order-chip-id">{o.order_id}</code>}
                 <OrderMarginBadge order={o} showPm explicit />
-                {o.book_label && (
+                {o.book_label && o.book_label !== '-' && (
                   <span className="dealer-order-pos">book {o.book_label}</span>
                 )}
               </div>
@@ -149,6 +168,7 @@ const CommandPanel = React.memo(function CommandPanel({
   const [cancelPick, setCancelPick] = useState(null);
   const [spreadPick, setSpreadPick] = useState(null);
   const [orderPick, setOrderPick] = useState(null);
+  const [lossSendConfirm, setLossSendConfirm] = useState({ signature: null, step: 0 });
   const [direction, setDirection] = useState('Buy');
   const [histDest, setHistDest] = useState('api');
 
@@ -290,6 +310,25 @@ const CommandPanel = React.memo(function CommandPanel({
 
   const orderTargetPid = selectedPid || orderPick?.pid || null;
 
+  const sendFormSignature = useMemo(() => buildLossSendSignature({
+    pid: orderTargetPid,
+    base,
+    quote,
+    trade_dir: tradeDir,
+    ...buildPriceParams({ price, pricePorc, priceMin }),
+    amount: parseInt(String(amount).replace(/\D/g, ''), 10) || 999999,
+  }), [orderTargetPid, base, quote, tradeDir, price, pricePorc, priceMin, amount]);
+
+  useEffect(() => {
+    if (lossSendConfirm.signature !== sendFormSignature) {
+      setLossSendConfirm({ signature: sendFormSignature, step: 0 });
+    }
+  }, [sendFormSignature, lossSendConfirm.signature]);
+
+  const pendingLossStep = lossSendConfirm.signature === sendFormSignature
+    ? lossSendConfirm.step
+    : 0;
+
   useEffect(() => {
     setOrderPick((prev) => {
       if (!prev || !selectedPid || prev.pid === selectedPid) return prev;
@@ -330,7 +369,7 @@ const CommandPanel = React.memo(function CommandPanel({
       });
       return;
     }
-    const params = {
+    const rawParams = {
       pid,
       base,
       quote,
@@ -338,14 +377,48 @@ const CommandPanel = React.memo(function CommandPanel({
       amount: parseInt(String(amount).replace(/\D/g, ''), 10) || 999999,
       ...priceFields,
     };
-    const result = await run('send_order', params);
+    const params = normalizeSendParams(rawParams);
+    const lossCheck = assessOrderLoss({
+      base: params.base,
+      quote: params.quote,
+      trade_dir: params.trade_dir,
+      price: params.price,
+      price_porc: params.price_porc,
+      price_min: params.price_min,
+      original_price: params.original_price,
+    });
+
+    if (lossCheck.hasLoss && pendingLossStep < LOSS_SEND_CONFIRM_STEPS) {
+      const nextStep = pendingLossStep + 1;
+      setLossSendConfirm({ signature: sendFormSignature, step: nextStep });
+      setFeedback({
+        ok: false,
+        data: {
+          error: nextStep < LOSS_SEND_CONFIRM_STEPS
+            ? `Operação com ${lossCheck.label}. Clique em Enviar novamente para confirmar (${nextStep}/${LOSS_SEND_CONFIRM_STEPS}).`
+            : `Última confirmação: ${lossCheck.label}. Clique em Enviar mais uma vez para enviar com perda.`,
+          lossConfirm: { step: nextStep, total: LOSS_SEND_CONFIRM_STEPS, label: lossCheck.label },
+        },
+      });
+      return;
+    }
+
+    const result = await run('send_order', {
+      ...params,
+      confirm_loss: lossCheck.hasLoss,
+    });
+    setLossSendConfirm({ signature: sendFormSignature, step: 0 });
     if (result?.ok) {
       const dealer = activeDealers.find((d) => d.pid === pid);
       saveSentOrderToRegistry(pid, dealer?.wallet_name, params, result.data?.order);
       onBumpOrderRegistry();
+      const summary = [
+        describeSendOrderResult(result),
+        params.normalizeNote,
+      ].filter(Boolean).join('\n');
       setFeedback({
         ...result,
-        data: { ...result.data, summary: describeSendOrderResult(result) },
+        data: { ...result.data, summary },
       });
     }
   };
@@ -562,13 +635,22 @@ const CommandPanel = React.memo(function CommandPanel({
             onAmountChange={setAmount}
           />
           <Button
-            className="dealer-btn-primary mt-3"
+            className={`dealer-btn-primary mt-3${pendingLossStep > 0 ? ' dealer-btn-loss-confirm' : ''}`}
             disabled={busy || !orderTargetPid}
+            variant={pendingLossStep > 0 ? 'warning' : 'primary'}
             onClick={handleSendOrder}
           >
-            Enviar — {describeTrade(base, quote, tradeDir).pairLabel}
-            {orderPick && ' (baseado no histórico)'}
+            {pendingLossStep > 0
+              ? `Confirmar envio com perda (${pendingLossStep}/${LOSS_SEND_CONFIRM_STEPS})`
+              : `Enviar — ${describeTrade(base, quote, tradeDir).pairLabel}`}
+            {orderPick && pendingLossStep === 0 && ' (baseado no histórico)'}
           </Button>
+          {pendingLossStep > 0 && (
+            <p className="dealer-loss-confirm-hint mt-2 mb-0">
+              Esta ordem pode gerar prejuízo. São necessárias {LOSS_SEND_CONFIRM_STEPS} confirmações
+              extras antes do envio.
+            </p>
+          )}
           {!orderTargetPid && (
             <p className="dealer-empty mt-2 mb-0">Selecione um dealer ou uma ordem do histórico.</p>
           )}
@@ -1036,6 +1118,7 @@ export default function DealerConsole() {
                 refreshing={refreshingAssets}
                 lastRefresh={lastAssetRefresh}
               />
+              <OrdersPanel dealer={selectedDealer} />
               <OrderPlacementPanel
                 dealer={selectedDealer}
                 assets={marketData.assets}
