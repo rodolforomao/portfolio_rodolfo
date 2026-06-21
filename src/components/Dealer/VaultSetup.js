@@ -88,10 +88,10 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
     }
   };
 
-  const handleResetDealer = async () => {
-    const id = dealerId.trim();
+  const handleResetDealer = async (targetId = dealerId) => {
+    const id = (targetId || dealerId).trim();
     if (!id) return;
-    const wn = walletName.trim() || id;
+    const wn = walletName.trim() || dealers.find((d) => d.dealer_id === id)?.wallet_name || id;
     if (!window.confirm(
       `Redefinir vault de '${id}' (${wn})?\n\n`
       + 'Remove chaves antigas e a passphrase cifrada. '
@@ -122,8 +122,8 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
     }
   };
 
-  const handleDeleteDealer = async () => {
-    const id = dealerId.trim();
+  const handleDeleteDealer = async (targetId = dealerId) => {
+    const id = (targetId || dealerId).trim();
     if (!id) return;
     if (!window.confirm(`Remover '${id}' do Vault? Será necessário cadastrar de novo.`)) return;
     setResult(null);
@@ -254,6 +254,42 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
         ))}
       </div>
 
+      {dealerId.trim() && (
+        <div className="dealer-vault-selected-actions mb-3">
+          <span className="dealer-vault-selected-label">
+            Selecionado: <strong>{dealerId.trim()}</strong>
+            {walletName.trim() ? ` (${walletName.trim()})` : ''}
+          </span>
+          <div className="dealer-vault-selected-btns">
+            <Button
+              size="sm"
+              variant="outline-warning"
+              disabled={busy}
+              onClick={() => handleResetDealer(dealerId)}
+            >
+              Redefinir vault
+            </Button>
+            <Button
+              size="sm"
+              variant="outline-danger"
+              disabled={busy}
+              onClick={() => handleDeleteDealer(dealerId)}
+            >
+              Remover dealer
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {result?.ok && (
+        <Alert variant="success" className="mb-3 dealer-vault-alert">
+          <TbShieldCheck className="me-2" />{result.msg}
+        </Alert>
+      )}
+      {result && !result.ok && (
+        <Alert variant="danger" className="mb-3 dealer-vault-alert">{result.msg}</Alert>
+      )}
+
       <div className="dealer-vault-dealers mb-3">
         <div className="dealer-vault-dealers-head">
           <span>Novo dealer</span>
@@ -311,15 +347,6 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
         />
       </Form.Group>
 
-      {result?.ok && (
-        <Alert variant="success" className="mb-3 dealer-vault-alert">
-          <TbShieldCheck className="me-2" />{result.msg}
-        </Alert>
-      )}
-      {result && !result.ok && (
-        <Alert variant="danger" className="mb-3 dealer-vault-alert">{result.msg}</Alert>
-      )}
-
       <Form.Group className="mb-3">
         <Form.Label>Passphrase da carteira</Form.Label>
         <InputGroup>
@@ -374,29 +401,6 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
           ? <><TbRefresh className="dealer-spin me-1" /> Cifrando…</>
           : <><TbLock className="me-1" /> Registrar Vault{dealerId.trim() ? ` (${dealerId.trim()})` : ''}</>}
       </Button>
-
-      {dealerId.trim() && (
-        <>
-          <Button
-            variant="outline-warning"
-            size="sm"
-            className="w-100 mt-2"
-            disabled={busy}
-            onClick={handleResetDealer}
-          >
-            Redefinir vault (novo celular / chaves)
-          </Button>
-          <Button
-            variant="outline-danger"
-            size="sm"
-            className="w-100 mt-2"
-            disabled={busy}
-            onClick={handleDeleteDealer}
-          >
-            Remover {dealerId.trim()} do Vault
-          </Button>
-        </>
-      )}
 
       <p className="dealer-vault-warning mt-3">
         Fluxo: (1) criar dealer → (2) manager registra chaves → (3) cadastrar passphrase.

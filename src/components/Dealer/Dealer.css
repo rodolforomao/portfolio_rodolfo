@@ -3176,6 +3176,34 @@
   font-size: 0.85rem;
 }
 
+.dealer-vault-selected-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #484f58;
+  border-radius: 6px;
+  background: rgba(88, 166, 255, 0.06);
+}
+
+.dealer-vault-selected-label {
+  font-size: 0.82rem;
+  color: #8b949e;
+}
+
+.dealer-vault-selected-label strong {
+  color: #e6edf3;
+  font-family: monospace;
+}
+
+.dealer-vault-selected-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .dealer-vault-desc {
   font-size: 0.82rem;
   color: #8b949e;
