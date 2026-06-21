@@ -135,17 +135,44 @@ def _dealer_public(row) -> dict:
 
 
 def _audit(event: str, dealer_id: str, ip: str, status: str) -> None:
-    db = get_db()
-    db.execute(
-        "INSERT INTO vault_audit_log (event, dealer_id, ip, status) VALUES (?,?,?,?)",
-        (event, dealer_id, ip, status),
-    )
-    db.commit()
+    try:
+        db = get_db()
+        db.execute(
+            "INSERT INTO vault_audit_log (event, dealer_id, ip, status) VALUES (?,?,?,?)",
+            (event, dealer_id, ip, status),
+        )
+        db.commit()
+    except Exception as exc:
+        log.warning(f"[AUDIT] falha ao registrar {event}/{dealer_id}: {exc}")
     log.info(json.dumps({
         "event": event, "dealer_id": dealer_id,
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "ip": ip, "status": status,
     }))
+
+
+def _next_dealer_id(db: sqlite3.Connection) -> str:
+    rows = db.execute("SELECT dealer_id FROM vault_entries").fetchall()
+    nums: list[int] = []
+    for row in rows:
+        did = row["dealer_id"] or ""
+        if did.startswith("dealer_"):
+            try:
+                nums.append(int(did.split("_", 1)[1]))
+            except ValueError:
+                pass
+    return f"dealer_{max(nums, default=0) + 1}"
+
+
+def _insert_pending_dealer(db: sqlite3.Connection, dealer_id: str, wallet_name: str) -> None:
+    """INSERT explícito — DBs antigos exigem pk_m/pk_auth NOT NULL sem DEFAULT."""
+    db.execute(
+        """
+        INSERT INTO vault_entries (dealer_id, wallet_name, pk_m, pk_auth, status)
+        VALUES (?, ?, '', '', 'pending')
+        """,
+        (dealer_id, wallet_name),
+    )
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -285,44 +312,67 @@ async def api_vault_dealers_list(request: web.Request) -> web.Response:
 
 
 async def api_vault_dealers_create(request: web.Request) -> web.Response:
-    """Website cria/atualiza dealer (dealer_id + wallet_name) — fonte de verdade dos nomes."""
+    """Cria carteira no vault. Só wallet_name é obrigatório; dealer_id é gerado automaticamente."""
     try:
         body = await request.json()
     except Exception:
         return web.json_response({"error": "JSON inválido"}, status=400)
 
-    dealer_id   = body.get("dealer_id", "").strip()
-    wallet_name = body.get("wallet_name", "").strip()
+    wallet_name = (body.get("wallet_name") or "").strip()
+    dealer_id   = (body.get("dealer_id") or "").strip()
 
-    if not dealer_id or not wallet_name:
-        return web.json_response({"error": "Campos obrigatórios: dealer_id, wallet_name"}, status=400)
+    if not wallet_name:
+        return web.json_response({"error": "Informe o nome da carteira (wallet_name)"}, status=400)
 
     db = get_db()
-    row = db.execute(
-        "SELECT status FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+
+    dup = db.execute(
+        "SELECT dealer_id FROM vault_entries WHERE lower(wallet_name) = lower(?)",
+        (wallet_name,),
     ).fetchone()
-
-    if row and row["status"] == "ready":
-        db.execute(
-            "UPDATE vault_entries SET wallet_name=?, updated_at=datetime('now') WHERE dealer_id=?",
-            (wallet_name, dealer_id),
+    if dup and (not dealer_id or dup["dealer_id"] != dealer_id):
+        return web.json_response(
+            {"error": f"Carteira '{wallet_name}' já existe"},
+            status=409,
         )
+
+    try:
+        row = None
+        if dealer_id:
+            row = db.execute(
+                "SELECT status FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+            ).fetchone()
+
+        if row and row["status"] == "ready":
+            db.execute(
+                "UPDATE vault_entries SET wallet_name=?, updated_at=datetime('now') WHERE dealer_id=?",
+                (wallet_name, dealer_id),
+            )
+            db.commit()
+            return web.json_response({"ok": True, "dealer_id": dealer_id, "wallet_name": wallet_name, "updated_name": True})
+
+        if not dealer_id:
+            dealer_id = _next_dealer_id(db)
+
+        if row:
+            db.execute(
+                "UPDATE vault_entries SET wallet_name=?, updated_at=datetime('now') WHERE dealer_id=?",
+                (wallet_name, dealer_id),
+            )
+        else:
+            _insert_pending_dealer(db, dealer_id, wallet_name)
+
         db.commit()
-        return web.json_response({"ok": True, "dealer_id": dealer_id, "updated_name": True})
+        _audit("dealer_upsert", dealer_id, request.remote, "success")
+        log.info(f"[CREATE] dealer_id={dealer_id} wallet={wallet_name}")
+        return web.json_response({"ok": True, "dealer_id": dealer_id, "wallet_name": wallet_name})
 
-    if row:
-        db.execute(
-            "UPDATE vault_entries SET wallet_name=?, updated_at=datetime('now') WHERE dealer_id=?",
-            (wallet_name, dealer_id),
-        )
-    else:
-        db.execute(
-            "INSERT INTO vault_entries (dealer_id, wallet_name, status) VALUES (?, ?, 'pending')",
-            (dealer_id, wallet_name),
-        )
-    db.commit()
-    _audit("dealer_upsert", dealer_id, request.remote, "success")
-    return web.json_response({"ok": True, "dealer_id": dealer_id, "wallet_name": wallet_name})
+    except sqlite3.IntegrityError as exc:
+        log.error(f"[CREATE FAIL] {exc}")
+        return web.json_response({"error": "Carteira já existe ou ID inválido"}, status=409)
+    except Exception as exc:
+        log.exception(f"[CREATE FAIL] wallet={wallet_name}")
+        return web.json_response({"error": str(exc)}, status=500)
 
 
 async def api_vault_dealers_delete(request: web.Request) -> web.Response:

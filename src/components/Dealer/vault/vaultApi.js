@@ -30,12 +30,22 @@ export function dealersToWallets(dealers = []) {
 
 export function walletStatusLabel(w) {
   if (!w) return '';
-  if (w.ready) return 'pronto';
+  if (w.ready || w.status === 'ready') return 'pronto';
   if (w.status === 'registered') return 'passphrase pendente';
   if (w.status === 'pending') return 'aguardando manager';
   return w.status || '—';
 }
 
+/** Cria carteira — só wallet_name; dealer_id é gerado no servidor. */
+export async function createVaultWallet(walletName) {
+  return vaultFetch('/api/vault/dealers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ wallet_name: walletName.trim() }),
+  });
+}
+
+/** @deprecated use createVaultWallet */
 export async function createVaultDealer(dealerId, walletName) {
   return vaultFetch('/api/vault/dealers', {
     method: 'POST',

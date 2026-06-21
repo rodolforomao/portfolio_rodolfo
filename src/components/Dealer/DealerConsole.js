@@ -596,9 +596,8 @@ const CommandPanel = React.memo(function CommandPanel({
 
           {wallets.length === 0 && !vaultLoading && !vaultLoadErr && (
             <div className="dealer-status-banner dealer-status-banner-warning mb-2 py-2 px-2" style={{ borderRadius: 8 }}>
-              <strong>Nenhuma wallet no Vault.</strong>{' '}
-              Abra <strong>Settings → Vault</strong>, crie <code>dealer_id</code> + <code>wallet_name</code>,
-              inicie o manager no celular (registra chaves) e cadastre a passphrase.
+              <strong>Nenhuma carteira no Vault.</strong>{' '}
+              Abra <strong>Settings → Vault</strong> e crie uma carteira (ex.: <code>depix_pool</code>).
             </div>
           )}
 

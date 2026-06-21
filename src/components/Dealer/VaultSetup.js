@@ -5,46 +5,42 @@ import Alert from 'react-bootstrap/Alert';
 import Badge from 'react-bootstrap/Badge';
 import InputGroup from 'react-bootstrap/InputGroup';
 import {
-  TbLock, TbEye, TbEyeOff, TbShieldCheck, TbRefresh,
+  TbLock, TbEye, TbEyeOff, TbShieldCheck, TbRefresh, TbPlus,
 } from 'react-icons/tb';
 import { encryptPassphrase } from './vault/vaultCrypto';
 import {
   vaultFetch,
   fetchVaultDealers,
-  createVaultDealer,
+  createVaultWallet,
   deleteVaultDealer,
   resetVaultDealer,
+  walletStatusLabel,
 } from './vault/vaultApi';
 
 function StatusBadge({ status }) {
-  if (status === 'ready') {
-    return <Badge bg="success" className="ms-2">pronto</Badge>;
-  }
-  if (status === 'registered') {
-    return <Badge bg="warning" text="dark" className="ms-2">aguardando passphrase</Badge>;
-  }
-  if (status === 'pending') {
-    return <Badge bg="info" className="ms-2">aguardando manager</Badge>;
-  }
-  return <Badge bg="secondary" className="ms-2">{status}</Badge>;
+  const label = walletStatusLabel({ status, ready: status === 'ready' });
+  if (status === 'ready') return <Badge bg="success" className="ms-auto">{label}</Badge>;
+  if (status === 'registered') return <Badge bg="warning" text="dark" className="ms-auto">{label}</Badge>;
+  if (status === 'pending') return <Badge bg="info" className="ms-auto">{label}</Badge>;
+  return <Badge bg="secondary" className="ms-auto">{label}</Badge>;
 }
 
 const MIN_LEN = 12;
 
-export default function VaultSetup({ embedded = false, onVaultReset, onRequestKeySync }) {
+export default function VaultSetup({ embedded = false, onRequestKeySync }) {
   const [dealers, setDealers] = useState([]);
   const [loadingDealers, setLoadingDealers] = useState(false);
   const [dealerLoadErr, setDealerLoadErr] = useState('');
 
-  const [dealerId, setDealerId] = useState('');
-  const [walletName, setWalletName] = useState('');
-  const [newDealerId, setNewDealerId] = useState('');
+  const [selectedId, setSelectedId] = useState('');
   const [newWalletName, setNewWalletName] = useState('');
   const [passphrase, setPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState(null); // null | { ok, msg }
+  const [result, setResult] = useState(null);
+
+  const selected = dealers.find((d) => d.dealer_id === selectedId) || null;
 
   const loadDealers = useCallback(async () => {
     setLoadingDealers(true);
@@ -52,9 +48,14 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
     const r = await fetchVaultDealers();
     setLoadingDealers(false);
     if (r.ok) {
-      setDealers(r.data.dealers || []);
+      const list = r.data.dealers || [];
+      setDealers(list);
+      setSelectedId((prev) => {
+        if (prev && list.some((d) => d.dealer_id === prev)) return prev;
+        return list[0]?.dealer_id || '';
+      });
     } else {
-      setDealerLoadErr(r.data?.error || `HTTP ${r.status} — vault_server.py está rodando?`);
+      setDealerLoadErr(r.data?.error || `Vault indisponível (HTTP ${r.status})`);
     }
   }, []);
 
@@ -62,58 +63,60 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
 
   const mismatch = confirm.length > 0 && passphrase !== confirm;
   const tooShort = passphrase.length > 0 && passphrase.length < MIN_LEN;
-  const canSubmit = !busy && dealerId.trim() && walletName.trim()
-    && passphrase.length >= MIN_LEN && passphrase === confirm;
-  const canCreateDealer = !busy && newDealerId.trim() && newWalletName.trim();
+  const canRegister = !busy && selected
+    && selected.has_keys
+    && passphrase.length >= MIN_LEN
+    && passphrase === confirm;
+  const canCreate = !busy && newWalletName.trim().length >= 2;
 
-  const handleCreateDealer = async () => {
+  const handleCreate = async () => {
+    const name = newWalletName.trim();
     setResult(null);
     setBusy(true);
     try {
-      const id = newDealerId.trim();
-      const wn = newWalletName.trim();
-      const r = await createVaultDealer(id, wn);
+      const r = await createVaultWallet(name);
       if (!r.ok) {
-        setResult({ ok: false, msg: r.data?.error || 'Falha ao criar dealer.' });
+        setResult({
+          ok: false,
+          msg: r.data?.error || `Falha ao criar carteira (HTTP ${r.status})`,
+        });
         return;
       }
-      setResult({ ok: true, msg: `Dealer '${id}' (${wn}) cadastrado. Inicie o manager para registrar chaves.` });
-      setDealerId(id);
-      setWalletName(wn);
-      setNewDealerId('');
+      setResult({
+        ok: true,
+        msg: `Carteira '${name}' criada. Inicie o manager no celular para registrar as chaves.`,
+      });
       setNewWalletName('');
-      loadDealers();
+      await loadDealers();
+      if (r.data?.dealer_id) setSelectedId(r.data.dealer_id);
+      if (onRequestKeySync) {
+        try { await onRequestKeySync(); } catch { /* manager offline */ }
+      }
     } finally {
       setBusy(false);
     }
   };
 
-  const handleResetDealer = async (targetId = dealerId) => {
-    const id = (targetId || dealerId).trim();
-    if (!id) return;
-    const wn = walletName.trim() || dealers.find((d) => d.dealer_id === id)?.wallet_name || id;
+  const handleReset = async () => {
+    if (!selected) return;
+    const name = selected.wallet_name || selected.dealer_id;
     if (!window.confirm(
-      `Redefinir vault de '${id}' (${wn})?\n\n`
-      + 'Remove chaves antigas e a passphrase cifrada. '
-      + 'O manager no celular registrará chaves novas; depois cadastre a passphrase aqui de novo.',
+      `Redefinir vault de '${name}'?\n\n`
+      + 'Apaga chaves e passphrase. O manager no celular registrará chaves novas; '
+      + 'depois cadastre a passphrase aqui.',
     )) return;
     setResult(null);
     setBusy(true);
     try {
-      const r = await resetVaultDealer(id);
+      const r = await resetVaultDealer(selected.dealer_id);
       if (!r.ok) {
-        setResult({ ok: false, msg: r.data?.error || r.data?.message || 'Falha ao redefinir vault.' });
+        setResult({ ok: false, msg: r.data?.error || r.data?.message || 'Falha ao redefinir.' });
         return;
       }
-      if (onVaultReset) onVaultReset(id);
       if (onRequestKeySync) {
-        try { await onRequestKeySync(); } catch { /* manager offline */ }
+        try { await onRequestKeySync(); } catch { /* offline */ }
       }
-      setResult({
-        ok: true,
-        msg: r.data?.message
-          || `Vault de '${id}' redefinido. Aguarde o manager registrar chaves e cadastre a passphrase.`,
-      });
+      setResult({ ok: true, msg: `Vault de '${name}' redefinido. Aguarde o manager e cadastre a passphrase.` });
       setPassphrase('');
       setConfirm('');
       loadDealers();
@@ -122,21 +125,20 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
     }
   };
 
-  const handleDeleteDealer = async (targetId = dealerId) => {
-    const id = (targetId || dealerId).trim();
-    if (!id) return;
-    if (!window.confirm(`Remover '${id}' do Vault? Será necessário cadastrar de novo.`)) return;
+  const handleDelete = async () => {
+    if (!selected) return;
+    const name = selected.wallet_name || selected.dealer_id;
+    if (!window.confirm(`Remover carteira '${name}' do Vault?`)) return;
     setResult(null);
     setBusy(true);
     try {
-      const r = await deleteVaultDealer(id);
+      const r = await deleteVaultDealer(selected.dealer_id);
       if (!r.ok) {
-        setResult({ ok: false, msg: r.data?.error || 'Falha ao remover dealer.' });
+        setResult({ ok: false, msg: r.data?.error || 'Falha ao remover.' });
         return;
       }
-      setResult({ ok: true, msg: `Dealer '${id}' removido. Crie novamente abaixo.` });
-      setDealerId('');
-      setWalletName('');
+      setResult({ ok: true, msg: `Carteira '${name}' removida.` });
+      setSelectedId('');
       setPassphrase('');
       setConfirm('');
       loadDealers();
@@ -146,31 +148,31 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
   };
 
   const handleRegister = async () => {
+    if (!selected) return;
     setResult(null);
     setBusy(true);
     try {
-      const id = dealerId.trim();
-      const wn = walletName.trim();
-
-      // 1. Busca pk_m do backend (manager registra chaves ao conectar)
-      const pkRes = await vaultFetch(`/api/vault/pubkey/${encodeURIComponent(id)}`);
+      const pkRes = await vaultFetch(`/api/vault/pubkey/${encodeURIComponent(selected.dealer_id)}`);
       if (!pkRes.ok) {
         setResult({
           ok: false,
           msg: pkRes.data?.error
-            || `Dealer '${id}' sem chaves — inicie o manager_dealer para registrar pk_m.`,
+            || 'Manager ainda não registrou chaves — inicie o manager no celular.',
         });
         return;
       }
 
-      // 2. Cifra INTEIRAMENTE no browser — passphrase nunca sai em plaintext
       const { enc_p, sealed_r } = await encryptPassphrase(passphrase, pkRes.data.pk_m);
 
-      // 3. Envia apenas o ciphertext para o backend armazenar
       const regRes = await vaultFetch('/api/vault/passphrase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dealer_id: id, wallet_name: wn, enc_p, sealed_r }),
+        body: JSON.stringify({
+          dealer_id: selected.dealer_id,
+          wallet_name: selected.wallet_name,
+          enc_p,
+          sealed_r,
+        }),
       });
 
       if (!regRes.ok) {
@@ -178,104 +180,104 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
         return;
       }
 
-      setResult({
-        ok: true,
-        msg: `Vault de '${id}' registrado. Passphrase cifrada no browser (nunca trafegou em plaintext).`,
-      });
+      setResult({ ok: true, msg: `Carteira '${selected.wallet_name}' pronta. Pode usar Run no console.` });
       setPassphrase('');
       setConfirm('');
       loadDealers();
     } catch (err) {
-      setResult({ ok: false, msg: `Erro de criptografia: ${err.message}` });
+      setResult({ ok: false, msg: `Erro: ${err.message}` });
     } finally {
       setBusy(false);
     }
   };
 
+  const hintForSelected = () => {
+    if (!selected) return null;
+    if (selected.status === 'ready') {
+      return 'Pronta — use a aba Run para iniciar o dealer.';
+    }
+    if (!selected.has_keys) {
+      return 'Aguardando manager no celular — inicie o manager_dealer (ou clique Atualizar catálogo no Run).';
+    }
+    return 'Manager conectado — cadastre a passphrase abaixo (cifrada no browser, nunca sai em texto claro).';
+  };
+
   return (
     <div className={embedded ? 'dealer-settings-section' : 'dealer-form-block'}>
-      {!embedded && (
-        <p className="dealer-vault-desc">
-          <TbLock /> Split-key vault 2-of-2 — cifração <strong>no browser</strong> (X25519 + ChaCha20-Poly1305 + HKDF-SHA256).
-          {' '}O manager no celular gera chaves automaticamente; use <strong>Redefinir vault</strong> ao trocar de aparelho.
-        </p>
-      )}
-      {embedded && (
+      {embedded ? (
         <>
-          <h4><TbLock /> Vault</h4>
+          <h4><TbLock /> Vault — Carteiras</h4>
           <p className="dealer-settings-desc">
-            Fonte de verdade dos dealers — cadastre <strong>dealer_id</strong> e <strong>wallet_name</strong> aqui.
-            Passphrase cifrada no browser; o manager só busca o vault pronto.
+            Cadastre o <strong>nome da carteira</strong> aqui. O manager no celular registra as chaves;
+            você configura a passphrase uma vez. Nada de NAME_* no .env do Termux.
           </p>
         </>
+      ) : (
+        <p className="dealer-vault-desc">
+          <TbLock /> Split-key 2-of-2 — passphrase cifrada no browser. Só o nome da carteira é necessário.
+        </p>
       )}
 
-      {/* Lista de dealers com status */}
       <div className="dealer-vault-dealers mb-3">
         <div className="dealer-vault-dealers-head">
-          <span>Dealers registrados</span>
-          <Button
-            size="sm"
-            variant="outline-secondary"
-            onClick={loadDealers}
-            disabled={loadingDealers}
-          >
+          <span>Carteiras</span>
+          <Button size="sm" variant="outline-secondary" onClick={loadDealers} disabled={loadingDealers}>
             <TbRefresh className={loadingDealers ? 'dealer-spin' : ''} />
           </Button>
         </div>
+
         {dealerLoadErr && (
-          <p className="dealer-vault-warning mt-1 mb-1" style={{ color: '#f85149' }}>
-            {dealerLoadErr}
-          </p>
+          <p className="dealer-vault-warning mt-1 mb-1" style={{ color: '#f85149' }}>{dealerLoadErr}</p>
         )}
+
         {!dealerLoadErr && dealers.length === 0 && (
           <Alert variant="info" className="mb-2 py-2 dealer-vault-alert">
-            Catálogo vazio. Crie <strong>dealer_id</strong> + <strong>wallet_name</strong> abaixo.
-            O manager no celular não guarda nomes — tudo fica aqui no Vault.
+            Nenhuma carteira. Adicione abaixo (ex.: <code>depix_pool</code>, <code>amm_lbtc</code>).
           </Alert>
         )}
+
         {dealers.map((d) => (
           <button
             key={d.dealer_id}
             type="button"
-            className={`dealer-cancel-item dealer-vault-dealer-item ${dealerId === d.dealer_id ? 'selected' : ''}`}
-            onClick={() => {
-              setDealerId(d.dealer_id);
-              setWalletName(d.wallet_name || '');
-            }}
+            className={`dealer-cancel-item dealer-vault-dealer-item ${selectedId === d.dealer_id ? 'selected' : ''}`}
+            onClick={() => setSelectedId(d.dealer_id)}
             disabled={busy}
           >
-            <span className="dealer-vault-dealer-id">{d.dealer_id}</span>
-            {d.wallet_name && (
-              <span className="dealer-vault-dealer-wallet ms-2">{d.wallet_name}</span>
-            )}
+            <span className="dealer-vault-dealer-id">{d.wallet_name || d.dealer_id}</span>
             <StatusBadge status={d.status} />
           </button>
         ))}
       </div>
 
-      {dealerId.trim() && (
+      <div className="dealer-vault-dealers mb-3">
+        <div className="dealer-vault-dealers-head">
+          <span>Adicionar carteira</span>
+        </div>
+        <InputGroup size="sm" className="mb-2">
+          <Form.Control
+            value={newWalletName}
+            onChange={(e) => setNewWalletName(e.target.value)}
+            placeholder="depix_pool"
+            disabled={busy}
+          />
+          <Button variant="outline-primary" disabled={!canCreate} onClick={handleCreate}>
+            <TbPlus className="me-1" /> Criar
+          </Button>
+        </InputGroup>
+      </div>
+
+      {selected && (
         <div className="dealer-vault-selected-actions mb-3">
           <span className="dealer-vault-selected-label">
-            Selecionado: <strong>{dealerId.trim()}</strong>
-            {walletName.trim() ? ` (${walletName.trim()})` : ''}
+            <strong>{selected.wallet_name || selected.dealer_id}</strong>
           </span>
           <div className="dealer-vault-selected-btns">
-            <Button
-              size="sm"
-              variant="outline-warning"
-              disabled={busy}
-              onClick={() => handleResetDealer(dealerId)}
-            >
-              Redefinir vault
+            <Button size="sm" variant="outline-warning" disabled={busy} onClick={handleReset}>
+              Redefinir
             </Button>
-            <Button
-              size="sm"
-              variant="outline-danger"
-              disabled={busy}
-              onClick={() => handleDeleteDealer(dealerId)}
-            >
-              Remover dealer
+            <Button size="sm" variant="outline-danger" disabled={busy} onClick={handleDelete}>
+              Remover
             </Button>
           </div>
         </div>
@@ -290,122 +292,60 @@ export default function VaultSetup({ embedded = false, onVaultReset, onRequestKe
         <Alert variant="danger" className="mb-3 dealer-vault-alert">{result.msg}</Alert>
       )}
 
-      <div className="dealer-vault-dealers mb-3">
-        <div className="dealer-vault-dealers-head">
-          <span>Novo dealer</span>
-        </div>
-        <Form.Group className="mb-2">
-          <Form.Label className="mb-1">Dealer ID</Form.Label>
-          <Form.Control
-            size="sm"
-            value={newDealerId}
-            onChange={(e) => setNewDealerId(e.target.value)}
-            placeholder="dealer_3"
-            disabled={busy}
-          />
-        </Form.Group>
-        <Form.Group className="mb-2">
-          <Form.Label className="mb-1">Wallet name</Form.Label>
-          <Form.Control
-            size="sm"
-            value={newWalletName}
-            onChange={(e) => setNewWalletName(e.target.value)}
-            placeholder="depix_pool"
-            disabled={busy}
-          />
-        </Form.Group>
-        <Button
-          size="sm"
-          variant="outline-primary"
-          disabled={!canCreateDealer}
-          onClick={handleCreateDealer}
-        >
-          Criar dealer
-        </Button>
-      </div>
-
-      {/* dealer_id + wallet_name */}
-      <Form.Group className="mb-3">
-        <Form.Label>Dealer ID</Form.Label>
-        <Form.Control
-          size="sm"
-          value={dealerId}
-          onChange={(e) => setDealerId(e.target.value)}
-          placeholder="dealer_1"
-          disabled={busy}
-        />
-      </Form.Group>
-
-      <Form.Group className="mb-3">
-        <Form.Label>Wallet name</Form.Label>
-        <Form.Control
-          size="sm"
-          value={walletName}
-          onChange={(e) => setWalletName(e.target.value)}
-          placeholder="depix_pool"
-          disabled={busy}
-        />
-      </Form.Group>
-
-      <Form.Group className="mb-3">
-        <Form.Label>Passphrase da carteira</Form.Label>
-        <InputGroup>
-          <Form.Control
-            type={show ? 'text' : 'password'}
-            value={passphrase}
-            onChange={(e) => setPassphrase(e.target.value)}
-            placeholder={`Passphrase LWK / Elements (mín. ${MIN_LEN} chars)`}
-            disabled={busy || !dealerId.trim()}
-            autoComplete="new-password"
-            isInvalid={tooShort}
-          />
-          <Button
-            variant="outline-secondary"
-            onClick={() => setShow((v) => !v)}
-            tabIndex={-1}
-          >
-            {show ? <TbEyeOff /> : <TbEye />}
-          </Button>
-          {tooShort && (
-            <Form.Control.Feedback type="invalid">
-              Mínimo {MIN_LEN} caracteres.
-            </Form.Control.Feedback>
+      {selected && (
+        <>
+          {hintForSelected() && (
+            <p className="dealer-vault-warning mb-3">{hintForSelected()}</p>
           )}
-        </InputGroup>
-      </Form.Group>
 
-      <Form.Group className="mb-4">
-        <Form.Label>Confirmar passphrase</Form.Label>
-        <Form.Control
-          type={show ? 'text' : 'password'}
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          placeholder="Repita a passphrase"
-          disabled={busy || !dealerId.trim()}
-          autoComplete="new-password"
-          isInvalid={mismatch}
-        />
-        {mismatch && (
-          <Form.Control.Feedback type="invalid">
-            As passphrases não coincidem.
-          </Form.Control.Feedback>
-        )}
-      </Form.Group>
+          {selected.status !== 'ready' && (
+            <>
+              <Form.Group className="mb-3">
+                <Form.Label>Passphrase da carteira</Form.Label>
+                <InputGroup>
+                  <Form.Control
+                    type={show ? 'text' : 'password'}
+                    value={passphrase}
+                    onChange={(e) => setPassphrase(e.target.value)}
+                    placeholder={`Mínimo ${MIN_LEN} caracteres`}
+                    disabled={busy || !selected.has_keys}
+                    autoComplete="new-password"
+                    isInvalid={tooShort}
+                  />
+                  <Button variant="outline-secondary" onClick={() => setShow((v) => !v)} tabIndex={-1}>
+                    {show ? <TbEyeOff /> : <TbEye />}
+                  </Button>
+                </InputGroup>
+              </Form.Group>
 
-      <Button
-        className="dealer-btn-primary w-100"
-        disabled={!canSubmit}
-        onClick={handleRegister}
-      >
-        {busy
-          ? <><TbRefresh className="dealer-spin me-1" /> Cifrando…</>
-          : <><TbLock className="me-1" /> Registrar Vault{dealerId.trim() ? ` (${dealerId.trim()})` : ''}</>}
-      </Button>
+              <Form.Group className="mb-4">
+                <Form.Label>Confirmar passphrase</Form.Label>
+                <Form.Control
+                  type={show ? 'text' : 'password'}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  disabled={busy || !selected.has_keys}
+                  autoComplete="new-password"
+                  isInvalid={mismatch}
+                />
+              </Form.Group>
+
+              <Button
+                className="dealer-btn-primary w-100"
+                disabled={!canRegister}
+                onClick={handleRegister}
+              >
+                {busy
+                  ? <><TbRefresh className="dealer-spin me-1" /> Cifrando…</>
+                  : <><TbLock className="me-1" /> Salvar passphrase</>}
+              </Button>
+            </>
+          )}
+        </>
+      )}
 
       <p className="dealer-vault-warning mt-3">
-        Fluxo: (1) criar dealer → (2) manager registra chaves → (3) cadastrar passphrase.
-        Troca de celular: use <strong>Redefinir vault</strong>, reinicie o manager no Termux
-        e cadastre a passphrase de novo (não precisa copiar arquivos do PC).
+        1) Criar carteira → 2) Manager no celular → 3) Salvar passphrase → 4) Run no console.
       </p>
     </div>
   );
