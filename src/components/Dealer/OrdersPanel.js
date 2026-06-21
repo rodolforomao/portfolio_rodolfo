@@ -9,24 +9,48 @@ import { prepareDealerOrders, cleanPairName } from './utils/orderMarketNormalize
 import { getOrderStatus, countOrdersByStatus } from './utils/orderStatus';
 import { FollowRefLink } from './utils/followTarget';
 
-function OrderStatusBadge({ order }) {
+const SIDESWAP_BADGE_STYLE = { backgroundColor: '#2d9cdb', borderColor: '#2d9cdb' };
+
+function OrderStatusBadge({ order, managerOffline = false, confirmedInBook = false }) {
   const status = getOrderStatus(order);
-  const variant = {
-    sent: 'success',
-    follow: 'info',
-    calculating: 'primary',
-    pending: 'warning',
-    awaiting: 'secondary',
-  }[status.key] || 'secondary';
+  let variant;
+  let style;
+  let title;
+
+  if (managerOffline && confirmedInBook) {
+    variant = null;
+    style = SIDESWAP_BADGE_STYLE;
+    title = `${status.label} · confirmada no livro público SideSwap`;
+  } else if (managerOffline) {
+    variant = 'secondary';
+    style = undefined;
+    title = `${status.label} · status incerto (manager offline)`;
+  } else {
+    variant = ({
+      sent: 'success',
+      follow: 'info',
+      calculating: 'primary',
+      pending: 'warning',
+      awaiting: 'secondary',
+    }[status.key] || 'secondary');
+    style = undefined;
+    title = undefined;
+  }
 
   return (
-    <Badge bg={variant} text={status.key === 'pending' ? 'dark' : undefined} className="dealer-order-status">
+    <Badge
+      bg={variant || undefined}
+      text={!managerOffline && status.key === 'pending' ? 'dark' : undefined}
+      className="dealer-order-status"
+      style={style}
+      title={title}
+    >
       {status.label.toLowerCase()}
     </Badge>
   );
 }
 
-export default function OrdersPanel({ dealer }) {
+export default function OrdersPanel({ dealer, managerOffline = false, confirmedOrderIds = null }) {
   const { orders, normalizeNotes } = useMemo(
     () => prepareDealerOrders(dealer?.orders || []),
     [dealer?.orders],
@@ -51,11 +75,11 @@ export default function OrdersPanel({ dealer }) {
         </h3>
         {orders.length > 0 && (
           <div className="dealer-order-legend" aria-hidden="true">
-            <span><OrderStatusSignal order={{ order_id: 1 }} size="sm" /> enviada</span>
-            <span><OrderStatusSignal order={{ follow_target: true, order_id: 1 }} size="sm" /> follow</span>
-            <span><OrderStatusSignal order={{ follow_target: true, pending: true }} size="sm" /> calc.</span>
-            <span><OrderStatusSignal order={{ price: 1 }} size="sm" /> pendente</span>
-            <span><OrderStatusSignal order={{}} size="sm" /> sem preço</span>
+            <span><OrderStatusSignal order={{ order_id: 1 }} size="sm" managerOffline={managerOffline} /> enviada</span>
+            <span><OrderStatusSignal order={{ follow_target: true, order_id: 1 }} size="sm" managerOffline={managerOffline} /> follow</span>
+            <span><OrderStatusSignal order={{ follow_target: true, pending: true }} size="sm" managerOffline={managerOffline} /> calc.</span>
+            <span><OrderStatusSignal order={{ price: 1 }} size="sm" managerOffline={managerOffline} /> pendente</span>
+            <span><OrderStatusSignal order={{}} size="sm" managerOffline={managerOffline} /> sem preço</span>
           </div>
         )}
       </div>
@@ -83,13 +107,16 @@ export default function OrdersPanel({ dealer }) {
               const pairLabel = cleanPairName(order.base, order.quote);
               const price = order.price ?? order.original_price;
               const status = getOrderStatus(order);
+              const inBook = managerOffline && confirmedOrderIds != null
+                && order.order_id != null
+                && confirmedOrderIds.has(String(order.order_id));
               return (
                 <tr
                   key={`${order.base}-${order.quote}-${order.trade_dir}-${order.order_id || 'pending'}`}
-                  className={`dealer-order-row dealer-order-row-${status.key}`}
+                  className={`dealer-order-row dealer-order-row-${status.key}${managerOffline && !inBook ? ' dealer-order-row-stale' : ''}`}
                 >
                   <td className="dealer-orders-signal-col">
-                    <OrderStatusSignal order={order} size="md" />
+                    <OrderStatusSignal order={order} size="md" managerOffline={managerOffline} confirmedInBook={inBook} />
                   </td>
                   <td>
                     <span className="dealer-order-pair">{pairLabel}</span>
@@ -129,12 +156,18 @@ export default function OrdersPanel({ dealer }) {
                     )}
                   </td>
                   <td>{order.book_label || '—'}</td>
-                  <td><OrderStatusBadge order={order} /></td>
+                  <td><OrderStatusBadge order={order} managerOffline={managerOffline} confirmedInBook={inBook} /></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      )}
+
+      {managerOffline && orders.length > 0 && (
+        <p className="dealer-hint dealer-hint-stale">
+          Manager offline — status das ordens pode ser cache. Sinais em cinza até reconectar.
+        </p>
       )}
 
       {normalizeNotes.length > 0 && (

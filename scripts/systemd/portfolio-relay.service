@@ -1,0 +1,18 @@
+[Unit]
+Description=Dealer WebSocket Relay (ws_relay_server.py)
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/web/rodolforomao.com.br/vault-services
+EnvironmentFile=/home/admin/web/rodolforomao.com.br/vault-services/.env.vault
+Environment=WS_RELAY_HOST=127.0.0.1
+Environment=WS_RELAY_PORT=8765
+ExecStart=/home/admin/web/rodolforomao.com.br/vault-services/venv/bin/python3 /home/admin/web/rodolforomao.com.br/vault-services/ws_relay_server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -6,19 +6,27 @@ function isLocalDevHost() {
   return host === 'localhost' || host === '127.0.0.1';
 }
 
-/** Escolhe a URL do relay conforme ambiente (.env tem precedência). */
+/** Escolhe a URL do relay conforme ambiente (hostname do browser, não só .env). */
 export function resolveWsUrl() {
-  if (process.env.REACT_APP_DEALER_WS_URL) {
-    return process.env.REACT_APP_DEALER_WS_URL;
-  }
+  // Dev local — .env pode forçar ws://127.0.0.1:8765
   if (isLocalDevHost()) {
-    return process.env.REACT_APP_DEALER_WS_URL_LOCAL || 'ws://127.0.0.1:8765';
+    return (
+      process.env.REACT_APP_DEALER_WS_URL
+      || process.env.REACT_APP_DEALER_WS_URL_LOCAL
+      || 'ws://127.0.0.1:8765'
+    );
   }
+  // Produção HTTPS — WSS no mesmo domínio (nginx → relay)
   if (isBrowser && window.location.protocol === 'https:') {
-    return process.env.REACT_APP_DEALER_WS_URL_PROD
-      || `wss://${window.location.host}/dealer-ws`;
+    return (
+      process.env.REACT_APP_DEALER_WS_URL_PROD
+      || `wss://${window.location.host}/dealer-ws`
+    );
   }
-  return process.env.REACT_APP_DEALER_WS_URL_PROD || 'ws://rodolforomao.com.br:8765';
+  return (
+    process.env.REACT_APP_DEALER_WS_URL_PROD
+    || 'wss://rodolforomao.com.br/dealer-ws'
+  );
 }
 
 export const DEFAULT_WS_URL = resolveWsUrl();

@@ -8,20 +8,12 @@ import {
   TbLock, TbEye, TbEyeOff, TbShieldCheck, TbRefresh,
 } from 'react-icons/tb';
 import { encryptPassphrase } from './vault/vaultCrypto';
-
-// Em dev, o CRA proxy (package.json "proxy") encaminha para http://localhost:8766
-// Em produção, nginx faz o proxy das rotas /api/vault/ e /admin/vault/
-const VAULT_API = process.env.REACT_APP_VAULT_API_URL || '';
-
-async function apiFetch(path, opts = {}) {
-  try {
-    const res = await fetch(`${VAULT_API}${path}`, opts);
-    const data = await res.json().catch(() => ({}));
-    return { ok: res.ok, status: res.status, data };
-  } catch (err) {
-    return { ok: false, status: 0, data: { error: err.message } };
-  }
-}
+import {
+  vaultFetch,
+  fetchVaultDealers,
+  createVaultDealer,
+  deleteVaultDealer,
+} from './vault/vaultApi';
 
 function StatusBadge({ status }) {
   if (status === 'ready') {
@@ -29,6 +21,9 @@ function StatusBadge({ status }) {
   }
   if (status === 'registered') {
     return <Badge bg="warning" text="dark" className="ms-2">aguardando passphrase</Badge>;
+  }
+  if (status === 'pending') {
+    return <Badge bg="info" className="ms-2">aguardando manager</Badge>;
   }
   return <Badge bg="secondary" className="ms-2">{status}</Badge>;
 }
@@ -41,6 +36,9 @@ export default function VaultSetup({ embedded = false }) {
   const [dealerLoadErr, setDealerLoadErr] = useState('');
 
   const [dealerId, setDealerId] = useState('');
+  const [walletName, setWalletName] = useState('');
+  const [newDealerId, setNewDealerId] = useState('');
+  const [newWalletName, setNewWalletName] = useState('');
   const [passphrase, setPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
@@ -50,7 +48,7 @@ export default function VaultSetup({ embedded = false }) {
   const loadDealers = useCallback(async () => {
     setLoadingDealers(true);
     setDealerLoadErr('');
-    const r = await apiFetch('/api/vault/dealers');
+    const r = await fetchVaultDealers();
     setLoadingDealers(false);
     if (r.ok) {
       setDealers(r.data.dealers || []);
@@ -63,21 +61,69 @@ export default function VaultSetup({ embedded = false }) {
 
   const mismatch = confirm.length > 0 && passphrase !== confirm;
   const tooShort = passphrase.length > 0 && passphrase.length < MIN_LEN;
-  const canSubmit = !busy && dealerId.trim() && passphrase.length >= MIN_LEN && passphrase === confirm;
+  const canSubmit = !busy && dealerId.trim() && walletName.trim()
+    && passphrase.length >= MIN_LEN && passphrase === confirm;
+  const canCreateDealer = !busy && newDealerId.trim() && newWalletName.trim();
+
+  const handleCreateDealer = async () => {
+    setResult(null);
+    setBusy(true);
+    try {
+      const id = newDealerId.trim();
+      const wn = newWalletName.trim();
+      const r = await createVaultDealer(id, wn);
+      if (!r.ok) {
+        setResult({ ok: false, msg: r.data?.error || 'Falha ao criar dealer.' });
+        return;
+      }
+      setResult({ ok: true, msg: `Dealer '${id}' (${wn}) cadastrado. Inicie o manager para registrar chaves.` });
+      setDealerId(id);
+      setWalletName(wn);
+      setNewDealerId('');
+      setNewWalletName('');
+      loadDealers();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteDealer = async () => {
+    const id = dealerId.trim();
+    if (!id) return;
+    if (!window.confirm(`Remover '${id}' do Vault? Será necessário cadastrar de novo.`)) return;
+    setResult(null);
+    setBusy(true);
+    try {
+      const r = await deleteVaultDealer(id);
+      if (!r.ok) {
+        setResult({ ok: false, msg: r.data?.error || 'Falha ao remover dealer.' });
+        return;
+      }
+      setResult({ ok: true, msg: `Dealer '${id}' removido. Crie novamente abaixo.` });
+      setDealerId('');
+      setWalletName('');
+      setPassphrase('');
+      setConfirm('');
+      loadDealers();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleRegister = async () => {
     setResult(null);
     setBusy(true);
     try {
       const id = dealerId.trim();
+      const wn = walletName.trim();
 
-      // 1. Busca pk_m do backend do website (armazenada quando manager rodou vault_setup.py)
-      const pkRes = await apiFetch(`/api/vault/pubkey/${encodeURIComponent(id)}`);
+      // 1. Busca pk_m do backend (manager registra chaves ao conectar)
+      const pkRes = await vaultFetch(`/api/vault/pubkey/${encodeURIComponent(id)}`);
       if (!pkRes.ok) {
         setResult({
           ok: false,
           msg: pkRes.data?.error
-            || `dealer_id '${id}' não encontrado. O manager precisa rodar vault_setup.py e registrar as chaves públicas primeiro.`,
+            || `Dealer '${id}' sem chaves — inicie o manager_dealer para registrar pk_m.`,
         });
         return;
       }
@@ -86,10 +132,10 @@ export default function VaultSetup({ embedded = false }) {
       const { enc_p, sealed_r } = await encryptPassphrase(passphrase, pkRes.data.pk_m);
 
       // 3. Envia apenas o ciphertext para o backend armazenar
-      const regRes = await apiFetch('/api/vault/passphrase', {
+      const regRes = await vaultFetch('/api/vault/passphrase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dealer_id: id, enc_p, sealed_r }),
+        body: JSON.stringify({ dealer_id: id, wallet_name: wn, enc_p, sealed_r }),
       });
 
       if (!regRes.ok) {
@@ -123,8 +169,8 @@ export default function VaultSetup({ embedded = false }) {
         <>
           <h4><TbLock /> Vault</h4>
           <p className="dealer-settings-desc">
-            Split-key 2-of-2 — cifração <strong>no browser</strong>. Registre a passphrase após{' '}
-            <code>vault_setup.py</code> no manager.
+            Fonte de verdade dos dealers — cadastre <strong>dealer_id</strong> e <strong>wallet_name</strong> aqui.
+            Passphrase cifrada no browser; o manager só busca o vault pronto.
           </p>
         </>
       )}
@@ -148,25 +194,66 @@ export default function VaultSetup({ embedded = false }) {
           </p>
         )}
         {!dealerLoadErr && dealers.length === 0 && (
-          <p className="dealer-empty mb-0">
-            {loadingDealers ? 'Carregando…' : 'Nenhum dealer. Rode vault_setup.py no manager e certifique-se de que vault_server.py está rodando.'}
-          </p>
+          <Alert variant="info" className="mb-2 py-2 dealer-vault-alert">
+            Catálogo vazio. Crie <strong>dealer_id</strong> + <strong>wallet_name</strong> abaixo.
+            O manager no celular não guarda nomes — tudo fica aqui no Vault.
+          </Alert>
         )}
         {dealers.map((d) => (
           <button
             key={d.dealer_id}
             type="button"
             className={`dealer-cancel-item dealer-vault-dealer-item ${dealerId === d.dealer_id ? 'selected' : ''}`}
-            onClick={() => setDealerId(d.dealer_id)}
+            onClick={() => {
+              setDealerId(d.dealer_id);
+              setWalletName(d.wallet_name || '');
+            }}
             disabled={busy}
           >
             <span className="dealer-vault-dealer-id">{d.dealer_id}</span>
+            {d.wallet_name && (
+              <span className="dealer-vault-dealer-wallet ms-2">{d.wallet_name}</span>
+            )}
             <StatusBadge status={d.status} />
           </button>
         ))}
       </div>
 
-      {/* dealer_id input (preenchido pelo clique acima ou manual) */}
+      <div className="dealer-vault-dealers mb-3">
+        <div className="dealer-vault-dealers-head">
+          <span>Novo dealer</span>
+        </div>
+        <Form.Group className="mb-2">
+          <Form.Label className="mb-1">Dealer ID</Form.Label>
+          <Form.Control
+            size="sm"
+            value={newDealerId}
+            onChange={(e) => setNewDealerId(e.target.value)}
+            placeholder="dealer_3"
+            disabled={busy}
+          />
+        </Form.Group>
+        <Form.Group className="mb-2">
+          <Form.Label className="mb-1">Wallet name</Form.Label>
+          <Form.Control
+            size="sm"
+            value={newWalletName}
+            onChange={(e) => setNewWalletName(e.target.value)}
+            placeholder="depix_pool"
+            disabled={busy}
+          />
+        </Form.Group>
+        <Button
+          size="sm"
+          variant="outline-primary"
+          disabled={!canCreateDealer}
+          onClick={handleCreateDealer}
+        >
+          Criar dealer
+        </Button>
+      </div>
+
+      {/* dealer_id + wallet_name */}
       <Form.Group className="mb-3">
         <Form.Label>Dealer ID</Form.Label>
         <Form.Control
@@ -174,6 +261,17 @@ export default function VaultSetup({ embedded = false }) {
           value={dealerId}
           onChange={(e) => setDealerId(e.target.value)}
           placeholder="dealer_1"
+          disabled={busy}
+        />
+      </Form.Group>
+
+      <Form.Group className="mb-3">
+        <Form.Label>Wallet name</Form.Label>
+        <Form.Control
+          size="sm"
+          value={walletName}
+          onChange={(e) => setWalletName(e.target.value)}
+          placeholder="depix_pool"
           disabled={busy}
         />
       </Form.Group>
@@ -242,9 +340,21 @@ export default function VaultSetup({ embedded = false }) {
           : <><TbLock className="me-1" /> Registrar Vault{dealerId.trim() ? ` (${dealerId.trim()})` : ''}</>}
       </Button>
 
+      {dealerId.trim() && (
+        <Button
+          variant="outline-danger"
+          size="sm"
+          className="w-100 mt-2"
+          disabled={busy}
+          onClick={handleDeleteDealer}
+        >
+          Remover {dealerId.trim()} do Vault
+        </Button>
+      )}
+
       <p className="dealer-vault-warning mt-3">
-        Após o registro, a passphrase não pode ser recuperada — apenas re-registrada.
-        O manager (vault_setup.py) deve ter sido executado antes deste passo.
+        Fluxo: (1) criar dealer aqui → (2) manager registra chaves → (3) cadastrar passphrase.
+        Após pronto, o manager decifra via WebSocket — nada de NAME_* no .env do celular.
       </p>
     </div>
   );

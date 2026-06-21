@@ -96,14 +96,15 @@ def init_db() -> None:
     db = get_db()
     db.executescript("""
         CREATE TABLE IF NOT EXISTS vault_entries (
-            dealer_id  TEXT PRIMARY KEY,
-            pk_m       TEXT NOT NULL,
-            pk_auth    TEXT NOT NULL,
-            enc_p      TEXT,
-            sealed_r   TEXT,
-            status     TEXT NOT NULL DEFAULT 'registered',
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            dealer_id   TEXT PRIMARY KEY,
+            wallet_name TEXT,
+            pk_m        TEXT NOT NULL DEFAULT '',
+            pk_auth     TEXT NOT NULL DEFAULT '',
+            enc_p       TEXT,
+            sealed_r    TEXT,
+            status      TEXT NOT NULL DEFAULT 'pending',
+            created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
         );
         CREATE TABLE IF NOT EXISTS vault_audit_log (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,7 +115,23 @@ def init_db() -> None:
             status     TEXT
         );
     """)
+    cols = {row[1] for row in db.execute("PRAGMA table_info(vault_entries)")}
+    if "wallet_name" not in cols:
+        db.execute("ALTER TABLE vault_entries ADD COLUMN wallet_name TEXT")
     db.commit()
+
+
+def _row_has_keys(row) -> bool:
+    return bool(row["pk_m"] and row["pk_auth"])
+
+
+def _dealer_public(row) -> dict:
+    return {
+        "dealer_id":   row["dealer_id"],
+        "wallet_name": row["wallet_name"],
+        "status":      row["status"],
+        "has_keys":    _row_has_keys(row),
+    }
 
 
 def _audit(event: str, dealer_id: str, ip: str, status: str) -> None:
@@ -149,11 +166,12 @@ def _require_admin(handler):
 async def admin_vault_status(request: web.Request) -> web.Response:
     dealer_id = request.match_info["dealer_id"]
     row = get_db().execute(
-        "SELECT status FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+        "SELECT dealer_id, wallet_name, status, pk_m, pk_auth FROM vault_entries WHERE dealer_id = ?",
+        (dealer_id,),
     ).fetchone()
     if not row:
         return web.json_response({"status": "not_found"}, status=404)
-    return web.json_response({"status": row["status"]})
+    return web.json_response(_dealer_public(row))
 
 
 @_require_admin
@@ -163,22 +181,34 @@ async def admin_vault_register(request: web.Request) -> web.Response:
     except Exception:
         return web.json_response({"error": "JSON inválido"}, status=400)
 
-    dealer_id = body.get("dealer_id", "").strip()
-    pk_m      = body.get("pk_m", "").strip()
-    pk_auth   = body.get("pk_auth", "").strip()
+    dealer_id   = body.get("dealer_id", "").strip()
+    pk_m        = body.get("pk_m", "").strip()
+    pk_auth     = body.get("pk_auth", "").strip()
+    wallet_name = (body.get("wallet_name") or "").strip() or None
 
     if not all([dealer_id, pk_m, pk_auth]):
         return web.json_response({"error": "Campos obrigatórios: dealer_id, pk_m, pk_auth"}, status=400)
 
     db = get_db()
-    db.execute("""
-        INSERT INTO vault_entries (dealer_id, pk_m, pk_auth, status)
-        VALUES (?, ?, ?, 'registered')
-        ON CONFLICT(dealer_id) DO UPDATE SET
-            pk_m       = excluded.pk_m,
-            pk_auth    = excluded.pk_auth,
-            updated_at = datetime('now')
-    """, (dealer_id, pk_m, pk_auth))
+    row = db.execute(
+        "SELECT status FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+    ).fetchone()
+    if row and row["status"] == "ready":
+        return web.json_response({"ok": True, "dealer_id": dealer_id, "unchanged": True})
+
+    if row:
+        db.execute("""
+            UPDATE vault_entries
+            SET pk_m=?, pk_auth=?, status='registered',
+                wallet_name=COALESCE(?, wallet_name),
+                updated_at=datetime('now')
+            WHERE dealer_id=?
+        """, (pk_m, pk_auth, wallet_name, dealer_id))
+    else:
+        db.execute("""
+            INSERT INTO vault_entries (dealer_id, wallet_name, pk_m, pk_auth, status)
+            VALUES (?, ?, ?, ?, 'registered')
+        """, (dealer_id, wallet_name, pk_m, pk_auth))
     db.commit()
 
     log.info(f"[REGISTER] dealer_id={dealer_id} pk_m={pk_m[:8]}…")
@@ -190,11 +220,18 @@ async def admin_vault_register(request: web.Request) -> web.Response:
 async def api_vault_pubkey(request: web.Request) -> web.Response:
     dealer_id = request.match_info["dealer_id"]
     row = get_db().execute(
-        "SELECT pk_m, status FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+        "SELECT pk_m, status, wallet_name FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
     ).fetchone()
-    if not row:
-        return web.json_response({"error": "dealer_id não registrado"}, status=404)
-    return web.json_response({"pk_m": row["pk_m"], "status": row["status"]})
+    if not row or not _row_has_keys(row):
+        return web.json_response(
+            {"error": "dealer_id aguardando chaves do manager — inicie o manager_dealer"},
+            status=404,
+        )
+    return web.json_response({
+        "pk_m": row["pk_m"],
+        "status": row["status"],
+        "wallet_name": row["wallet_name"],
+    })
 
 
 async def api_vault_passphrase(request: web.Request) -> web.Response:
@@ -203,36 +240,104 @@ async def api_vault_passphrase(request: web.Request) -> web.Response:
     except Exception:
         return web.json_response({"error": "JSON inválido"}, status=400)
 
-    dealer_id = body.get("dealer_id", "").strip()
-    enc_p     = body.get("enc_p", "").strip()
-    sealed_r  = body.get("sealed_r", "").strip()
+    dealer_id   = body.get("dealer_id", "").strip()
+    enc_p       = body.get("enc_p", "").strip()
+    sealed_r    = body.get("sealed_r", "").strip()
+    wallet_name = (body.get("wallet_name") or "").strip() or None
 
     if not all([dealer_id, enc_p, sealed_r]):
         return web.json_response({"error": "Campos obrigatórios: dealer_id, enc_p, sealed_r"}, status=400)
 
     db = get_db()
     row = db.execute(
-        "SELECT dealer_id FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+        "SELECT dealer_id, pk_m, pk_auth FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
     ).fetchone()
     if not row:
-        return web.json_response({"error": "dealer_id não registrado — rode vault_setup.py primeiro"}, status=404)
+        return web.json_response({"error": "dealer_id não existe — crie o dealer no painel Vault primeiro"}, status=404)
+    if not _row_has_keys(row):
+        return web.json_response(
+            {"error": "Manager ainda não registrou as chaves — inicie o manager_dealer"},
+            status=409,
+        )
 
     db.execute("""
         UPDATE vault_entries
-        SET enc_p=?, sealed_r=?, status='ready', updated_at=datetime('now')
+        SET enc_p=?, sealed_r=?, status='ready',
+            wallet_name=COALESCE(?, wallet_name),
+            updated_at=datetime('now')
         WHERE dealer_id=?
-    """, (enc_p, sealed_r, dealer_id))
+    """, (enc_p, sealed_r, wallet_name, dealer_id))
     db.commit()
 
     log.info(f"[PASSPHRASE] Vault pronto para dealer_id={dealer_id}")
     return web.json_response({"ok": True})
 
 
-async def api_vault_dealers(request: web.Request) -> web.Response:
+async def api_vault_dealers_list(request: web.Request) -> web.Response:
     rows = get_db().execute(
-        "SELECT dealer_id, status FROM vault_entries ORDER BY created_at"
+        "SELECT dealer_id, wallet_name, status, pk_m, pk_auth FROM vault_entries ORDER BY created_at"
     ).fetchall()
-    return web.json_response({"dealers": [dict(r) for r in rows]})
+    return web.json_response({"dealers": [_dealer_public(r) for r in rows]})
+
+
+async def api_vault_dealers_create(request: web.Request) -> web.Response:
+    """Website cria/atualiza dealer (dealer_id + wallet_name) — fonte de verdade dos nomes."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "JSON inválido"}, status=400)
+
+    dealer_id   = body.get("dealer_id", "").strip()
+    wallet_name = body.get("wallet_name", "").strip()
+
+    if not dealer_id or not wallet_name:
+        return web.json_response({"error": "Campos obrigatórios: dealer_id, wallet_name"}, status=400)
+
+    db = get_db()
+    row = db.execute(
+        "SELECT status FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+    ).fetchone()
+
+    if row and row["status"] == "ready":
+        db.execute(
+            "UPDATE vault_entries SET wallet_name=?, updated_at=datetime('now') WHERE dealer_id=?",
+            (wallet_name, dealer_id),
+        )
+        db.commit()
+        return web.json_response({"ok": True, "dealer_id": dealer_id, "updated_name": True})
+
+    if row:
+        db.execute(
+            "UPDATE vault_entries SET wallet_name=?, updated_at=datetime('now') WHERE dealer_id=?",
+            (wallet_name, dealer_id),
+        )
+    else:
+        db.execute(
+            "INSERT INTO vault_entries (dealer_id, wallet_name, status) VALUES (?, ?, 'pending')",
+            (dealer_id, wallet_name),
+        )
+    db.commit()
+    _audit("dealer_upsert", dealer_id, request.remote, "success")
+    return web.json_response({"ok": True, "dealer_id": dealer_id, "wallet_name": wallet_name})
+
+
+async def api_vault_dealers_delete(request: web.Request) -> web.Response:
+    """Remove dealer do catálogo (recadastro do zero no website)."""
+    dealer_id = request.match_info["dealer_id"].strip()
+    if not dealer_id:
+        return web.json_response({"error": "dealer_id inválido"}, status=400)
+
+    db = get_db()
+    row = db.execute(
+        "SELECT dealer_id FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+    ).fetchone()
+    if not row:
+        return web.json_response({"error": "dealer_id não encontrado"}, status=404)
+
+    db.execute("DELETE FROM vault_entries WHERE dealer_id = ?", (dealer_id,))
+    db.commit()
+    _audit("dealer_delete", dealer_id, request.remote, "success")
+    return web.json_response({"ok": True, "dealer_id": dealer_id})
 
 
 # ── WebSocket Vault (chamado por vault_ws_client.py) ─────────────────────────
@@ -266,7 +371,7 @@ async def vault_ws_handler(request: web.Request) -> web.WebSocketResponse:
                 "SELECT pk_auth FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
             ).fetchone()
 
-            if not row:
+            if not row or not row["pk_auth"]:
                 await ws.send_json({"type": "error", "message": "dealer_id não registrado"})
                 break
 
@@ -333,7 +438,9 @@ def create_app() -> web.Application:
     app.router.add_post("/admin/vault/register",           admin_vault_register)
     app.router.add_get ("/api/vault/pubkey/{dealer_id}",   api_vault_pubkey)
     app.router.add_post("/api/vault/passphrase",           api_vault_passphrase)
-    app.router.add_get ("/api/vault/dealers",              api_vault_dealers)
+    app.router.add_get ("/api/vault/dealers",              api_vault_dealers_list)
+    app.router.add_post("/api/vault/dealers",              api_vault_dealers_create)
+    app.router.add_delete("/api/vault/dealers/{dealer_id}", api_vault_dealers_delete)
     return app
 
 

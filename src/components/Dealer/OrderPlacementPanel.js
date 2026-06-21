@@ -2,11 +2,9 @@ import React from 'react';
 import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
 import { TbExternalLink, TbRefresh, TbCircleCheck, TbCircleX, TbAlertTriangle } from 'react-icons/tb';
-import useSideswapBook from './useSideswapBook';
 import OrderMarginBadge from './OrderMarginBadge';
-import { FollowRefLink } from './utils/followTarget';
+import { FollowRefLink, bookOrderAnchorId } from './utils/followTarget';
 import { computeExternalMargin, computeVsBookTop } from './utils/orderMargin';
-import { bookOrderAnchorId } from './utils/followTarget';
 import {
   describeMarketNormalize,
   formatBookPrice,
@@ -51,12 +49,20 @@ function MiniBook({ orders, tradeDir, highlightId, followRefId, limit = 6 }) {
   );
 }
 
-export default function OrderPlacementPanel({ dealer, assets, combinations = [] }) {
+export default function OrderPlacementPanel({
+  dealer,
+  combinations = [],
+  ownOrders = [],
+  status = 'idle',
+  error = null,
+  lastUpdate = null,
+  pairs = [],
+  books = {},
+  indPrices = {},
+  placements = [],
+  reconnect = () => {},
+}) {
   const { orders: prepared } = prepareDealerOrders(dealer?.orders || []);
-  const ownOrders = prepared.filter((o) => o.order_id);
-  const {
-    status, error, lastUpdate, pairs, books, indPrices, placements, reconnect,
-  } = useSideswapBook(ownOrders, assets, ownOrders.length > 0, combinations);
 
   if (!dealer) {
     return (

@@ -2,6 +2,7 @@ import React from 'react';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
+import { formatBookPrice } from './utils/sideswapBook';
 
 /**
  * Converte entrada humana (%) para decimal do backend.
@@ -39,8 +40,14 @@ export function buildPriceParams({
   return p;
 }
 
-export function validatePriceForm({ price, pricePorc, priceMin, followTarget }) {
+export function validatePriceForm({ price, pricePorc, priceMin, followTarget, followTargetOrderId }) {
   if (followTarget) {
+    if (!String(followTargetOrderId || '').trim()) {
+      return {
+        ok: false,
+        error: 'Selecione o dealer/ordem alvo (follow_target_order_id obrigatório).',
+      };
+    }
     if (parsePercentInput(priceMin) === null) {
       return {
         ok: false,
@@ -147,6 +154,7 @@ export default function PriceFields({
   amount,
   followTarget = false,
   followTargetOrderId = '',
+  followTargetChoices = [],
   onPriceChange,
   onPricePorcChange,
   onPriceMinChange,
@@ -164,13 +172,13 @@ export default function PriceFields({
             type="switch"
             id="dealer-follow-target"
             className="dealer-follow-switch"
-            label="Seguir alvo no book (follow_target)"
+            label="Seguir alvo (follow_target)"
             checked={!!followTarget}
             onChange={(e) => onFollowTargetChange(e.target.checked)}
           />
           <p className="dealer-follow-hint mb-0">
             {followTarget
-              ? 'Segue o dealer imediatamente acima, mantendo pm % como piso de lucro. Spread calculado automaticamente (ex.: 1,49% vs alvo 1,50%).'
+              ? 'Selecione o dealer alvo abaixo e defina pm % como piso de lucro. Spread calculado automaticamente.'
               : 'Modo clássico: preencha apenas um campo de preço/spread abaixo.'}
           </p>
         </div>
@@ -234,16 +242,41 @@ export default function PriceFields({
       {showFollowOptions && followTarget && onFollowTargetOrderIdChange && (
         <div className="mt-2">
           <FieldLabel
-            title="Pin alvo (order_id opcional)"
-            hint="Fixa um concorrente específico. Vazio = segue automaticamente quem está acima."
+            title="Dealer alvo *"
+            hint={followTargetChoices.length > 0
+              ? 'Dealer/ordem a ser seguido. Obrigatório — selecione um alvo explícito.'
+              : 'Nenhum dealer ativo com ordens enviadas no mesmo par. Digite o order_id manualmente.'}
           />
-          <Form.Control
-            size="sm"
-            type="text"
-            placeholder="ex: 1781867960816"
-            value={followTargetOrderId}
-            onChange={(e) => onFollowTargetOrderIdChange(e.target.value)}
-          />
+          {followTargetChoices.length > 0 ? (
+            <Form.Select
+              size="sm"
+              value={followTargetOrderId}
+              onChange={(e) => onFollowTargetOrderIdChange(e.target.value)}
+              className={!followTargetOrderId ? 'dealer-follow-select-empty' : ''}
+            >
+              <option value="">— selecione o dealer alvo —</option>
+              {followTargetChoices.map((item) => {
+                const priceLabel = item.order.price != null
+                  ? ` @ ${formatBookPrice(item.order.price)}`
+                  : item.order.original_price != null
+                    ? ` @ ${formatBookPrice(item.order.original_price)}`
+                    : '';
+                return (
+                  <option key={item.cancelKey} value={String(item.order.order_id)}>
+                    {`PID ${item.pid} · ${item.wallet_name || '—'} — ${item.order.base}/${item.order.quote} ${item.order.trade_dir}${priceLabel} #${item.order.order_id}`}
+                  </option>
+                );
+              })}
+            </Form.Select>
+          ) : (
+            <Form.Control
+              size="sm"
+              type="text"
+              placeholder="ex: 1781867960816"
+              value={followTargetOrderId}
+              onChange={(e) => onFollowTargetOrderIdChange(e.target.value)}
+            />
+          )}
         </div>
       )}
 

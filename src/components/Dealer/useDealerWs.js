@@ -7,22 +7,55 @@ const STATUS = {
   error: 'error',
 };
 
+/** Estado vazio após reset de sessão (troca local → produção). */
+export const EMPTY_DEALER_STATE = {
+  dealers: [],
+  messages: [],
+  ts: null,
+  services: null,
+};
+
 export default function useDealerWs(wsUrl, token, enabled) {
   const wsRef = useRef(null);
   const reqIdRef = useRef(1);
   const pendingRef = useRef(new Map());
   const reconnectRef = useRef(null);
+  const agentSessionRef = useRef(null);
 
   const [status, setStatus] = useState(STATUS.idle);
   const [agentConnected, setAgentConnected] = useState(false);
+  const [agentMeta, setAgentMeta] = useState(null);
   const [state, setState] = useState(null);
   const [messages, setMessages] = useState([]);
   const [events, setEvents] = useState([]);
   const [lastError, setLastError] = useState(null);
 
+  const clearAgentState = useCallback((reason) => {
+    agentSessionRef.current = null;
+    setAgentConnected(false);
+    setAgentMeta(null);
+    setState({ ...EMPTY_DEALER_STATE, resetReason: reason, ts: new Date().toISOString() });
+  }, []);
+
   const addLog = useCallback((text) => {
     setMessages((prev) => [...prev.slice(-199), { text, ts: Date.now() }]);
   }, []);
+
+  const applyAgentMeta = useCallback((msg) => {
+    const sid = msg.session_id ?? msg.agent_session_id ?? null;
+    if (sid != null && sid !== agentSessionRef.current) {
+      agentSessionRef.current = sid;
+      setState({ ...EMPTY_DEALER_STATE, ts: msg.ts || new Date().toISOString() });
+      addLog(`[system] Nova sessão do manager (#${sid}${msg.hostname ? ` · ${msg.hostname}` : ''})`);
+    }
+    if (msg.hostname || sid != null) {
+      setAgentMeta({
+        sessionId: sid,
+        hostname: msg.hostname || null,
+        connectedAt: msg.ts || null,
+      });
+    }
+  }, [addLog]);
 
   const handleMessage = useCallback((raw) => {
     let msg;
@@ -34,15 +67,44 @@ export default function useDealerWs(wsUrl, token, enabled) {
 
     const { type } = msg;
 
+    if (type === 'state_reset') {
+      clearAgentState(msg.reason || 'state_reset');
+      addLog(`[system] Cache limpo (${msg.reason || 'reset'})`);
+      return;
+    }
+
     if (type === 'state_update') {
       const data = msg.data || msg;
+      const sid = data.agent_session_id ?? data.session_id;
+      if (sid != null && sid !== agentSessionRef.current) {
+        agentSessionRef.current = sid;
+        addLog(`[system] state_update de nova sessão (${data.agent_hostname || sid})`);
+      }
       setState(data);
+      setAgentConnected(true);
+      if (data.agent_hostname || sid != null) {
+        setAgentMeta({
+          sessionId: sid ?? agentSessionRef.current,
+          hostname: data.agent_hostname || null,
+          connectedAt: data.ts || null,
+        });
+      }
       return;
     }
 
     if (type === 'agent_status') {
-      setAgentConnected(!!msg.connected);
-      addLog(`[${msg.ts || ''}] Agente ${msg.connected ? 'conectado' : 'desconectado'}`);
+      if (msg.connected) {
+        applyAgentMeta(msg);
+        setAgentConnected(true);
+        addLog(
+          `[${msg.ts || ''}] Agente conectado`
+          + (msg.hostname ? ` (${msg.hostname})` : '')
+          + (msg.session_id != null ? ` #${msg.session_id}` : ''),
+        );
+      } else {
+        clearAgentState('agent_disconnected');
+        addLog(`[${msg.ts || ''}] Agente desconectado`);
+      }
       return;
     }
 
@@ -67,7 +129,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
     if (type === 'error') {
       const errMsg = msg.message || 'Erro desconhecido';
       setLastError(errMsg);
-      if (errMsg.includes('agent') || errMsg.includes('Agent')) {
+      if (/agent/i.test(errMsg)) {
         setAgentConnected(false);
       }
       addLog(`[error] ${errMsg}`);
@@ -78,7 +140,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
         resolver({ ok: false, data: { error: errMsg }, action: msg.action });
       }
     }
-  }, [addLog]);
+  }, [addLog, applyAgentMeta, clearAgentState]);
 
   const connect = useCallback(() => {
     if (!enabled || !wsUrl || !token) return;
@@ -130,7 +192,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
     ws.onclose = () => {
       wsRef.current = null;
       setStatus((prev) => (prev === STATUS.error ? prev : STATUS.idle));
-      setAgentConnected(false);
+      clearAgentState('browser_disconnected');
       pendingRef.current.forEach((resolve) => {
         resolve({ ok: false, data: { error: 'Conexão encerrada' } });
       });
@@ -140,7 +202,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
         reconnectRef.current = setTimeout(connect, 5000);
       }
     };
-  }, [enabled, wsUrl, token, addLog, handleMessage]);
+  }, [enabled, wsUrl, token, addLog, handleMessage, clearAgentState]);
 
   const disconnect = useCallback(() => {
     if (reconnectRef.current) {
@@ -152,8 +214,8 @@ export default function useDealerWs(wsUrl, token, enabled) {
       wsRef.current = null;
     }
     setStatus(STATUS.idle);
-    setAgentConnected(false);
-  }, []);
+    clearAgentState('manual_disconnect');
+  }, [clearAgentState]);
 
   useEffect(() => {
     if (enabled) {
@@ -201,6 +263,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
   return {
     status,
     agentConnected,
+    agentMeta,
     state,
     messages,
     events,

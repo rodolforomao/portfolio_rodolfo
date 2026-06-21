@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# Deploy do build para produção via SSH + rsync.
+# Deploy SOMENTE do frontend React (npm run build → rsync public_html).
+#
+# NÃO inclui: vault_server.py, ws_relay_server.py, systemd, nginx vault proxy.
+# Para deploy completo use: bash scripts/deploy-production.sh
+#
 # Requer: .env com DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_REMOTE_PATH.
-# Opcional: DEPLOY_SSH_PORT, DEPLOY_SSH_KEY (chave) ou DEPLOY_SSH_PASSWORD (senha; precisa de sshpass).
+# Opcional: DEPLOY_SSH_PORT, DEPLOY_SSH_KEY, DEPLOY_SSH_PASSWORD (sshpass).
+# Build usa REACT_APP_* do .env (Dealer Console login, WS token, etc.).
 
 set -e
 
@@ -66,4 +71,6 @@ rsync -avz --delete \
 # Limpa SSHPASS do ambiente após o rsync
 unset SSHPASS 2>/dev/null || true
 
-echo "Deploy concluído com sucesso."
+echo "Frontend deploy concluído."
+echo "  Vault/relay: bash scripts/deploy-vault-services.sh"
+echo "  Tudo junto:  bash scripts/deploy-production.sh"

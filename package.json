@@ -33,6 +33,10 @@
     "dev": "concurrently --names \"react,vault,relay\" --prefix-colors \"cyan,magenta,yellow\" \"npm run start\" \"npm run start:vault\" \"npm run start:relay\"",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
+    "deploy:ssh": "bash scripts/deploy-ssh.sh",
+    "deploy:vault": "bash scripts/deploy-vault-services.sh",
+    "deploy:production": "bash scripts/deploy-production.sh",
+    "verify:vault": "bash scripts/verify-vault-prod.sh",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

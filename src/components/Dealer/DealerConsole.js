@@ -13,10 +13,18 @@ import {
   TbPlayerPlay, TbList, TbPlayerStop, TbSend, TbX,
   TbArrowsExchange, TbRefresh, TbHistory, TbMessage,
   TbBug, TbLogout, TbWallet, TbBook, TbHeartbeat, TbCoins,
-  TbSettings, TbLayoutDashboard,
+  TbSettings, TbLayoutDashboard, TbChartLine,
 } from 'react-icons/tb';
 import useDealerWs from './useDealerWs';
+import useSideswapBook from './useSideswapBook';
+import useMarketScan from './useMarketScan';
+import MarketOpportunities from './MarketOpportunities';
 import { loadSession, clearSession, resolveWsUrl } from './config';
+import {
+  fetchVaultDealers,
+  dealersToWallets,
+  walletStatusLabel,
+} from './vault/vaultApi';
 import AssetsPanel from './AssetsPanel';
 import OrdersPanel from './OrdersPanel';
 import OrderPlacementPanel from './OrderPlacementPanel';
@@ -71,22 +79,22 @@ import { loadDealerPreferences } from './utils/dealerPreferences';
 import { FollowRefLink } from './utils/followTarget';
 import './Dealer.css';
 
-function DealerCard({ dealer, onSelect, selected }) {
+function DealerCard({ dealer, onSelect, selected, managerOffline = false }) {
   const assets = normalizeBalances(dealer.balances);
   const { orders: displayOrders } = prepareDealerOrders(dealer.orders || []);
   const isInactive = !dealer.isLive;
   return (
     <div
-      className={`dealer-card ${selected ? 'selected' : ''} dealer-card-${dealer.dealerStatus || 'morto'}`}
-      onClick={() => onSelect(dealer.pid)}
+      className={`dealer-card ${selected ? 'selected' : ''} dealer-card-${dealer.dealerStatus || 'morto'}${managerOffline ? ' dealer-card-manager-offline' : ''}`}
+      onClick={() => onSelect(selected ? null : dealer.pid)}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && onSelect(dealer.pid)}
+      onKeyDown={(e) => e.key === 'Enter' && onSelect(selected ? null : dealer.pid)}
     >
       <div className="dealer-card-head">
         <strong>PID {dealer.pid}</strong>
         <span>{dealer.wallet_name}</span>
-        <DealerStatusBadge dealer={dealer} />
+        <DealerStatusBadge dealer={dealer} managerOffline={managerOffline} />
       </div>
       <div className="dealer-card-meta">
         API:{dealer.port_api} · WS:{dealer.port_ws}
@@ -115,7 +123,7 @@ function DealerCard({ dealer, onSelect, selected }) {
               className={`dealer-order-chip ${o.follow_target ? 'follow' : o.order_id ? 'sent' : 'pending'}`}
             >
               <div className="dealer-order-chip-main">
-                <OrderStatusSignal order={o} size="sm" />
+                <OrderStatusSignal order={o} size="sm" managerOffline={managerOffline} />
                 <span>
                   {cleanPairName(o.base, o.quote)} {o.trade_dir}
                   {!o.order_id && !o.follow_target && (
@@ -161,6 +169,11 @@ const CommandPanel = React.memo(function CommandPanel({
   const [mnemonicIndex, setMnemonicIndex] = useState('1');
   const [walletName, setWalletName] = useState('');
   const [wallets, setWallets] = useState([]);
+  const [vaultLoadErr, setVaultLoadErr] = useState('');
+  const [vaultLoading, setVaultLoading] = useState(false);
+
+  const selectedWallet = wallets.find((w) => w.name === walletName) || null;
+  const canStartDealer = agentConnected && selectedWallet?.ready;
 
   const [base, setBase] = useState('L-BTC');
   const [quote, setQuote] = useState('USDt');
@@ -234,6 +247,16 @@ const CommandPanel = React.memo(function CommandPanel({
   const cancelChoices = useMemo(
     () => flattenDealerOrders(activeDealers, { pid: selectedPid || null }),
     [activeDealers, selectedPid],
+  );
+
+  const followTargetChoices = useMemo(
+    () => flattenDealerOrders(activeDealers, { sentOnly: true }).filter(
+      (item) => item.order.base === base
+        && item.order.quote === quote
+        && item.order.trade_dir === tradeDir
+        && item.pid !== selectedPid,
+    ),
+    [activeDealers, base, quote, tradeDir, selectedPid],
   );
 
   const cancelTargetPid = selectedPid || cancelPick?.pid || null;
@@ -327,7 +350,7 @@ const CommandPanel = React.memo(function CommandPanel({
     const pid = spreadTargetPid;
     if (!pid || !spreadPick) return;
     const validation = validatePriceForm({
-      price, pricePorc, priceMin, followTarget,
+      price, pricePorc, priceMin, followTarget, followTargetOrderId,
     });
     if (!validation.ok) {
       setFeedback({ ok: false, data: { error: validation.error } });
@@ -348,7 +371,7 @@ const CommandPanel = React.memo(function CommandPanel({
     const pid = spreadTargetPid;
     if (!pid || !spreadPick) return;
     const validation = validatePriceForm({
-      price: '', pricePorc: '', priceMin, followTarget: enabled,
+      price: '', pricePorc: '', priceMin, followTarget: enabled, followTargetOrderId,
     });
     if (enabled && !validation.ok) {
       setFeedback({ ok: false, data: { error: validation.error } });
@@ -438,7 +461,7 @@ const CommandPanel = React.memo(function CommandPanel({
       price, pricePorc, priceMin, followTarget, followTargetOrderId,
     });
     const validation = validatePriceForm({
-      price, pricePorc, priceMin, followTarget,
+      price, pricePorc, priceMin, followTarget, followTargetOrderId,
     });
     if (!validation.ok) {
       setFeedback({
@@ -512,13 +535,37 @@ const CommandPanel = React.memo(function CommandPanel({
     onTradeDirChange: setTradeDir,
   };
 
+  const loadWalletsFromVault = useCallback(async () => {
+    setVaultLoading(true);
+    setVaultLoadErr('');
+    const r = await fetchVaultDealers();
+    setVaultLoading(false);
+    if (!r.ok) {
+      setVaultLoadErr(r.data?.error || `Vault indisponível (HTTP ${r.status})`);
+      setWallets([]);
+      return;
+    }
+    const list = dealersToWallets(r.data.dealers || []);
+    setWallets(list);
+    setWalletName((prev) => {
+      if (prev && list.some((w) => w.name === prev)) return prev;
+      if (!list.length) return '';
+      const pick = list.find((w) => w.ready) || list[0];
+      setMnemonicIndex(String(pick.index));
+      return pick.name;
+    });
+  }, []);
+
+  useEffect(() => {
+    loadWalletsFromVault();
+  }, [loadWalletsFromVault]);
+
   const loadWallets = async () => {
-    const r = await run('get_wallets', {});
-    if (r?.ok && r.data?.wallets) {
-      setWallets(r.data.wallets);
-      if (r.data.wallets.length && !walletName) {
-        setWalletName(r.data.wallets[0].name);
-        setMnemonicIndex(String(r.data.wallets[0].index));
+    await loadWalletsFromVault();
+    if (agentConnected && wsStatus === 'connected') {
+      const r = await run('get_wallets', {});
+      if (r?.ok && r.data?.wallets?.length) {
+        setWallets(r.data.wallets);
       }
     }
   };
@@ -527,9 +574,29 @@ const CommandPanel = React.memo(function CommandPanel({
     <Tabs defaultActiveKey="run" className="dealer-tabs">
       <Tab eventKey="run" title={<><TbPlayerPlay /> Run</>}>
         <div className="dealer-form-block">
-          <Button size="sm" variant="outline-secondary" onClick={loadWallets} disabled={busy}>
-            Carregar wallets
-          </Button>
+          <div className="d-flex gap-2 flex-wrap align-items-center mb-2">
+            <Button size="sm" variant="outline-secondary" onClick={loadWallets} disabled={busy || vaultLoading}>
+              {vaultLoading ? 'Carregando…' : 'Atualizar catálogo Vault'}
+            </Button>
+            <span className="dealer-empty" style={{ fontSize: '0.8rem' }}>
+              Wallets vêm do Vault (website), não do .env do celular.
+            </span>
+          </div>
+
+          {vaultLoadErr && (
+            <div className="dealer-vault-warning mb-2" style={{ color: '#f85149' }}>
+              {vaultLoadErr}
+            </div>
+          )}
+
+          {wallets.length === 0 && !vaultLoading && !vaultLoadErr && (
+            <div className="dealer-status-banner dealer-status-banner-warning mb-2 py-2 px-2" style={{ borderRadius: 8 }}>
+              <strong>Nenhuma wallet no Vault.</strong>{' '}
+              Abra <strong>Settings → Vault</strong>, crie <code>dealer_id</code> + <code>wallet_name</code>,
+              inicie o manager no celular (registra chaves) e cadastre a passphrase.
+            </div>
+          )}
+
           {wallets.length > 0 && (
             <Form.Select
               size="sm"
@@ -542,28 +609,53 @@ const CommandPanel = React.memo(function CommandPanel({
               }}
             >
               {wallets.map((w) => (
-                <option key={w.index} value={w.name}>{w.index}: {w.name}</option>
+                <option key={w.dealer_id || w.index} value={w.name}>
+                  {w.index}: {w.name} — {walletStatusLabel(w)}
+                </option>
               ))}
             </Form.Select>
           )}
+
+          {!agentConnected && wallets.length > 0 && (
+            <div className="dealer-vault-warning mt-2">
+              Manager offline — catálogo OK, mas <strong>start_dealer</strong> exige manager conectado ao relay.
+            </div>
+          )}
+
+          {selectedWallet && !selectedWallet.ready && (
+            <div className="dealer-vault-warning mt-2">
+              Wallet <strong>{selectedWallet.name}</strong> ainda não está pronta ({walletStatusLabel(selectedWallet)}).
+              Conclua em Settings → Vault (passphrase).
+            </div>
+          )}
+
           <Row className="g-2 mt-1">
             <Col xs={4}>
               <Form.Control
-                size="sm" placeholder="mnemonic_index"
+                size="sm" placeholder="index"
                 value={mnemonicIndex} onChange={(e) => setMnemonicIndex(e.target.value)}
+                readOnly
               />
             </Col>
             <Col xs={8}>
               <Form.Control
-                size="sm" placeholder="wallet_name"
+                size="sm" placeholder="wallet (Vault)"
                 value={walletName} onChange={(e) => setWalletName(e.target.value)}
+                readOnly={wallets.length > 0}
               />
             </Col>
           </Row>
           <Button
             className="dealer-btn-primary mt-2"
-            disabled={busy}
+            disabled={busy || !canStartDealer}
             onClick={handleStartDealer}
+            title={
+              !agentConnected
+                ? 'Manager offline'
+                : !selectedWallet?.ready
+                  ? 'Vault não pronto para esta wallet'
+                  : 'Iniciar dealer'
+            }
           >
             start_dealer
           </Button>
@@ -707,6 +799,7 @@ const CommandPanel = React.memo(function CommandPanel({
             priceMin={priceMin}
             followTarget={followTarget}
             followTargetOrderId={followTargetOrderId}
+            followTargetChoices={followTargetChoices}
             amount={amount}
             onPriceChange={setPrice}
             onPricePorcChange={setPricePorc}
@@ -903,6 +996,7 @@ const CommandPanel = React.memo(function CommandPanel({
               priceMin={priceMin}
               followTarget={followTarget}
               followTargetOrderId={followTargetOrderId}
+              followTargetChoices={followTargetChoices}
               showAmount={false}
               onPriceChange={setPrice}
               onPricePorcChange={setPricePorc}
@@ -1023,7 +1117,10 @@ export default function DealerConsole() {
   const [showMessages, setShowMessages] = useState(false);
   const [orderRegistryTick, setOrderRegistryTick] = useState(0);
   const [mainView, setMainView] = useState('geral');
+  const [midTab, setMidTab] = useState('operacional');
+  const [rendPid, setRendPid] = useState(null);
   const [consolePrefs, setConsolePrefs] = useState(() => loadDealerPreferences());
+  const [telegramStatus, setTelegramStatus] = useState(null);
 
   const bumpOrderRegistry = useCallback(() => setOrderRegistryTick((n) => n + 1), []);
 
@@ -1034,7 +1131,7 @@ export default function DealerConsole() {
   }, [session, navigate]);
 
   const {
-    status, agentConnected, state, messages, sendCommand, disconnect, lastError,
+    status, agentConnected, agentMeta, state, messages, sendCommand, disconnect, lastError,
   } = useDealerWs(session?.wsUrl, session?.token, !!session?.authenticated);
 
   const dealers = useMemo(
@@ -1055,6 +1152,50 @@ export default function DealerConsole() {
     [stateMessages, messages],
   );
   const selectedDealer = dealers.find((d) => d.pid === selectedPid) || null;
+
+  const selectedDealerSentOrders = useMemo(() => {
+    const source = selectedDealer ? [selectedDealer] : dealers;
+    const all = [];
+    for (const d of source) {
+      const { orders } = prepareDealerOrders(d.orders || []);
+      all.push(...orders.filter((o) => o.order_id));
+    }
+    return all;
+  }, [selectedDealer, dealers]);
+
+  const {
+    status: bookStatus,
+    error: bookError,
+    lastUpdate: bookLastUpdate,
+    pairs: bookPairs,
+    books: bookData,
+    indPrices: bookIndPrices,
+    placements: bookPlacements,
+    reconnect: reconnectBook,
+  } = useSideswapBook(
+    selectedDealerSentOrders,
+    marketData.assets,
+    selectedDealerSentOrders.length > 0,
+    marketData.combinations,
+  );
+
+  const confirmedOrderIds = useMemo(() => {
+    const s = new Set();
+    for (const p of bookPlacements) {
+      if (p.found && p.order?.order_id != null) s.add(String(p.order.order_id));
+    }
+    return s;
+  }, [bookPlacements]);
+
+  const {
+    status: scanStatus,
+    error: scanError,
+    lastUpdate: scanLastUpdate,
+    pairs: scanPairs,
+    books: scanBooks,
+    indPrices: scanIndPrices,
+    reconnect: reconnectScan,
+  } = useMarketScan(marketData.assets, mainView === 'rendimentos');
 
   const refreshAssets = React.useCallback(async () => {
     if (status !== 'connected') return;
@@ -1080,6 +1221,16 @@ export default function DealerConsole() {
       setRefreshingAssets(false);
     }
   }, [status, sendCommand]);
+
+  useEffect(() => {
+    if (status !== 'connected' || !agentConnected) return;
+    sendCommand('get_telegram_config', {}).then((res) => {
+      if (!res?.ok) return;
+      const bots = res.data?.bots || [];
+      const chatCount = bots.reduce((n, b) => n + (b.chat_count || 0), 0);
+      setTelegramStatus({ active: chatCount > 0, botCount: bots.length, chatCount });
+    }).catch(() => {});
+  }, [status, agentConnected, sendCommand]);
 
   useEffect(() => {
     if (status !== 'connected') return undefined;
@@ -1155,6 +1306,15 @@ export default function DealerConsole() {
                 </Nav.Item>
                 <Nav.Item>
                   <Nav.Link
+                    active={mainView === 'rendimentos'}
+                    onClick={() => setMainView('rendimentos')}
+                    className="dealer-main-nav-link"
+                  >
+                    <TbChartLine /> Rendimentos
+                  </Nav.Link>
+                </Nav.Item>
+                <Nav.Item>
+                  <Nav.Link
                     active={mainView === 'config'}
                     onClick={() => setMainView('config')}
                     className="dealer-main-nav-link"
@@ -1185,9 +1345,11 @@ export default function DealerConsole() {
           <SystemStatusBar
             wsStatus={status}
             agentConnected={agentConnected}
+            agentMeta={agentMeta}
             dealers={dealers}
             selectedDealer={mainView === 'geral' ? selectedDealer : null}
             stateTs={state?.ts}
+            telegramStatus={telegramStatus}
           />
         </Container>
       </header>
@@ -1211,16 +1373,15 @@ export default function DealerConsole() {
         <div className="dealer-status-banner dealer-status-banner-warning" role="alert">
           <Container fluid>
             <strong>Manager offline.</strong>{' '}
-            Relay conectado, mas o <strong>manager_dealer</strong> não está conectado ao relay.
-            Isto <em>não</em> significa ausência de dealers — é o backend Python que envia state_update.
+            Relay conectado, mas nenhum <strong>manager_dealer</strong> está ativo no relay agora.
             {dealers.length > 0 && (
-              <> Os dealers exibidos podem ser <strong>cache antigo</strong>.</>
+              <> A lista abaixo será limpa automaticamente ao reconectar ou trocar de agente.</>
             )}
             <div className="dealer-status-banner-hint">
-              Verifique se o backend está rodando com{' '}
-              <code>bash run-pc.sh run</code> (ou equivalente), com{' '}
-              <code>WS_RELAY_URL=ws://127.0.0.1:8765</code> e{' '}
-              <code>WS_BRIDGE_TOKEN</code> iguais ao <code>.env</code> do site.
+              Fluxo dev → produção: pare o manager local, inicie no Termux — o novo agente
+              substitui o anterior e o console atualiza sozinho (mesmo{' '}
+              <code>WS_BRIDGE_TOKEN</code>).
+              Wallets e passphrases ficam no <strong>Vault</strong> (Settings → Vault).
             </div>
           </Container>
         </div>
@@ -1241,11 +1402,81 @@ export default function DealerConsole() {
               </div>
             </Col>
           </Row>
+        ) : mainView === 'rendimentos' ? (
+          <Row className="g-3">
+            <Col xs={12} lg={3}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <h3 className="dealer-rend-sidebar-title"><TbChartLine /> Carteiras</h3>
+                <button
+                  className={`dealer-rend-pid-btn${rendPid === null ? ' active' : ''}`}
+                  onClick={() => setRendPid(null)}
+                >
+                  <span className="dealer-rend-pid-label">Todas as carteiras</span>
+                  <span className="dealer-rend-pid-count">{dealers.length} PIDs</span>
+                </button>
+                {dealers.map((d) => (
+                  <button
+                    key={d.pid}
+                    className={`dealer-rend-pid-btn${rendPid === d.pid ? ' active' : ''}`}
+                    onClick={() => setRendPid(d.pid)}
+                  >
+                    <span className="dealer-rend-pid-label">
+                      PID {d.pid}
+                      <span className={`dealer-rend-pid-dot dealer-rend-pid-dot-${d.dealerStatus}`} />
+                    </span>
+                    <span className="dealer-rend-pid-wallet">{d.wallet_name || '—'}</span>
+                  </button>
+                ))}
+                {dealers.length === 0 && (
+                  <p className="dealer-empty">Nenhum dealer ativo.</p>
+                )}
+              </div>
+            </Col>
+            <Col xs={12} lg={9}>
+              <div className="dealer-panel dealer-panel-scroll dealer-rend-main">
+                <MarketOpportunities
+                  pairs={scanPairs}
+                  books={scanBooks}
+                  indPrices={scanIndPrices}
+                  status={scanStatus}
+                  error={scanError}
+                  lastUpdate={scanLastUpdate}
+                  dealers={dealers}
+                  reconnect={reconnectScan}
+                  onGoToOrder={(base, quote) => {
+                    setMainView('geral');
+                    setMidTab('operacional');
+                  }}
+                />
+                <div className="dealer-rend-divider" />
+                <TransactionsPanel
+                  dealer={rendPid != null ? dealers.find((d) => d.pid === rendPid) || null : null}
+                  dealers={dealers}
+                  sendCommand={sendCommand}
+                  wsStatus={status}
+                  syncOnSelect={consolePrefs.transactionsSyncOnSelect}
+                />
+              </div>
+            </Col>
+          </Row>
         ) : (
         <Row className="g-3">
           <Col xs={12} lg={4}>
             <div className="dealer-panel dealer-panel-scroll">
-              <h3>Dealers — {dealersSummaryLabel(dealers)}</h3>
+              <div className="dealer-list-header">
+                <h3>Dealers — {dealersSummaryLabel(dealers)}</h3>
+                {selectedPid && dealers.length > 1 && (
+                  <Button
+                    size="sm"
+                    variant="outline-secondary"
+                    className="dealer-deselect-btn"
+                    onClick={() => setSelectedPid(null)}
+                    title="Ver resumo de todas as carteiras"
+                  >
+                    Visão geral
+                  </Button>
+                )}
+              </div>
               {dealers.length === 0 ? (
                 <p className="dealer-empty">Nenhum dealer ativo. Use Run para iniciar.</p>
               ) : (
@@ -1255,6 +1486,7 @@ export default function DealerConsole() {
                     dealer={d}
                     selected={selectedPid === d.pid}
                     onSelect={setSelectedPid}
+                    managerOffline={!agentConnected}
                   />
                 ))
               )}
@@ -1263,24 +1495,62 @@ export default function DealerConsole() {
 
           <Col xs={12} lg={4}>
             <div className="dealer-panel dealer-panel-scroll dealer-panel-middle">
-              <AssetsPanel
-                dealer={selectedDealer}
-                onRefresh={refreshAssets}
-                refreshing={refreshingAssets}
-                lastRefresh={lastAssetRefresh}
-              />
-              <OrdersPanel dealer={selectedDealer} />
-              <TransactionsPanel
-                dealer={selectedDealer}
-                sendCommand={sendCommand}
-                wsStatus={status}
-                syncOnSelect={consolePrefs.transactionsSyncOnSelect}
-              />
-              <OrderPlacementPanel
-                dealer={selectedDealer}
-                assets={marketData.assets}
-                combinations={marketData.combinations}
-              />
+              <div className="dealer-mid-tabs">
+                <button
+                  className={`dealer-mid-tab${midTab === 'operacional' ? ' active' : ''}`}
+                  onClick={() => setMidTab('operacional')}
+                >
+                  Operacional
+                </button>
+                <button
+                  className={`dealer-mid-tab${midTab === 'rendimentos' ? ' active' : ''}`}
+                  onClick={() => setMidTab('rendimentos')}
+                >
+                  Rendimentos
+                </button>
+              </div>
+
+              {midTab === 'operacional' ? (
+                <>
+                  <AssetsPanel
+                    dealer={selectedDealer}
+                    dealers={dealers}
+                    onRefresh={refreshAssets}
+                    refreshing={refreshingAssets}
+                    lastRefresh={lastAssetRefresh}
+                    conversionPairs={bookPairs}
+                    conversionPrices={bookIndPrices}
+                    conversionStatus={bookStatus}
+                    conversionLastUpdate={bookLastUpdate}
+                  />
+                  <OrdersPanel
+                    dealer={selectedDealer}
+                    managerOffline={!agentConnected}
+                    confirmedOrderIds={confirmedOrderIds}
+                  />
+                  <OrderPlacementPanel
+                    dealer={selectedDealer}
+                    combinations={marketData.combinations}
+                    ownOrders={selectedDealerSentOrders}
+                    status={bookStatus}
+                    error={bookError}
+                    lastUpdate={bookLastUpdate}
+                    pairs={bookPairs}
+                    books={bookData}
+                    indPrices={bookIndPrices}
+                    placements={bookPlacements}
+                    reconnect={reconnectBook}
+                  />
+                </>
+              ) : (
+                <TransactionsPanel
+                  dealer={selectedDealer}
+                  dealers={dealers}
+                  sendCommand={sendCommand}
+                  wsStatus={status}
+                  syncOnSelect={consolePrefs.transactionsSyncOnSelect}
+                />
+              )}
             </div>
           </Col>
 
