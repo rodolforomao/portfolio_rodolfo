@@ -49,3 +49,10 @@ export async function deleteVaultDealer(dealerId) {
     method: 'DELETE',
   });
 }
+
+/** Limpa chaves + passphrase; mantém dealer_id e wallet_name (troca de celular). */
+export async function resetVaultDealer(dealerId) {
+  return vaultFetch(`/api/vault/dealers/${encodeURIComponent(dealerId)}/reset`, {
+    method: 'POST',
+  });
+}

@@ -13,6 +13,7 @@ import {
   fetchVaultDealers,
   createVaultDealer,
   deleteVaultDealer,
+  resetVaultDealer,
 } from './vault/vaultApi';
 
 function StatusBadge({ status }) {
@@ -30,7 +31,7 @@ function StatusBadge({ status }) {
 
 const MIN_LEN = 12;
 
-export default function VaultSetup({ embedded = false }) {
+export default function VaultSetup({ embedded = false, onVaultReset, onRequestKeySync }) {
   const [dealers, setDealers] = useState([]);
   const [loadingDealers, setLoadingDealers] = useState(false);
   const [dealerLoadErr, setDealerLoadErr] = useState('');
@@ -81,6 +82,40 @@ export default function VaultSetup({ embedded = false }) {
       setWalletName(wn);
       setNewDealerId('');
       setNewWalletName('');
+      loadDealers();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResetDealer = async () => {
+    const id = dealerId.trim();
+    if (!id) return;
+    const wn = walletName.trim() || id;
+    if (!window.confirm(
+      `Redefinir vault de '${id}' (${wn})?\n\n`
+      + 'Remove chaves antigas e a passphrase cifrada. '
+      + 'O manager no celular registrará chaves novas; depois cadastre a passphrase aqui de novo.',
+    )) return;
+    setResult(null);
+    setBusy(true);
+    try {
+      const r = await resetVaultDealer(id);
+      if (!r.ok) {
+        setResult({ ok: false, msg: r.data?.error || r.data?.message || 'Falha ao redefinir vault.' });
+        return;
+      }
+      if (onVaultReset) onVaultReset(id);
+      if (onRequestKeySync) {
+        try { await onRequestKeySync(); } catch { /* manager offline */ }
+      }
+      setResult({
+        ok: true,
+        msg: r.data?.message
+          || `Vault de '${id}' redefinido. Aguarde o manager registrar chaves e cadastre a passphrase.`,
+      });
+      setPassphrase('');
+      setConfirm('');
       loadDealers();
     } finally {
       setBusy(false);
@@ -162,7 +197,7 @@ export default function VaultSetup({ embedded = false }) {
       {!embedded && (
         <p className="dealer-vault-desc">
           <TbLock /> Split-key vault 2-of-2 — cifração <strong>no browser</strong> (X25519 + ChaCha20-Poly1305 + HKDF-SHA256).
-          {' '}Registre a passphrase após rodar <code>vault_setup.py</code> no manager.
+          {' '}O manager no celular gera chaves automaticamente; use <strong>Redefinir vault</strong> ao trocar de aparelho.
         </p>
       )}
       {embedded && (
@@ -341,20 +376,32 @@ export default function VaultSetup({ embedded = false }) {
       </Button>
 
       {dealerId.trim() && (
-        <Button
-          variant="outline-danger"
-          size="sm"
-          className="w-100 mt-2"
-          disabled={busy}
-          onClick={handleDeleteDealer}
-        >
-          Remover {dealerId.trim()} do Vault
-        </Button>
+        <>
+          <Button
+            variant="outline-warning"
+            size="sm"
+            className="w-100 mt-2"
+            disabled={busy}
+            onClick={handleResetDealer}
+          >
+            Redefinir vault (novo celular / chaves)
+          </Button>
+          <Button
+            variant="outline-danger"
+            size="sm"
+            className="w-100 mt-2"
+            disabled={busy}
+            onClick={handleDeleteDealer}
+          >
+            Remover {dealerId.trim()} do Vault
+          </Button>
+        </>
       )}
 
       <p className="dealer-vault-warning mt-3">
-        Fluxo: (1) criar dealer aqui → (2) manager registra chaves → (3) cadastrar passphrase.
-        Após pronto, o manager decifra via WebSocket — nada de NAME_* no .env do celular.
+        Fluxo: (1) criar dealer → (2) manager registra chaves → (3) cadastrar passphrase.
+        Troca de celular: use <strong>Redefinir vault</strong>, reinicie o manager no Termux
+        e cadastre a passphrase de novo (não precisa copiar arquivos do PC).
       </p>
     </div>
   );

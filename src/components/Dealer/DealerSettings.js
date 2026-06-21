@@ -68,7 +68,19 @@ export default function DealerSettings({
         </Nav>
 
         <div className="dealer-settings-content">
-          {section === 'vault' && <VaultSetup embedded />}
+          {section === 'vault' && (
+            <VaultSetup
+              embedded
+              onRequestKeySync={async () => {
+                if (wsStatus !== 'connected' || !sendCommand) {
+                  throw new Error('Manager offline');
+                }
+                const r = await sendCommand('vault_sync_keys', {});
+                if (!r?.ok) throw new Error(r?.data?.error || 'Falha ao sincronizar chaves');
+                return r.data;
+              }}
+            />
+          )}
           {section === 'telegram' && (
             <TelegramSettings
               sendCommand={sendCommand}

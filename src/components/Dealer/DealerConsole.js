@@ -563,6 +563,11 @@ const CommandPanel = React.memo(function CommandPanel({
   const loadWallets = async () => {
     await loadWalletsFromVault();
     if (agentConnected && wsStatus === 'connected') {
+      try {
+        await run('vault_sync_keys', {});
+      } catch {
+        // manager antigo sem a ação — ignora
+      }
       const r = await run('get_wallets', {});
       if (r?.ok && r.data?.wallets?.length) {
         setWallets(r.data.wallets);

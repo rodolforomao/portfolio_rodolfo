@@ -220,16 +220,20 @@ async def admin_vault_register(request: web.Request) -> web.Response:
 async def api_vault_pubkey(request: web.Request) -> web.Response:
     dealer_id = request.match_info["dealer_id"]
     row = get_db().execute(
-        "SELECT pk_m, status, wallet_name FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+        "SELECT pk_m, pk_auth, status, wallet_name FROM vault_entries WHERE dealer_id = ?",
+        (dealer_id,),
     ).fetchone()
-    if not row or not _row_has_keys(row):
+    if not row:
+        return web.json_response({"error": "dealer_id não encontrado"}, status=404)
+    if not _row_has_keys(row):
         return web.json_response(
             {"error": "dealer_id aguardando chaves do manager — inicie o manager_dealer"},
             status=404,
         )
     return web.json_response({
-        "pk_m": row["pk_m"],
-        "status": row["status"],
+        "pk_m":        row["pk_m"],
+        "pk_auth":     row["pk_auth"],
+        "status":      row["status"],
         "wallet_name": row["wallet_name"],
     })
 
@@ -340,6 +344,40 @@ async def api_vault_dealers_delete(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "dealer_id": dealer_id})
 
 
+async def api_vault_dealers_reset(request: web.Request) -> web.Response:
+    """
+    Redefine chaves + passphrase — mantém dealer_id e wallet_name.
+    Fluxo: reset → manager registra pk_m/pk_auth → admin cadastra passphrase de novo.
+    """
+    dealer_id = request.match_info["dealer_id"].strip()
+    if not dealer_id:
+        return web.json_response({"error": "dealer_id inválido"}, status=400)
+
+    db = get_db()
+    row = db.execute(
+        "SELECT dealer_id, wallet_name FROM vault_entries WHERE dealer_id = ?", (dealer_id,)
+    ).fetchone()
+    if not row:
+        return web.json_response({"error": "dealer_id não encontrado"}, status=404)
+
+    db.execute("""
+        UPDATE vault_entries
+        SET pk_m='', pk_auth='', enc_p=NULL, sealed_r=NULL,
+            status='pending', updated_at=datetime('now')
+        WHERE dealer_id=?
+    """, (dealer_id,))
+    db.commit()
+    _audit("dealer_reset", dealer_id, request.remote, "success")
+    log.info(f"[RESET] dealer_id={dealer_id} wallet={row['wallet_name']}")
+    return web.json_response({
+        "ok": True,
+        "dealer_id": dealer_id,
+        "wallet_name": row["wallet_name"],
+        "status": "pending",
+        "message": "Chaves e passphrase removidas. Inicie o manager no celular e cadastre a passphrase de novo.",
+    })
+
+
 # ── WebSocket Vault (chamado por vault_ws_client.py) ─────────────────────────
 
 async def vault_ws_handler(request: web.Request) -> web.WebSocketResponse:
@@ -441,6 +479,7 @@ def create_app() -> web.Application:
     app.router.add_get ("/api/vault/dealers",              api_vault_dealers_list)
     app.router.add_post("/api/vault/dealers",              api_vault_dealers_create)
     app.router.add_delete("/api/vault/dealers/{dealer_id}", api_vault_dealers_delete)
+    app.router.add_post("/api/vault/dealers/{dealer_id}/reset", api_vault_dealers_reset)
     return app
 
 
