@@ -13,9 +13,10 @@ import {
   TbPlayerPlay, TbList, TbPlayerStop, TbSend, TbX,
   TbArrowsExchange, TbRefresh, TbHistory, TbMessage,
   TbBug, TbLogout, TbWallet, TbBook, TbHeartbeat, TbCoins,
-  TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight,
+  TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight, TbRocket,
 } from 'react-icons/tb';
 import ArchitecturePanel from './ArchitecturePanel';
+import StrategyPanel from './StrategyPanel';
 import useDealerWs from './useDealerWs';
 import useSideswapBook from './useSideswapBook';
 import useMarketScan from './useMarketScan';
@@ -27,6 +28,7 @@ import {
   walletStatusLabel,
 } from './vault/vaultApi';
 import AssetsPanel from './AssetsPanel';
+import DealerBalancesBar from './DealerBalancesBar';
 import OrdersPanel from './OrdersPanel';
 import OrderPlacementPanel from './OrderPlacementPanel';
 import TransactionsPanel from './TransactionsPanel';
@@ -1285,7 +1287,7 @@ export default function DealerConsole() {
   }, [session, navigate]);
 
   const {
-    status, agentConnected, agentMeta, state, messages, sendCommand, disconnect, lastError,
+    status, agentConnected, agentMeta, state, messages, events, sendCommand, disconnect, lastError,
   } = useDealerWs(session?.wsUrl, session?.token, !!session?.authenticated);
 
   const dealers = useMemo(
@@ -1306,6 +1308,14 @@ export default function DealerConsole() {
     [stateMessages, messages],
   );
   const selectedDealer = dealers.find((d) => d.pid === selectedPid) || null;
+
+  const txSummarySig = useMemo(
+    () => (state?.dealers || [])
+      .map((d) => `${d.pid}:${d.transactions_summary?.total ?? 0}:${d.transactions_summary?.swap_count ?? 0}`)
+      .sort((a, b) => a.localeCompare(b))
+      .join('|'),
+    [state?.dealers],
+  );
 
   const selectedDealerSentOrders = useMemo(() => {
     const source = selectedDealer ? [selectedDealer] : dealers;
@@ -1526,6 +1536,15 @@ export default function DealerConsole() {
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link
+                  active={mainView === 'estrategia'}
+                  onClick={() => setMainView('estrategia')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbRocket /> Estratégia
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
                   active={mainView === 'arquitetura'}
                   onClick={() => setMainView('arquitetura')}
                   className="dealer-main-nav-link"
@@ -1675,6 +1694,8 @@ export default function DealerConsole() {
                   sendCommand={sendCommand}
                   wsStatus={status}
                   syncOnSelect={consolePrefs.transactionsSyncOnSelect}
+                  wsEvents={events}
+                  txSummarySig={txSummarySig}
                 />
               </div>
             </Col>
@@ -1697,6 +1718,21 @@ export default function DealerConsole() {
                   sideswapLastUpdate={scanLastUpdate}
                   dealers={dealers}
                   sendCommand={sendCommand}
+                />
+              </div>
+            </Col>
+          </Row>
+        ) : mainView === 'estrategia' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <StrategyPanel
+                  dealers={dealers}
+                  selectedPid={selectedPid}
+                  onSelectDealer={handleSelectPid}
+                  sendCommand={sendCommand}
+                  wsStatus={status}
+                  agentConnected={agentConnected}
                 />
               </div>
             </Col>
@@ -1815,6 +1851,12 @@ export default function DealerConsole() {
           {(!isMobileLayout || mobilePanel === 'center') && (
           <Col xs={12} lg={colCenter} className="dealer-mobile-panel-col dealer-layout-center-col">
             <div className="dealer-panel dealer-panel-scroll dealer-panel-middle">
+              {selectedDealer && (
+                <DealerBalancesBar
+                  dealer={selectedDealer}
+                  managerOffline={!agentConnected}
+                />
+              )}
               <div className="dealer-mid-tabs">
                 <button
                   className={`dealer-mid-tab${midTab === 'operacional' ? ' active' : ''}`}
@@ -1908,6 +1950,8 @@ export default function DealerConsole() {
                   sendCommand={sendCommand}
                   wsStatus={status}
                   syncOnSelect={consolePrefs.transactionsSyncOnSelect}
+                  wsEvents={events}
+                  txSummarySig={txSummarySig}
                 />
               )}
             </div>
@@ -1917,6 +1961,14 @@ export default function DealerConsole() {
           <Col xs={12} lg={colCommands} className="dealer-mobile-panel-col dealer-layout-commands-col">
             <div className="dealer-panel dealer-panel-commands">
               <h3>Comandos {selectedPid ? `(PID ${selectedPid})` : ''}</h3>
+              {selectedDealer && (
+                <DealerBalancesBar
+                  dealer={selectedDealer}
+                  managerOffline={!agentConnected}
+                  compact
+                  className="dealer-balances-bar-commands"
+                />
+              )}
               {!agentConnected && status === 'connected' && (
                 <div className="dealer-cmd-offline" role="alert">
                   Manager offline — comandos podem falhar até o manager_dealer reconectar ao relay.

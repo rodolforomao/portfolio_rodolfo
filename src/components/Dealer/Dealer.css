@@ -593,6 +593,87 @@ body.dealer-route-active .App.app-ready {
   color: #e6edf3;
 }
 
+.dealer-balance-chip-asset {
+  color: #8b949e;
+  margin-right: 4px;
+}
+
+.dealer-balance-chip-btc {
+  border-color: rgba(247, 147, 26, 0.35);
+  background: rgba(247, 147, 26, 0.08);
+}
+
+.dealer-balance-chip-btc .dealer-balance-chip-asset {
+  color: #f7931a;
+}
+
+.dealer-balance-chip-stable {
+  border-color: rgba(63, 185, 80, 0.35);
+  background: rgba(63, 185, 80, 0.08);
+}
+
+.dealer-balance-chip-stable .dealer-balance-chip-asset {
+  color: #3fb950;
+}
+
+.dealer-balances-bar {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--wallet-bg, #0d1117);
+  border: 1px solid #21262d;
+  border-left: 3px solid var(--wallet-accent, #30363d);
+  border-radius: 8px;
+}
+
+.dealer-balances-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.dealer-balances-bar-identity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dealer-balances-bar-pid {
+  color: #e6edf3;
+  font-size: 0.85rem;
+}
+
+.dealer-balances-bar-wallet {
+  font-size: 0.72rem;
+}
+
+.dealer-balances-bar-label {
+  font-size: 0.72rem;
+  color: #6e7681;
+}
+
+.dealer-balances-bar-assets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dealer-balances-bar-compact {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+}
+
+.dealer-balances-bar-compact .dealer-balances-bar-head {
+  margin-bottom: 6px;
+}
+
+.dealer-balances-bar-commands {
+  margin-top: -4px;
+}
+
 .dealer-balance-pending {
   font-size: 0.72rem;
   color: #6e7681;
@@ -1872,6 +1953,20 @@ body.dealer-route-active .App.app-ready {
   color: #4a5060;
   margin: 6px 0 0;
   line-height: 1.5;
+}
+
+.dealer-tx-auto-refresh-note {
+  color: #3fb950;
+}
+
+.dealer-tx-profit-src {
+  font-size: 0.65rem;
+  color: #6e7681;
+  font-weight: 400;
+}
+
+.dealer-tx-sync-warn {
+  color: #d29922;
 }
 
 .dealer-tx-badge { font-size: 0.65rem; }
@@ -4778,3 +4873,437 @@ body.dealer-route-active .App.app-ready {
     gap: 2px;
   }
 }
+
+/* ═══════════════════════════════════════════
+   Strategy Panel
+   ═══════════════════════════════════════════ */
+
+.strategy-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+  padding: 4px 0 16px;
+}
+
+.strategy-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #21262d;
+}
+
+.strategy-header-icon {
+  font-size: 1.6rem;
+  color: #c770f0;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.strategy-header-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+
+.strategy-header-sub {
+  font-size: 0.82rem;
+  color: #8b949e;
+  margin: 0;
+}
+
+/* ── Phase cards ── */
+
+.strategy-phases {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .strategy-phases { grid-template-columns: 1fr; }
+}
+
+.strategy-phase-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.strategy-phase-card:hover { border-color: #58a6ff; background: #1c2128; }
+.strategy-phase-card.active { background: #1c2128; }
+
+.strategy-phase-label { font-size: 1rem; font-weight: 700; }
+.strategy-phase-sub   { font-size: 0.75rem; color: #8b949e; }
+.strategy-phase-capital { font-size: 0.8rem; color: #c9d1d9; margin-top: 4px; }
+
+/* ── Phase info ── */
+
+.strategy-phase-info {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.strategy-phase-info-row {
+  display: flex;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+
+.strategy-phase-info-row > span:first-child {
+  color: #8b949e;
+  white-space: nowrap;
+  min-width: 110px;
+}
+
+.strategy-phase-info-row > span:last-child { color: #c9d1d9; }
+
+/* ── Section ── */
+
+.strategy-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.strategy-section-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8b949e;
+}
+
+.strategy-section-title-hint {
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #58a6ff;
+}
+
+/* ── Dealer cards grid ── */
+
+.strategy-dealer-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.strategy-dealer-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 180px;
+  text-align: left;
+  cursor: pointer;
+  color: #e6edf3;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.strategy-dealer-card:hover {
+  border-color: #58a6ff;
+  background: #1c2128;
+}
+
+.strategy-dealer-card.running {
+  border-color: #238636;
+}
+
+.strategy-dealer-card.selected {
+  border-color: #c770f0;
+  background: #1f1233;
+  box-shadow: 0 0 0 1px #c770f040, 0 2px 12px #c770f020;
+}
+
+.strategy-dealer-card.selected.running {
+  border-color: #3fb950;
+  background: #0d2117;
+  box-shadow: 0 0 0 1px #3fb95040, 0 2px 12px #3fb95020;
+}
+
+.strategy-dealer-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.strategy-dealer-card-id {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.strategy-dealer-card-indicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.strategy-dealer-card.running .strategy-dealer-card-indicator {
+  box-shadow: 0 0 5px #3fb950;
+}
+
+.strategy-dealer-card-wallet {
+  font-weight: 400;
+  color: #8b949e;
+  font-size: 0.82rem;
+}
+
+.strategy-dealer-card-motors {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.strategy-dealer-motor-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid;
+}
+
+.strategy-dealer-motor-tag-active  { border-color: #238636; color: #3fb950; background: rgba(63,185,80,0.08); }
+.strategy-dealer-motor-tag-partial  { border-color: #9e6a03; color: #d29922; background: rgba(210,153,34,0.08); }
+.strategy-dealer-motor-tag-inactive { border-color: #30363d; color: #6e7681; background: transparent; }
+.strategy-dealer-motor-tag-warn     { border-color: #9e6a03; color: #d29922; background: rgba(210,153,34,0.08); }
+
+.strategy-dealer-card-selected-label {
+  font-size: 0.7rem;
+  color: #c770f0;
+  letter-spacing: 0.03em;
+}
+
+.strategy-dealer-card.selected.running .strategy-dealer-card-selected-label {
+  color: #3fb950;
+}
+
+/* ── Status banner ── */
+
+.strategy-status-banner {
+  border-radius: 8px;
+  padding: 12px 16px;
+  border-left: 4px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.85rem;
+}
+
+.strategy-status-banner.banner-active {
+  background: rgba(63,185,80,0.08);
+  border-color: #3fb950;
+}
+
+.strategy-status-banner.banner-partial {
+  background: rgba(210,153,34,0.08);
+  border-color: #d29922;
+}
+
+.strategy-status-banner.banner-inactive {
+  background: rgba(110,118,129,0.06);
+  border-color: #6e7681;
+}
+
+.strategy-status-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.strategy-status-banner-pid {
+  font-weight: 600;
+  color: #c9d1d9;
+}
+
+.strategy-status-banner-state {
+  color: #8b949e;
+}
+
+.banner-active .strategy-status-banner-state { color: #3fb950; }
+.banner-partial .strategy-status-banner-state { color: #d29922; }
+
+.strategy-status-banner-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+
+/* ── Motors wrap + lock ── */
+
+.strategy-motors-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+.strategy-motors-wrap.locked {
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+}
+
+.strategy-motors-lock {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #8b949e;
+  background: rgba(13,17,23,0.6);
+  border-radius: 8px;
+  border: 1px dashed #30363d;
+  cursor: default;
+}
+
+/* ── Motor cards ── */
+
+.strategy-motor {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.strategy-motor.motor-on      { border-color: #238636; }
+.strategy-motor.motor-partial { border-color: #9e6a03; }
+.strategy-motor.motor-warn    { border-color: #9e6a03; }
+
+.strategy-motor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid #21262d;
+  gap: 8px;
+}
+
+.strategy-motor-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.strategy-motor-dot {
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.strategy-motor-dot-active { background: #3fb950; box-shadow: 0 0 5px #3fb950; }
+.strategy-motor-dot-warn   { background: #d29922; }
+.strategy-motor-dot-off    { background: #6e7681; }
+.strategy-motor-dot-info   { background: #2d9cdb; }
+
+.strategy-motor-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.strategy-motor-desc {
+  font-size: 0.83rem;
+  color: #8b949e;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.strategy-motor-hint {
+  font-size: 0.8rem;
+  color: #58a6ff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.strategy-motor-config {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.strategy-config-label {
+  font-size: 0.8rem;
+  color: #8b949e;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.strategy-pm-input {
+  width: 80px !important;
+  background: #0d1117 !important;
+  border-color: #30363d !important;
+  color: #e6edf3 !important;
+  font-size: 0.85rem !important;
+  padding: 3px 8px !important;
+}
+
+.strategy-config-hint { font-size: 0.75rem; color: #6e7681; }
+
+.strategy-motor-preexisting {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #d29922;
+  background: rgba(210,153,34,0.08);
+  border: 1px solid rgba(210,153,34,0.3);
+  border-radius: 5px;
+  padding: 6px 10px;
+}
+
+.strategy-motor-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Feedback ── */
+
+.strategy-feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid;
+}
+
+.strategy-feedback-ok  { background: rgba(63,185,80,0.1);  border-color: #3fb950; color: #3fb950; }
+.strategy-feedback-err { background: rgba(248,81,73,0.1);  border-color: #f85149; color: #f85149; }

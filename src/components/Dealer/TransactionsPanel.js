@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
 import { TbRefresh, TbChartLine, TbArrowRight, TbTrendingUp, TbTrendingDown, TbCoin, TbWallet, TbArrowsExchange, TbChevronDown, TbChevronUp } from 'react-icons/tb';
@@ -228,11 +228,25 @@ function TxRow({ tx }) {
           {isSwap ? (
             <span className={`dealer-tx-profit ${tx.profit_kind}`}>
               {tx.profit_label || '—'}
+              {tx.profit_source && (
+                <span className="dealer-tx-profit-src" title="Fonte do cálculo de lucro">
+                  {' '}{tx.profit_source === 'spread' ? '(spread)' : tx.profit_source === 'market' ? '(mercado)' : ''}
+                </span>
+              )}
             </span>
           ) : isDeposit ? (
             <span className="dealer-tx-received-label">recebimento</span>
           ) : isWithdrawal ? (
             <span className="dealer-tx-withdrawal-label">saque</span>
+          ) : tx.category?.startsWith('trade_settlement') && tx.profit_kind && tx.profit_kind !== 'flow' ? (
+            <span className={`dealer-tx-profit ${tx.profit_kind}`}>
+              {tx.profit_label || '—'}
+              {tx.profit_source && (
+                <span className="dealer-tx-profit-src">
+                  {' '}{tx.profit_source === 'spread' ? '(spread)' : tx.profit_source === 'market' ? '(mercado)' : ''}
+                </span>
+              )}
+            </span>
           ) : (
             <span className="dealer-tx-flow-role">
               {tx.flow_role === 'settlement' ? 'perna swap' : tx.flow_role === 'external' ? 'externo' : ''}
@@ -272,19 +286,25 @@ export default function TransactionsPanel({
   sendCommand,
   wsStatus,
   syncOnSelect = true,
+  wsEvents = [],
+  txSummarySig = '',
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [report, setReport] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [period, setPeriod] = useState('');
+  const [period, setPeriod] = useState('today');
   const [lastSync, setLastSync] = useState(null);
+  const [autoRefreshNote, setAutoRefreshNote] = useState('');
+  const loadRef = useRef(null);
+  const txSummarySigRef = useRef('');
+  const autoRefreshTimerRef = useRef(null);
 
   const isMulti = !dealer && dealers.length > 0;
   const targetPid = dealer?.pid ?? null;
   const wsOk = wsStatus === 'connected';
 
-  const load = useCallback(async (sync = true) => {
+  const load = useCallback(async (sync = true, source = 'manual') => {
     if (!wsOk || !sendCommand) return;
     setLoading(true);
     setError(null);
@@ -298,6 +318,14 @@ export default function TransactionsPanel({
       if (result?.ok && result.data && !result.data.error) {
         setReport(result.data);
         setLastSync(new Date().toLocaleTimeString('pt-BR'));
+        if (source !== 'manual') {
+          const imported = result.data?.sync?.imported || 0;
+          setAutoRefreshNote(
+            imported > 0
+              ? `${imported} trade(s) importado(s) do SideSwap.`
+              : 'Histórico atualizado.',
+          );
+        }
       } else {
         setError(result?.data?.error || result?.data?.message || 'Falha ao carregar transações');
       }
@@ -308,13 +336,53 @@ export default function TransactionsPanel({
     }
   }, [targetPid, sendCommand, wsOk, period]);
 
+  loadRef.current = load;
+
+  const scheduleAutoReload = useCallback((source) => {
+    if (autoRefreshTimerRef.current) clearTimeout(autoRefreshTimerRef.current);
+    autoRefreshTimerRef.current = setTimeout(() => {
+      loadRef.current?.(true, source);
+    }, 400);
+  }, []);
+
+  useEffect(() => () => {
+    if (autoRefreshTimerRef.current) clearTimeout(autoRefreshTimerRef.current);
+  }, []);
+
   useEffect(() => {
-    if (wsOk && (dealer?.pid || isMulti)) load(syncOnSelect);
+    if (!autoRefreshNote) return undefined;
+    const t = setTimeout(() => setAutoRefreshNote(''), 6000);
+    return () => clearTimeout(t);
+  }, [autoRefreshNote]);
+
+  useEffect(() => {
+    if (wsOk && (dealer?.pid || isMulti)) load(syncOnSelect, 'mount');
   }, [dealer?.pid, isMulti, load, syncOnSelect, wsOk]);
 
   useEffect(() => {
-    if (wsOk && (dealer?.pid || isMulti)) load(false);
+    if (wsOk && (dealer?.pid || isMulti)) load(true, 'period');
   }, [period]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!wsEvents.length) return;
+    const last = wsEvents[wsEvents.length - 1];
+    if (last?.event !== 'transaction_event') return;
+    const tx = last?.data?.transaction;
+    if (!tx) return;
+    if (targetPid != null && tx.dealer_pid !== targetPid) return;
+    scheduleAutoReload('transaction_event');
+  }, [wsEvents, targetPid, scheduleAutoReload]);
+
+  useEffect(() => {
+    if (!txSummarySig || !wsOk || (!dealer?.pid && !isMulti)) return;
+    if (!txSummarySigRef.current) {
+      txSummarySigRef.current = txSummarySig;
+      return;
+    }
+    if (txSummarySigRef.current === txSummarySig) return;
+    txSummarySigRef.current = txSummarySig;
+    scheduleAutoReload('summary');
+  }, [txSummarySig, wsOk, dealer?.pid, isMulti, scheduleAutoReload]);
 
   const assetSummary = report?.asset_summary || {};
   const pl = report?.profit_loss || {};
@@ -373,7 +441,7 @@ export default function TransactionsPanel({
           <Button
             size="sm"
             variant="outline-secondary"
-            onClick={() => load(true)}
+            onClick={() => load(true, 'manual')}
             disabled={loading || (!dealer && !isMulti) || !wsOk}
             className="dealer-tx-refresh"
             title="Importar trades do SideSwap e recarregar"
@@ -393,9 +461,20 @@ export default function TransactionsPanel({
         <>
           {error && <p className="dealer-placement-error">{error}</p>}
 
-          {report?.sync?.imported > 0 && (
+          {autoRefreshNote && (
+            <p className="dealer-hint dealer-tx-auto-refresh-note">{autoRefreshNote}</p>
+          )}
+
+          {report?.sync && (report.sync.imported > 0 || report.sync.updated > 0) && (
             <p className="dealer-hint">
-              {report.sync.imported} trade(s) importado(s) do histórico SideSwap.
+              Sync SideSwap:
+              {report.sync.imported > 0 && ` ${report.sync.imported} trade(s) importado(s).`}
+              {report.sync.updated > 0 && ` ${report.sync.updated} trade(s) atualizado(s).`}
+              {Array.isArray(report.sync.dealers) && report.sync.dealers.some((d) => d.error) && (
+                <span className="dealer-tx-sync-warn">
+                  {' '}Alguns PIDs falharam no sync — verifique se o dealer está online.
+                </span>
+              )}
             </p>
           )}
 
@@ -498,7 +577,9 @@ export default function TransactionsPanel({
           {/* ── Tabela ── */}
           {!allTx.length && !loading ? (
             <p className="dealer-empty">
-              Nenhuma transação registrada. Trades executados aparecem após sync com o histórico.
+              Nenhuma transação neste período. Clique em <strong>Atualizar</strong> para importar
+              trades do SideSwap (load_history). O app DePix mostra movimentos da carteira; aqui
+              aparecem como <strong>Troca dealer</strong> após o sync do manager.
             </p>
           ) : !filteredTx.length && !loading ? (
             <p className="dealer-empty">Nenhuma transação neste filtro.</p>
@@ -535,6 +616,7 @@ export default function TransactionsPanel({
             {' '}<strong>Capital / entrada</strong> = DePix recebido externamente (<em>não é lucro</em> — é capital operacional).
             {' '}<strong>Saque</strong> = saída de fundos da carteira.
             {' '}<strong>Liquidação swap</strong> = movimento on-chain correlacionado ao trade.
+            {' '}O histórico atualiza automaticamente quando o manager detecta novos trades; use <strong>Atualizar</strong> para forçar importação do SideSwap.
           </p>
         </>
       )}
