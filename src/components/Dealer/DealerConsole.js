@@ -13,8 +13,9 @@ import {
   TbPlayerPlay, TbList, TbPlayerStop, TbSend, TbX,
   TbArrowsExchange, TbRefresh, TbHistory, TbMessage,
   TbBug, TbLogout, TbWallet, TbBook, TbHeartbeat, TbCoins,
-  TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2,
+  TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight,
 } from 'react-icons/tb';
+import ArchitecturePanel from './ArchitecturePanel';
 import useDealerWs from './useDealerWs';
 import useSideswapBook from './useSideswapBook';
 import useMarketScan from './useMarketScan';
@@ -30,6 +31,12 @@ import OrdersPanel from './OrdersPanel';
 import OrderPlacementPanel from './OrderPlacementPanel';
 import TransactionsPanel from './TransactionsPanel';
 import OrderMarginBadge from './OrderMarginBadge';
+import OrderBookPresenceBadge from './OrderBookPresenceBadge';
+import { formatBookAmount } from './utils/sideswapBook';
+import {
+  resolveOrderBookPresence,
+  sortOrderHistoryByBook,
+} from './utils/orderPlacementStatus';
 import MessagesModal from './MessagesModal';
 import { buildMessageFeed } from './utils/messages';
 import {
@@ -79,14 +86,19 @@ import { loadDealerPreferences } from './utils/dealerPreferences';
 import { FollowRefLink } from './utils/followTarget';
 import './Dealer.css';
 import useMobileLayout from './useMobileLayout';
+import { getWalletColor, walletColorStyle } from './utils/walletColors';
 
 function DealerCard({ dealer, onSelect, selected, managerOffline = false }) {
   const assets = normalizeBalances(dealer.balances);
   const { orders: displayOrders } = prepareDealerOrders(dealer.orders || []);
   const isInactive = !dealer.isLive;
+  const wallet = dealer.wallet_name || '—';
+  const walletColor = getWalletColor(wallet);
+
   return (
     <div
       className={`dealer-card ${selected ? 'selected' : ''} dealer-card-${dealer.dealerStatus || 'morto'}${managerOffline ? ' dealer-card-manager-offline' : ''}`}
+      style={walletColorStyle(wallet)}
       onClick={() => onSelect(selected ? null : dealer.pid)}
       role="button"
       tabIndex={0}
@@ -94,7 +106,16 @@ function DealerCard({ dealer, onSelect, selected, managerOffline = false }) {
     >
       <div className="dealer-card-head">
         <strong>PID {dealer.pid}</strong>
-        <span>{dealer.wallet_name}</span>
+        <span
+          className="dealer-wallet-badge"
+          style={{
+            background: walletColor.bg,
+            color: walletColor.text,
+            borderColor: walletColor.border,
+          }}
+        >
+          {wallet}
+        </span>
         <DealerStatusBadge dealer={dealer} managerOffline={managerOffline} />
       </div>
       <div className="dealer-card-meta">
@@ -150,6 +171,58 @@ function DealerCard({ dealer, onSelect, selected, managerOffline = false }) {
   );
 }
 
+function DealerRailChip({ dealer, selected, onSelect, managerOffline = false }) {
+  const wallet = dealer.wallet_name || '—';
+  const status = dealer.dealerStatus || 'morto';
+  const walletColor = getWalletColor(wallet);
+
+  return (
+    <button
+      type="button"
+      className={`dealer-rail-chip dealer-rail-chip-${status}${selected ? ' selected' : ''}${managerOffline ? ' dealer-rail-chip-manager-offline' : ''}`}
+      style={walletColorStyle(wallet)}
+      onClick={() => onSelect(dealer.pid)}
+      title={`PID ${dealer.pid} · ${wallet}`}
+      aria-label={`Selecionar ${wallet} PID ${dealer.pid}`}
+      aria-pressed={selected}
+    >
+      <span className="dealer-rail-chip-pid">{dealer.pid}</span>
+      <span className="dealer-rail-chip-wallet">{wallet}</span>
+    </button>
+  );
+}
+
+function DealerRailCollapsed({ dealers, selectedPid, onSelectPid, onExpand, managerOffline = false }) {
+  return (
+    <div className="dealer-rail-column">
+      <button
+        type="button"
+        className="dealer-rail-expand"
+        onClick={onExpand}
+        title="Expandir lista de dealers"
+        aria-label="Expandir lista de dealers"
+      >
+        <TbChevronRight aria-hidden />
+      </button>
+      <div className="dealer-rail-chips" role="list" aria-label="Dealers">
+        {dealers.length === 0 ? (
+          <span className="dealer-rail-empty" title="Nenhum dealer ativo">—</span>
+        ) : (
+          dealers.map((d) => (
+            <DealerRailChip
+              key={d.pid}
+              dealer={d}
+              selected={selectedPid === d.pid}
+              onSelect={onSelectPid}
+              managerOffline={managerOffline}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 const CommandPanel = React.memo(function CommandPanel({
   selectedPid,
   onSelectPid,
@@ -166,6 +239,12 @@ const CommandPanel = React.memo(function CommandPanel({
   setBusy,
   setFeedback,
   defaultHistoryDestination = 'api',
+  bookPlacements = [],
+  marketBooks = {},
+  marketIndPrices = {},
+  marketBookStatus = 'idle',
+  marketBookError = null,
+  onReconnectMarketBook,
 }) {
   const [mnemonicIndex, setMnemonicIndex] = useState('1');
   const [walletName, setWalletName] = useState('');
@@ -395,11 +474,29 @@ const CommandPanel = React.memo(function CommandPanel({
     }
   };
 
+  const placementByOrderId = useMemo(() => {
+    const map = new Map();
+    (bookPlacements || []).forEach((p) => {
+      const id = p.order?.order_id;
+      if (id != null) map.set(String(id), p);
+    });
+    return map;
+  }, [bookPlacements]);
+
+  const dealerByPid = useMemo(
+    () => new Map((activeDealers || []).map((d) => [d.pid, d])),
+    [activeDealers],
+  );
+
   const orderHistoryChoices = useMemo(() => {
     const list = savedOrders || [];
     const filtered = selectedPid ? list.filter((e) => e.pid === selectedPid) : list;
-    return [...filtered];
-  }, [savedOrders, selectedPid]);
+    return sortOrderHistoryByBook(filtered, {
+      placementByOrderId,
+      dealerByPid,
+      combinations: marketData?.combinations || [],
+    });
+  }, [savedOrders, selectedPid, placementByOrderId, dealerByPid, marketData?.combinations]);
 
   const orderTargetPid = selectedPid || orderPick?.pid || null;
 
@@ -725,7 +822,19 @@ const CommandPanel = React.memo(function CommandPanel({
 
         {orderHistoryChoices.length > 0 ? (
           <div className="dealer-cancel-list dealer-order-history-list">
-            {orderHistoryChoices.map((entry) => (
+            {orderHistoryChoices.map((entry) => {
+              const historyOrder = registryEntryToOrder(entry);
+              const placement = entry.order_id
+                ? placementByOrderId.get(String(entry.order_id))
+                : null;
+              const bookPresence = resolveOrderBookPresence({
+                order: historyOrder,
+                balances: dealerByPid.get(entry.pid)?.balances,
+                placement,
+                combinations: marketData?.combinations || [],
+              });
+
+              return (
               <button
                 key={entry.registryId}
                 type="button"
@@ -735,25 +844,35 @@ const CommandPanel = React.memo(function CommandPanel({
               >
                 <span className="dealer-cancel-dealer">
                   PID {entry.pid} · {entry.wallet_name || '—'}
-                  {entry.isLive
-                    ? <Badge bg="success" className="ms-1 dealer-order-live-badge">ativa</Badge>
-                    : <Badge bg="secondary" className="ms-1 dealer-order-live-badge">histórico</Badge>}
+                  {bookPresence?.badgeLabel ? (
+                    <OrderBookPresenceBadge
+                      presence={bookPresence}
+                      className="ms-1 dealer-order-live-badge"
+                    />
+                  ) : entry.isLive ? (
+                    <Badge bg="success" className="ms-1 dealer-order-live-badge">ativa</Badge>
+                  ) : (
+                    <Badge bg="secondary" className="ms-1 dealer-order-live-badge">histórico</Badge>
+                  )}
                 </span>
                 <span className="dealer-cancel-pair">
                   {entry.base}/{entry.quote} {entry.trade_dir}
                 </span>
                 <span className="dealer-cancel-price">
-                  {entry.spreadSummary || formatOrderSpreadSummary(registryEntryToOrder(entry))}
-                  {entry.amount != null && entry.amount !== 999999 && ` · amt ${entry.amount}`}
+                  {entry.spreadSummary || formatOrderSpreadSummary(historyOrder)}
+                  {entry.amount != null && entry.amount !== 999999 && (
+                    <> · amt {formatBookAmount(entry.amount, entry.base)}</>
+                  )}
                 </span>
                 <span className="dealer-order-history-margin">
-                  <OrderMarginBadge order={registryEntryToOrder(entry)} explicit />
+                  <OrderMarginBadge order={historyOrder} explicit />
                 </span>
                 {entry.order_id && (
                   <code className="dealer-cancel-id">{entry.order_id}</code>
                 )}
               </button>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="dealer-empty mb-2">
@@ -805,6 +924,16 @@ const CommandPanel = React.memo(function CommandPanel({
             followTarget={followTarget}
             followTargetOrderId={followTargetOrderId}
             followTargetChoices={followTargetChoices}
+            base={base}
+            quote={quote}
+            tradeDir={tradeDir}
+            marketAssets={marketData.assets}
+            marketCombinations={marketData.combinations}
+            marketBooks={marketBooks}
+            marketIndPrices={marketIndPrices}
+            marketBookStatus={marketBookStatus}
+            marketBookError={marketBookError}
+            onReconnectMarketBook={onReconnectMarketBook}
             amount={amount}
             onPriceChange={setPrice}
             onPricePorcChange={setPricePorc}
@@ -1002,6 +1131,16 @@ const CommandPanel = React.memo(function CommandPanel({
               followTarget={followTarget}
               followTargetOrderId={followTargetOrderId}
               followTargetChoices={followTargetChoices}
+              base={base}
+              quote={quote}
+              tradeDir={tradeDir}
+              marketAssets={marketData.assets}
+              marketCombinations={marketData.combinations}
+              marketBooks={marketBooks}
+              marketIndPrices={marketIndPrices}
+              marketBookStatus={marketBookStatus}
+              marketBookError={marketBookError}
+              onReconnectMarketBook={onReconnectMarketBook}
               showAmount={false}
               onPriceChange={setPrice}
               onPricePorcChange={setPricePorc}
@@ -1123,6 +1262,8 @@ export default function DealerConsole() {
   const [orderRegistryTick, setOrderRegistryTick] = useState(0);
   const [mainView, setMainView] = useState('geral');
   const [midTab, setMidTab] = useState('operacional');
+  const [operacionalTab, setOperacionalTab] = useState('saldos');
+  const [dealersExpanded, setDealersExpanded] = useState(true);
   const [mobilePanel, setMobilePanel] = useState('center');
   const [mobileRendPanel, setMobileRendPanel] = useState('dados');
   const [rendPid, setRendPid] = useState(null);
@@ -1130,6 +1271,10 @@ export default function DealerConsole() {
   const [telegramStatus, setTelegramStatus] = useState(null);
   const [belowMarketThresholdPct, setBelowMarketThresholdPct] = useState(0.5);
   const isMobileLayout = useMobileLayout();
+  const dealersCollapsed = !isMobileLayout && !!selectedPid && !dealersExpanded;
+  const colDealers = dealersCollapsed ? 1 : 4;
+  const colCenter = dealersCollapsed ? 7 : 4;
+  const colCommands = 4;
 
   const bumpOrderRegistry = useCallback(() => setOrderRegistryTick((n) => n + 1), []);
 
@@ -1204,7 +1349,10 @@ export default function DealerConsole() {
     books: scanBooks,
     indPrices: scanIndPrices,
     reconnect: reconnectScan,
-  } = useMarketScan(marketData.assets, mainView === 'oportunidades');
+  } = useMarketScan(
+    marketData.assets,
+    mainView === 'oportunidades' || mainView === 'arquitetura' || mainView === 'geral',
+  );
 
   const refreshAssets = React.useCallback(async () => {
     if (status !== 'connected') return;
@@ -1263,17 +1411,30 @@ export default function DealerConsole() {
 
   useEffect(() => {
     if (selectedPid && !dealers.some((d) => d.pid === selectedPid)) {
-      setSelectedPid(dealers.length ? dealers[0].pid : null);
+      const next = dealers.length ? dealers[0].pid : null;
+      setSelectedPid(next);
+      if (next && !isMobileLayout) setDealersExpanded(false);
     } else if (!selectedPid && dealers.length === 1) {
       setSelectedPid(dealers[0].pid);
+      if (!isMobileLayout) setDealersExpanded(false);
     }
-  }, [dealers, selectedPid]);
+  }, [dealers, selectedPid, isMobileLayout]);
 
   const handleSelectPid = useCallback((pid) => {
     setSelectedPid(pid);
-    if (pid != null && typeof window !== 'undefined' && window.matchMedia('(max-width: 991.98px)').matches) {
-      setMobilePanel('center');
+    if (pid != null) {
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 991.98px)').matches) {
+        setMobilePanel('center');
+      } else {
+        setDealersExpanded(false);
+      }
+    } else {
+      setDealersExpanded(true);
     }
+  }, []);
+
+  const handleRailSelectPid = useCallback((pid) => {
+    setSelectedPid(pid);
   }, []);
 
   const handleDealerStarted = useCallback((data) => {
@@ -1361,6 +1522,15 @@ export default function DealerConsole() {
                   className="dealer-main-nav-link"
                 >
                   <TbArrowsExchange /> Oportunidades
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  active={mainView === 'arquitetura'}
+                  onClick={() => setMainView('arquitetura')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbNetwork /> Arquitetura
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
@@ -1468,10 +1638,13 @@ export default function DealerConsole() {
                   <span className="dealer-rend-pid-label">Todas as carteiras</span>
                   <span className="dealer-rend-pid-count">{dealers.length} PIDs</span>
                 </button>
-                {dealers.map((d) => (
+                {dealers.map((d) => {
+                  const wallet = d.wallet_name || '—';
+                  return (
                   <button
                     key={d.pid}
                     className={`dealer-rend-pid-btn${rendPid === d.pid ? ' active' : ''}`}
+                    style={walletColorStyle(wallet)}
                     onClick={() => {
                       setRendPid(d.pid);
                       if (typeof window !== 'undefined' && window.matchMedia('(max-width: 991.98px)').matches) {
@@ -1483,9 +1656,10 @@ export default function DealerConsole() {
                       PID {d.pid}
                       <span className={`dealer-rend-pid-dot dealer-rend-pid-dot-${d.dealerStatus}`} />
                     </span>
-                    <span className="dealer-rend-pid-wallet">{d.wallet_name || '—'}</span>
+                    <span className="dealer-rend-pid-wallet">{wallet}</span>
                   </button>
-                ))}
+                  );
+                })}
                 {dealers.length === 0 && (
                   <p className="dealer-empty">Nenhum dealer ativo.</p>
                 )}
@@ -1507,6 +1681,26 @@ export default function DealerConsole() {
             )}
           </Row>
           </>
+        ) : mainView === 'arquitetura' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <ArchitecturePanel
+                  wsStatus={status}
+                  wsUrl={session?.wsUrl || resolveWsUrl()}
+                  lastError={lastError}
+                  agentConnected={agentConnected}
+                  agentMeta={agentMeta}
+                  stateTs={state?.ts}
+                  sideswapStatus={scanStatus}
+                  sideswapError={scanError}
+                  sideswapLastUpdate={scanLastUpdate}
+                  dealers={dealers}
+                  sendCommand={sendCommand}
+                />
+              </div>
+            </Col>
+          </Row>
         ) : mainView === 'oportunidades' ? (
           <Row className="g-3">
             <Col xs={12}>
@@ -1560,23 +1754,46 @@ export default function DealerConsole() {
             <TbTerminal2 /> Comandos
           </button>
         </div>
-        <Row className="g-3">
+        <Row className={`g-3 dealer-layout-row${dealersCollapsed ? ' dealer-layout-dealers-collapsed' : ''}`}>
           {(!isMobileLayout || mobilePanel === 'dealers') && (
-          <Col xs={12} lg={4} className="dealer-mobile-panel-col">
+          <Col xs={12} lg={colDealers} className="dealer-mobile-panel-col dealer-layout-dealers-col">
+            {dealersCollapsed ? (
+              <DealerRailCollapsed
+                dealers={dealers}
+                selectedPid={selectedPid}
+                onSelectPid={handleRailSelectPid}
+                onExpand={() => setDealersExpanded(true)}
+                managerOffline={!agentConnected}
+              />
+            ) : (
             <div className="dealer-panel dealer-panel-scroll">
               <div className="dealer-list-header">
                 <h3>Dealers — {dealersSummaryLabel(dealers)}</h3>
-                {selectedPid && dealers.length > 1 && (
-                  <Button
-                    size="sm"
-                    variant="outline-secondary"
-                    className="dealer-deselect-btn"
-                    onClick={() => handleSelectPid(null)}
-                    title="Ver resumo de todas as carteiras"
-                  >
-                    Visão geral
-                  </Button>
-                )}
+                <div className="dealer-list-header-actions">
+                  {selectedPid && dealers.length > 1 && (
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      className="dealer-deselect-btn"
+                      onClick={() => handleSelectPid(null)}
+                      title="Ver resumo de todas as carteiras"
+                    >
+                      Visão geral
+                    </Button>
+                  )}
+                  {selectedPid && !isMobileLayout && (
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      className="dealer-collapse-dealers-btn"
+                      onClick={() => setDealersExpanded(false)}
+                      title="Recolher dealers"
+                      aria-label="Recolher lista de dealers"
+                    >
+                      <TbChevronLeft />
+                    </Button>
+                  )}
+                </div>
               </div>
               {dealers.length === 0 ? (
                 <p className="dealer-empty">Nenhum dealer ativo. Use Run para iniciar.</p>
@@ -1592,10 +1809,11 @@ export default function DealerConsole() {
                 ))
               )}
             </div>
+            )}
           </Col>
           )}
           {(!isMobileLayout || mobilePanel === 'center') && (
-          <Col xs={12} lg={4} className="dealer-mobile-panel-col">
+          <Col xs={12} lg={colCenter} className="dealer-mobile-panel-col dealer-layout-center-col">
             <div className="dealer-panel dealer-panel-scroll dealer-panel-middle">
               <div className="dealer-mid-tabs">
                 <button
@@ -1614,35 +1832,74 @@ export default function DealerConsole() {
 
               {midTab === 'operacional' ? (
                 <>
-                  <AssetsPanel
-                    dealer={selectedDealer}
-                    dealers={dealers}
-                    onRefresh={refreshAssets}
-                    refreshing={refreshingAssets}
-                    lastRefresh={lastAssetRefresh}
-                    conversionPairs={bookPairs}
-                    conversionPrices={bookIndPrices}
-                    conversionStatus={bookStatus}
-                    conversionLastUpdate={bookLastUpdate}
-                  />
-                  <OrdersPanel
-                    dealer={selectedDealer}
-                    managerOffline={!agentConnected}
-                    confirmedOrderIds={confirmedOrderIds}
-                  />
-                  <OrderPlacementPanel
-                    dealer={selectedDealer}
-                    combinations={marketData.combinations}
-                    ownOrders={selectedDealerSentOrders}
-                    status={bookStatus}
-                    error={bookError}
-                    lastUpdate={bookLastUpdate}
-                    pairs={bookPairs}
-                    books={bookData}
-                    indPrices={bookIndPrices}
-                    placements={bookPlacements}
-                    reconnect={reconnectBook}
-                  />
+                  <div className="dealer-op-tabs" role="tablist" aria-label="Operacional">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={operacionalTab === 'saldos'}
+                      className={`dealer-op-tab${operacionalTab === 'saldos' ? ' active' : ''}`}
+                      onClick={() => setOperacionalTab('saldos')}
+                    >
+                      Saldos
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={operacionalTab === 'ordens'}
+                      className={`dealer-op-tab${operacionalTab === 'ordens' ? ' active' : ''}`}
+                      onClick={() => setOperacionalTab('ordens')}
+                    >
+                      Ordens
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={operacionalTab === 'livro'}
+                      className={`dealer-op-tab${operacionalTab === 'livro' ? ' active' : ''}`}
+                      onClick={() => setOperacionalTab('livro')}
+                      title="Livro SideSwap (público)"
+                    >
+                      Livro SideSwap
+                    </button>
+                  </div>
+
+                  <div className="dealer-op-tab-panel">
+                    {operacionalTab === 'saldos' && (
+                      <AssetsPanel
+                        dealer={selectedDealer}
+                        dealers={dealers}
+                        onRefresh={refreshAssets}
+                        refreshing={refreshingAssets}
+                        lastRefresh={lastAssetRefresh}
+                        conversionPairs={bookPairs}
+                        conversionPrices={bookIndPrices}
+                        conversionStatus={bookStatus}
+                        conversionLastUpdate={bookLastUpdate}
+                      />
+                    )}
+                    {operacionalTab === 'ordens' && (
+                      <OrdersPanel
+                        dealer={selectedDealer}
+                        managerOffline={!agentConnected}
+                        confirmedOrderIds={confirmedOrderIds}
+                      />
+                    )}
+                    {operacionalTab === 'livro' && (
+                      <OrderPlacementPanel
+                        dealer={selectedDealer}
+                        combinations={marketData.combinations}
+                        ownOrders={selectedDealerSentOrders}
+                        status={bookStatus}
+                        error={bookError}
+                        lastUpdate={bookLastUpdate}
+                        pairs={bookPairs}
+                        books={bookData}
+                        indPrices={bookIndPrices}
+                        placements={bookPlacements}
+                        reconnect={reconnectBook}
+                      />
+                    )}
+                  </div>
                 </>
               ) : (
                 <TransactionsPanel
@@ -1657,7 +1914,7 @@ export default function DealerConsole() {
           </Col>
           )}
           {(!isMobileLayout || mobilePanel === 'commands') && (
-          <Col xs={12} lg={4} className="dealer-mobile-panel-col">
+          <Col xs={12} lg={colCommands} className="dealer-mobile-panel-col dealer-layout-commands-col">
             <div className="dealer-panel dealer-panel-commands">
               <h3>Comandos {selectedPid ? `(PID ${selectedPid})` : ''}</h3>
               {!agentConnected && status === 'connected' && (
@@ -1681,6 +1938,12 @@ export default function DealerConsole() {
                 setBusy={setBusy}
                 setFeedback={setFeedback}
                 defaultHistoryDestination={consolePrefs.defaultHistoryDestination}
+                bookPlacements={bookPlacements}
+                marketBooks={scanBooks}
+                marketIndPrices={scanIndPrices}
+                marketBookStatus={scanStatus}
+                marketBookError={scanError}
+                onReconnectMarketBook={reconnectScan}
               />
               {feedback && (
                 <pre className={`dealer-feedback ${feedback.ok ? 'ok' : 'err'}`}>

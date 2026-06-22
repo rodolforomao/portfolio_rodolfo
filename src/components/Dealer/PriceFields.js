@@ -3,6 +3,7 @@ import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import { formatBookPrice } from './utils/sideswapBook';
+import FollowTargetPicker from './FollowTargetPicker';
 
 /**
  * Converte entrada humana (%) para decimal do backend.
@@ -100,7 +101,7 @@ export function formatOrderSpreadSummary(order) {
     return `follow ${pm}${ref}${live}`;
   }
   if (order.price != null && order.price !== '') {
-    return `preço fixo ${formatPriceForInput(order.price)}`;
+    return `preço fixo ${formatBookPrice(order.price)}`;
   }
   if (order.price_porc != null && order.price_porc !== '') {
     return `spread ${formatPercentForInput(order.price_porc)}%`;
@@ -155,6 +156,16 @@ export default function PriceFields({
   followTarget = false,
   followTargetOrderId = '',
   followTargetChoices = [],
+  base = 'L-BTC',
+  quote = 'USDt',
+  tradeDir = 'Buy',
+  marketAssets = [],
+  marketCombinations = [],
+  marketBooks = {},
+  marketIndPrices = {},
+  marketBookStatus = 'idle',
+  marketBookError = null,
+  onReconnectMarketBook,
   onPriceChange,
   onPricePorcChange,
   onPriceMinChange,
@@ -243,40 +254,23 @@ export default function PriceFields({
         <div className="mt-2">
           <FieldLabel
             title="Dealer alvo *"
-            hint={followTargetChoices.length > 0
-              ? 'Dealer/ordem a ser seguido. Obrigatório — selecione um alvo explícito.'
-              : 'Nenhum dealer ativo com ordens enviadas no mesmo par. Digite o order_id manualmente.'}
+            hint="Selecione uma ordem dos dealers, clique no livro SideSwap ou digite o order_id."
           />
-          {followTargetChoices.length > 0 ? (
-            <Form.Select
-              size="sm"
-              value={followTargetOrderId}
-              onChange={(e) => onFollowTargetOrderIdChange(e.target.value)}
-              className={!followTargetOrderId ? 'dealer-follow-select-empty' : ''}
-            >
-              <option value="">— selecione o dealer alvo —</option>
-              {followTargetChoices.map((item) => {
-                const priceLabel = item.order.price != null
-                  ? ` @ ${formatBookPrice(item.order.price)}`
-                  : item.order.original_price != null
-                    ? ` @ ${formatBookPrice(item.order.original_price)}`
-                    : '';
-                return (
-                  <option key={item.cancelKey} value={String(item.order.order_id)}>
-                    {`PID ${item.pid} · ${item.wallet_name || '—'} — ${item.order.base}/${item.order.quote} ${item.order.trade_dir}${priceLabel} #${item.order.order_id}`}
-                  </option>
-                );
-              })}
-            </Form.Select>
-          ) : (
-            <Form.Control
-              size="sm"
-              type="text"
-              placeholder="ex: 1781867960816"
-              value={followTargetOrderId}
-              onChange={(e) => onFollowTargetOrderIdChange(e.target.value)}
-            />
-          )}
+          <FollowTargetPicker
+            followTargetOrderId={followTargetOrderId}
+            onFollowTargetOrderIdChange={onFollowTargetOrderIdChange}
+            followTargetChoices={followTargetChoices}
+            base={base}
+            quote={quote}
+            tradeDir={tradeDir}
+            assets={marketAssets}
+            combinations={marketCombinations}
+            books={marketBooks}
+            indPrices={marketIndPrices}
+            bookStatus={marketBookStatus}
+            bookError={marketBookError}
+            onReconnectBook={onReconnectMarketBook}
+          />
         </div>
       )}
 

@@ -35,6 +35,9 @@ export const DEALER_USER = process.env.REACT_APP_DEALER_USER || '';
 export const DEALER_PASSWORD = process.env.REACT_APP_DEALER_PASSWORD || '';
 export const DEALER_WS_TOKEN = process.env.REACT_APP_DEALER_WS_TOKEN || '';
 
+/** IP da VPS (opcional) — exibido na aba Arquitetura; não expõe credenciais SSH. */
+export const INFRA_VPS_IP = process.env.REACT_APP_VPS_IP || '';
+
 export const SESSION_KEY = 'dealer_ws_session';
 
 export function validateCredentials(username, password) {

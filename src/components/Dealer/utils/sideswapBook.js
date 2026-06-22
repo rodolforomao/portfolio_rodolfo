@@ -1,4 +1,4 @@
-import { canonicalAssetName } from './dealerFormat';
+import { formatAssetBalance, canonicalAssetName } from './dealerFormat';
 
 export const SIDESWAP_WS_URL = 'wss://api.sideswap.io/json-rpc-ws';
 
@@ -148,18 +148,62 @@ export function computePlacement(bookOrders, ownOrder) {
   };
 }
 
+/** Ordens no livro público primeiro; entre elas, melhor posição no topo. */
+export function sortPlacementsByBook(placements = []) {
+  return [...placements].sort((a, b) => {
+    const aInBook = a.found ? 1 : 0;
+    const bInBook = b.found ? 1 : 0;
+    if (aInBook !== bInBook) return bInBook - aInBook;
+
+    if (a.found && b.found) {
+      const ap = a.position ?? 9999;
+      const bp = b.position ?? 9999;
+      if (ap !== bp) return ap - bp;
+    }
+
+    const aId = String(a.order?.order_id ?? '');
+    const bId = String(b.order?.order_id ?? '');
+    return aId.localeCompare(bId);
+  });
+}
+
 export function formatBookPrice(price) {
   const n = Number(price);
   if (!Number.isFinite(n)) return '—';
-  if (n >= 1000) return n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-  return n.toLocaleString('pt-BR', { maximumFractionDigits: 8 });
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 8 });
 }
 
-export function formatBookAmount(amount) {
+export function formatBookAmount(amount, baseAsset = null) {
   const n = Number(amount);
   if (!Number.isFinite(n)) return '—';
-  if (n >= 1e6) return `${(n / 1e8).toFixed(4)} L-BTC`;
-  return n.toLocaleString('pt-BR');
+  if (n === 999999) return 'máx';
+
+  const base = baseAsset ? canonicalAssetName(baseAsset) : null;
+  const asHuman = Number.isInteger(n) && Math.abs(n) >= 1_000_000 ? n / 1e8 : n;
+
+  if (base) {
+    const label = formatAssetBalance(base, asHuman);
+    if (label !== '—') return label;
+  }
+
+  if (asHuman >= 1) {
+    return asHuman.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
+  }
+  return asHuman.toLocaleString('pt-BR', { maximumFractionDigits: 8 });
+}
+
+/** Valor total em quote (amount × price) quando ambos existem. */
+export function formatBookNotional(amount, price, quoteAsset = null) {
+  const amt = Number(amount);
+  const px = Number(price);
+  if (!Number.isFinite(amt) || !Number.isFinite(px)) return null;
+  const amtHuman = Number.isInteger(amt) && Math.abs(amt) >= 1_000_000 ? amt / 1e8 : amt;
+  const total = amtHuman * px;
+  if (!Number.isFinite(total)) return null;
+  if (quoteAsset) {
+    return formatAssetBalance(quoteAsset, total);
+  }
+  return total.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 function upsertOrder(list, order) {
