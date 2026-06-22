@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { log } from './utils/logger';
 
 const STATUS = {
   idle: 'idle',
@@ -21,6 +22,11 @@ export default function useDealerWs(wsUrl, token, enabled) {
   const pendingRef = useRef(new Map());
   const reconnectRef = useRef(null);
   const agentSessionRef = useRef(null);
+
+  // Diagnóstico: quando chegou o último state_update e quais dealers estavam vivos
+  const lastStateUpdateRef = useRef(null);
+  const lastDealerSnapshotRef = useRef(null);
+  const heartbeatRef = useRef(null);
 
   const [status, setStatus] = useState(STATUS.idle);
   const [agentConnected, setAgentConnected] = useState(false);
@@ -80,6 +86,40 @@ export default function useDealerWs(wsUrl, token, enabled) {
         agentSessionRef.current = sid;
         addLog(`[system] state_update de nova sessão (${data.agent_hostname || sid})`);
       }
+
+      // ── Diagnóstico: dealer snapshot ──────────────────────────────────────
+      const now = Date.now();
+      const dealers = data.dealers || [];
+      const dealerSummary = dealers.map((d) => ({
+        pid: d.pid,
+        wallet: d.wallet_name,
+        orders: (d.orders || []).length,
+        hasBalances: d.balances && Object.keys(d.balances).length > 0,
+      }));
+      const dealerPids = dealers.map((d) => d.pid).sort().join(',');
+
+      // Detecta mudança na lista de dealers (dealer sumiu ou apareceu)
+      const prevSnapshot = lastDealerSnapshotRef.current;
+      if (prevSnapshot != null && prevSnapshot !== dealerPids) {
+        log.warn(
+          'DIAGNÓSTICO: dealers mudaram no state_update',
+          'antes:', prevSnapshot || '(vazio)',
+          '→ agora:', dealerPids || '(vazio)',
+          'dealers:', dealerSummary,
+        );
+      }
+      lastDealerSnapshotRef.current = dealerPids;
+      lastStateUpdateRef.current = now;
+
+      // Log diagnóstico a cada state_update com resumo dos dealers
+      log.debug(
+        'state_update recebido',
+        'dealers:', dealerSummary,
+        'log_summary:', data.log_summary || null,
+        'ts:', data.ts,
+      );
+      // ─────────────────────────────────────────────────────────────────────
+
       setState(data);
       setAgentConnected(true);
       if (data.agent_hostname || sid != null) {
@@ -115,7 +155,11 @@ export default function useDealerWs(wsUrl, token, enabled) {
         pendingRef.current.delete(reqKey);
         resolver(msg);
       }
-      if (msg.ok) setAgentConnected(true);
+      if (msg.ok) {
+        setAgentConnected(true);
+      } else {
+        log.warn('Comando falhou', msg.action, msg.data);
+      }
       addLog(`[result] ${msg.action} → ${msg.ok ? 'OK' : 'ERRO'}: ${JSON.stringify(msg.data)}`);
       return;
     }
@@ -128,6 +172,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
 
     if (type === 'error') {
       const errMsg = msg.message || 'Erro desconhecido';
+      log.error('Erro do relay', errMsg, 'ação:', msg.action, 'req_id:', msg.req_id);
       setLastError(errMsg);
       if (/agent/i.test(errMsg)) {
         setAgentConnected(false);
@@ -157,6 +202,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      log.info('WS aberto', wsUrl);
       ws.send(JSON.stringify({ type: 'auth', role: 'browser', token }));
     };
 
@@ -170,6 +216,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
 
       if (msg.type === 'auth_ok') {
         setStatus(STATUS.connected);
+        log.info('Auth OK', wsUrl);
         addLog('[system] Autenticado com sucesso');
         return;
       }
@@ -177,6 +224,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
       if (msg.type === 'auth_fail') {
         setStatus(STATUS.error);
         setLastError(msg.message || 'Token inválido');
+        log.error('Auth FALHOU', msg.message, 'url:', wsUrl);
         ws.close();
         return;
       }
@@ -184,21 +232,28 @@ export default function useDealerWs(wsUrl, token, enabled) {
       handleMessage(ev.data);
     };
 
-    ws.onerror = () => {
+    ws.onerror = (ev) => {
+      log.error('WS erro de conexão', 'url:', wsUrl, ev);
       setStatus(STATUS.error);
       setLastError('Falha na conexão WebSocket');
     };
 
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
+      log.warn('WS fechado', 'code:', ev.code, 'reason:', ev.reason || '(sem motivo)', 'url:', wsUrl);
       wsRef.current = null;
       setStatus((prev) => (prev === STATUS.error ? prev : STATUS.idle));
       clearAgentState('browser_disconnected');
+      const pending = pendingRef.current.size;
+      if (pending > 0) {
+        log.warn('WS fechado com', pending, 'comando(s) pendente(s) — cancelando');
+      }
       pendingRef.current.forEach((resolve) => {
         resolve({ ok: false, data: { error: 'Conexão encerrada' } });
       });
       pendingRef.current.clear();
 
       if (enabled) {
+        log.info('Reconectando em 5s…');
         reconnectRef.current = setTimeout(connect, 5000);
       }
     };
@@ -232,9 +287,34 @@ export default function useDealerWs(wsUrl, token, enabled) {
     };
   }, [enabled, wsUrl, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Watchdog: alerta se state_update parar de chegar (bridge/manager caiu) ──
+  useEffect(() => {
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    if (!enabled) return undefined;
+
+    heartbeatRef.current = setInterval(() => {
+      const last = lastStateUpdateRef.current;
+      if (!last) return; // ainda não conectou, ignora
+      const staleSec = Math.round((Date.now() - last) / 1000);
+      if (staleSec >= 15) {
+        log.warn(
+          `DIAGNÓSTICO: sem state_update há ${staleSec}s`,
+          '— bridge ou manager pode estar caído.',
+          'WS readyState:', wsRef.current?.readyState,
+          'URL:', wsUrl,
+        );
+      }
+    }, 10000); // checa a cada 10s
+
+    return () => {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    };
+  }, [enabled, wsUrl]);
+
   const sendCommand = useCallback((action, params = {}, timeoutMs = 30000) => {
     return new Promise((resolve, reject) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        log.warn('sendCommand bloqueado — WS não aberto', 'action:', action, 'readyState:', wsRef.current?.readyState);
         reject(new Error('WebSocket não conectado'));
         return;
       }
@@ -242,16 +322,33 @@ export default function useDealerWs(wsUrl, token, enabled) {
       const req_id = reqIdRef.current++;
       const reqKey = String(req_id);
       const payload = { type: 'command', action, params, req_id };
+      const sentAt = Date.now();
 
       const timer = setTimeout(() => {
         if (pendingRef.current.has(reqKey)) {
           pendingRef.current.delete(reqKey);
+          const staleSec = lastStateUpdateRef.current
+            ? Math.round((Date.now() - lastStateUpdateRef.current) / 1000)
+            : null;
+          log.error(
+            'DIAGNÓSTICO: Timeout de comando',
+            action,
+            `pid: ${params?.pid ?? 'n/a'}`,
+            `(${timeoutMs}ms) req_id: ${reqKey}`,
+            `último state_update: ${staleSec != null ? staleSec + 's atrás' : 'desconhecido'}`,
+            `dealers no último snapshot: ${lastDealerSnapshotRef.current || '(nenhum)'}`,
+            `WS readyState: ${wsRef.current?.readyState}`,
+          );
           reject(new Error(`Timeout aguardando resposta de ${action}`));
         }
       }, timeoutMs);
 
       pendingRef.current.set(reqKey, (result) => {
         clearTimeout(timer);
+        const ms = Date.now() - sentAt;
+        if (ms > 5000) {
+          log.warn('Comando lento', action, `${ms}ms`, 'pid:', params?.pid ?? 'n/a');
+        }
         resolve(result);
       });
 
@@ -271,5 +368,6 @@ export default function useDealerWs(wsUrl, token, enabled) {
     sendCommand,
     disconnect,
     reconnect: connect,
+    lastStateUpdateRef, // expõe para diagnóstico externo (ex.: SystemStatusBar)
   };
 }

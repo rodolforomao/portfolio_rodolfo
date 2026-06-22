@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { log } from './utils/logger';
 import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
-import { TbRefresh, TbChartLine, TbArrowRight, TbTrendingUp, TbTrendingDown, TbCoin, TbWallet, TbArrowsExchange, TbChevronDown, TbChevronUp } from 'react-icons/tb';
+import { TbRefresh, TbChartLine, TbArrowRight, TbTrendingUp, TbTrendingDown, TbCoin, TbWallet, TbArrowsExchange, TbChevronDown, TbChevronUp, TbDownload } from 'react-icons/tb';
 import { ManagerBadge } from './SourceBadge';
 import {
   formatTxTimestamp,
@@ -280,6 +281,69 @@ function TxRow({ tx }) {
   );
 }
 
+/* ── Progresso de sync por dealer ── */
+function SyncProgressList({ progress, loading }) {
+  // Sem dados de progresso ainda: mostra spinner genérico se loading
+  if (!progress.length) {
+    if (!loading) return null;
+    return (
+      <div className="dealer-sync-progress">
+        <div className="dealer-sync-progress-header">
+          <span>Sincronizando histórico…</span>
+          <span className="dealer-sync-progress-overall dealer-spin-text">⋯</span>
+        </div>
+        <div className="dealer-sync-progress-bar-wrap">
+          <div className="dealer-sync-progress-bar dealer-sync-indeterminate" />
+        </div>
+      </div>
+    );
+  }
+
+  const total = progress[0]?.dealer_total || progress.length;
+  const done = progress.filter((p) => p.done).length;
+  const overallPct = total > 0 ? Math.round(done / total * 100) : 0;
+  const allDone = done === total;
+
+  return (
+    <div className="dealer-sync-progress">
+      <div className="dealer-sync-progress-header">
+        <span>
+          {allDone ? 'Sync concluído —' : 'Sincronizando histórico…'}
+          {' '}{done}/{total} dealer{total !== 1 ? 's' : ''}
+        </span>
+        <span className="dealer-sync-progress-overall">{overallPct}%</span>
+      </div>
+      <div className="dealer-sync-progress-bar-wrap">
+        <div className="dealer-sync-progress-bar" style={{ width: `${overallPct}%` }} />
+      </div>
+      {progress.map((p) => (
+        <div key={p.pid} className={`dealer-sync-dealer-row${p.done ? ' done' : ' pending'}`}>
+          <span className="dealer-sync-dealer-name">
+            {p.done ? '✓' : '⋯'} {p.wallet || `PID ${p.pid}`}
+          </span>
+          {p.done ? (
+            <span className="dealer-sync-dealer-stats">
+              {p.imported > 0 && <span className="dealer-sync-new">{p.imported} novos</span>}
+              {p.updated > 0 && <span className="dealer-sync-upd">{p.updated} atualiz.</span>}
+              {p.skipped > 0 && <span className="dealer-sync-skip">{p.skipped} existentes</span>}
+              {p.total_checked > 0 && (
+                <span className="dealer-sync-pct">
+                  {p.pct_new.toFixed(0)}% novo
+                  <span className="dealer-sync-mini-bar-wrap">
+                    <span className="dealer-sync-mini-bar" style={{ width: `${p.pct_new}%` }} />
+                  </span>
+                </span>
+              )}
+            </span>
+          ) : (
+            <span className="dealer-sync-dealer-stats dealer-sync-waiting">aguardando…</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function TransactionsPanel({
   dealer,
   dealers = [],
@@ -289,37 +353,63 @@ export default function TransactionsPanel({
   wsEvents = [],
   txSummarySig = '',
 }) {
+  // pages: { [offset]: { rows: [], hash: string } }
+  // reportMeta: total, has_more, next_offset, profit_loss, asset_summary, category_summary, sync
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
-  const [report, setReport] = useState(null);
+  const [pages, setPages] = useState({});
+  const [reportMeta, setReportMeta] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [period, setPeriod] = useState('today');
   const [lastSync, setLastSync] = useState(null);
   const [autoRefreshNote, setAutoRefreshNote] = useState('');
+  // syncProgress: [{ pid, wallet, dealer_index, dealer_total, progress_pct, done, imported, updated, skipped, total_checked, pct_new }]
+  const [syncProgress, setSyncProgress] = useState([]);
   const loadRef = useRef(null);
   const txSummarySigRef = useRef('');
   const autoRefreshTimerRef = useRef(null);
+  // armazena hash da página 0 para comparação em refreshes silenciosos
+  const page0HashRef = useRef('');
+
+  const PAGE_SIZE = 50;
 
   const isMulti = !dealer && dealers.length > 0;
   const targetPid = dealer?.pid ?? null;
   const wsOk = wsStatus === 'connected';
 
+  // Carrega a página 0 (reset completo do painel)
   const load = useCallback(async (sync = true, source = 'manual') => {
     if (!wsOk || !sendCommand) return;
     setLoading(true);
     setError(null);
+    if (sync) setSyncProgress([]);
     try {
       const result = await sendCommand('get_transactions', {
         pid: targetPid,
-        limit: 200,
+        limit: PAGE_SIZE,
+        offset: 0,
         sync,
         since: periodToSince(period) ?? undefined,
-      });
+      }, 90000); // 90s — sync HTTP pode demorar com vários dealers
       if (result?.ok && result.data && !result.data.error) {
-        setReport(result.data);
+        const data = result.data;
+        // Reset completo: descarta todas as páginas antigas e inicia com página 0
+        setPages({ 0: { rows: data.transactions || [], hash: data.page_hash || '' } });
+        page0HashRef.current = data.page_hash || '';
+        setReportMeta({
+          total: data.total,
+          has_more: data.has_more,
+          next_offset: data.next_offset,
+          profit_loss: data.profit_loss,
+          asset_summary: data.asset_summary,
+          category_summary: data.category_summary,
+          sync: data.sync,
+        });
+        log.debug('get_transactions OK', 'total:', data.total, 'sync:', data.sync, 'source:', source, 'pid:', targetPid);
         setLastSync(new Date().toLocaleTimeString('pt-BR'));
         if (source !== 'manual') {
-          const imported = result.data?.sync?.imported || 0;
+          const imported = data.sync?.imported || 0;
           setAutoRefreshNote(
             imported > 0
               ? `${imported} trade(s) importado(s) do SideSwap.`
@@ -327,21 +417,113 @@ export default function TransactionsPanel({
           );
         }
       } else {
-        setError(result?.data?.error || result?.data?.message || 'Falha ao carregar transações');
+        const errMsg = result?.data?.error || result?.data?.message || 'Falha ao carregar transações';
+        log.error('get_transactions falhou', errMsg, 'pid:', targetPid, 'source:', source, 'result:', result);
+        setError(errMsg);
       }
     } catch (err) {
+      log.error('get_transactions exceção', err, 'pid:', targetPid, 'source:', source);
       setError(err.message);
     } finally {
       setLoading(false);
+      // Mantém syncProgress visível por 4s após sync concluir, depois limpa
+      setTimeout(() => setSyncProgress([]), 4000);
     }
-  }, [targetPid, sendCommand, wsOk, period]);
+  }, [targetPid, sendCommand, wsOk, period]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Carrega a próxima página (append)
+  const loadMore = useCallback(async () => {
+    if (!wsOk || !sendCommand || !reportMeta?.has_more || loadingMore) return;
+    const offset = reportMeta.next_offset;
+    setLoadingMore(true);
+    try {
+      const result = await sendCommand('get_transactions', {
+        pid: targetPid,
+        limit: PAGE_SIZE,
+        offset,
+        sync: false, // páginas seguintes são leitura pura
+        since: periodToSince(period) ?? undefined,
+      });
+      if (result?.ok && result.data && !result.data.error) {
+        const data = result.data;
+        setPages((prev) => ({
+          ...prev,
+          [offset]: { rows: data.transactions || [], hash: data.page_hash || '' },
+        }));
+        setReportMeta((prev) => ({
+          ...prev,
+          has_more: data.has_more,
+          next_offset: data.next_offset,
+          total: data.total,
+        }));
+      }
+    } catch (err) {
+      log.error('loadMore exceção', err, 'pid:', targetPid, 'offset:', offset);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [wsOk, sendCommand, targetPid, period, reportMeta, loadingMore]);
+
+  // Refresh silencioso da página 0: só atualiza se o hash mudou
+  const refreshPage0 = useCallback(async (source) => {
+    if (!wsOk || !sendCommand) return;
+    try {
+      const result = await sendCommand('get_transactions', {
+        pid: targetPid,
+        limit: PAGE_SIZE,
+        offset: 0,
+        sync: true,
+        since: periodToSince(period) ?? undefined,
+      });
+      if (!result?.ok || !result.data || result.data.error) return;
+      const data = result.data;
+      const newHash = data.page_hash || '';
+      const hashChanged = newHash !== page0HashRef.current;
+      const totalChanged = data.total !== reportMeta?.total;
+
+      if (!hashChanged && !totalChanged) return; // nenhuma mudança — não re-renderiza
+
+      page0HashRef.current = newHash;
+      setPages((prev) => ({ ...prev, 0: { rows: data.transactions || [], hash: newHash } }));
+      setReportMeta((prev) => ({
+        ...prev,
+        total: data.total,
+        has_more: data.has_more,
+        next_offset: data.next_offset,
+        profit_loss: data.profit_loss,
+        asset_summary: data.asset_summary,
+        category_summary: data.category_summary,
+        sync: data.sync,
+      }));
+      setLastSync(new Date().toLocaleTimeString('pt-BR'));
+      if (source !== 'manual') {
+        const imported = data.sync?.imported || 0;
+        if (imported > 0 || hashChanged) {
+          setAutoRefreshNote(
+            imported > 0
+              ? `${imported} trade(s) importado(s) do SideSwap.`
+              : 'Nova transação detectada.',
+          );
+        }
+      }
+    } catch (err) {
+      log.warn('refreshPage0 exceção', err, 'pid:', targetPid);
+    }
+  }, [wsOk, sendCommand, targetPid, period, reportMeta?.total]);
 
   loadRef.current = load;
+  const refreshPage0Ref = useRef(refreshPage0);
+  refreshPage0Ref.current = refreshPage0;
 
   const scheduleAutoReload = useCallback((source) => {
     if (autoRefreshTimerRef.current) clearTimeout(autoRefreshTimerRef.current);
     autoRefreshTimerRef.current = setTimeout(() => {
-      loadRef.current?.(true, source);
+      // Se já temos dados, usa refresh silencioso com comparação de hash
+      if (page0HashRef.current) {
+        refreshPage0Ref.current(source);
+      } else {
+        loadRef.current?.(true, source);
+      }
     }, 400);
   }, []);
 
@@ -357,7 +539,11 @@ export default function TransactionsPanel({
 
   useEffect(() => {
     if (wsOk && (dealer?.pid || isMulti)) load(syncOnSelect, 'mount');
-  }, [dealer?.pid, isMulti, load, syncOnSelect, wsOk]);
+    // Reset ao trocar de dealer
+    setPages({});
+    setReportMeta(null);
+    page0HashRef.current = '';
+  }, [dealer?.pid, isMulti, wsOk]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (wsOk && (dealer?.pid || isMulti)) load(true, 'period');
@@ -366,6 +552,19 @@ export default function TransactionsPanel({
   useEffect(() => {
     if (!wsEvents.length) return;
     const last = wsEvents[wsEvents.length - 1];
+    if (last?.event === 'history_sync_progress') {
+      const d = last.data;
+      setSyncProgress((prev) => {
+        const idx = prev.findIndex((p) => p.pid === d.pid);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = d;
+          return next;
+        }
+        return [...prev, d];
+      });
+      return;
+    }
     if (last?.event !== 'transaction_event') return;
     const tx = last?.data?.transaction;
     if (!tx) return;
@@ -384,10 +583,16 @@ export default function TransactionsPanel({
     scheduleAutoReload('summary');
   }, [txSummarySig, wsOk, dealer?.pid, isMulti, scheduleAutoReload]);
 
-  const assetSummary = report?.asset_summary || {};
-  const pl = report?.profit_loss || {};
-  const categorySummary = report?.category_summary?.by_category || {};
-  const allTx = report?.transactions || [];
+  // Flatten de todas as páginas em ordem de offset
+  const allTx = useMemo(() => {
+    return Object.entries(pages)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .flatMap(([, page]) => page.rows);
+  }, [pages]);
+
+  const assetSummary = reportMeta?.asset_summary || {};
+  const pl = reportMeta?.profit_loss || {};
+  const categorySummary = reportMeta?.category_summary?.by_category || {};
 
   const filteredTx = useMemo(
     () => (categoryFilter ? allTx.filter((tx) => tx.category === categoryFilter) : allTx),
@@ -417,13 +622,64 @@ export default function TransactionsPanel({
     return n;
   }, [assetSummary]);
 
+  const handleExportCsv = useCallback(() => {
+    const rows = allTx.length > 0 ? allTx : [];
+    if (!rows.length) return;
+
+    const headers = [
+      'timestamp', 'tipo', 'categoria', 'par', 'trade_dir',
+      'base', 'quantidade_base', 'quote', 'quantidade_quote',
+      'preco_executado', 'preco_referencia', 'lucro_pct', 'lucro_label',
+      'carteira', 'order_id', 'txid',
+    ];
+
+    const escape = (v) => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+
+    const csvRows = [
+      headers.join(','),
+      ...rows.map((tx) => [
+        tx.timestamp,
+        tx.type_label || tx.type,
+        tx.category_label || tx.category,
+        tx.pair,
+        tx.trade_dir || '',
+        tx.base || '',
+        tx.filled_base ?? '',
+        tx.quote || '',
+        tx.filled_quote ?? '',
+        tx.executed_price ?? '',
+        tx.reference_price ?? '',
+        tx.profit_percent ?? '',
+        tx.profit_label || '',
+        tx.dealer_wallet || '',
+        tx.order_id || '',
+        tx.txid || '',
+      ].map(escape).join(',')),
+    ];
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `transacoes_${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [allTx]);
+
   const titleLabel = dealer
     ? `PID ${dealer.pid} · ${dealer.wallet_name || '—'}`
     : isMulti
       ? `${dealers.length} carteiras`
       : null;
 
-  const hasData = allTx.length > 0 || report != null;
+  const hasData = allTx.length > 0 || reportMeta != null;
 
   return (
     <section className="dealer-transactions-panel">
@@ -434,10 +690,20 @@ export default function TransactionsPanel({
           <TbChartLine /> Histórico &amp; Lucro
           <ManagerBadge title="Transações via get_transactions do manager_dealer" />
           {titleLabel && <span className="dealer-assets-sub">{titleLabel}</span>}
-          {report?.total != null && <span className="dealer-assets-sub">{report.total} registros</span>}
+          {reportMeta?.total != null && <span className="dealer-assets-sub">{reportMeta.total} registros</span>}
         </h3>
         <div className="dealer-tx-header-actions">
           {lastSync && <span className="dealer-tx-last-sync">sync {lastSync}</span>}
+          <Button
+            size="sm"
+            variant="outline-secondary"
+            onClick={handleExportCsv}
+            disabled={!allTx.length}
+            className="dealer-tx-refresh"
+            title="Exportar transações como CSV"
+          >
+            <TbDownload /> CSV
+          </Button>
           <Button
             size="sm"
             variant="outline-secondary"
@@ -465,12 +731,17 @@ export default function TransactionsPanel({
             <p className="dealer-hint dealer-tx-auto-refresh-note">{autoRefreshNote}</p>
           )}
 
-          {report?.sync && (report.sync.imported > 0 || report.sync.updated > 0) && (
+          {/* ── Progresso de sync em tempo real ── */}
+          {(loading || syncProgress.length > 0) && (
+            <SyncProgressList progress={syncProgress} loading={loading} />
+          )}
+
+          {reportMeta?.sync && (reportMeta.sync.imported > 0 || reportMeta.sync.updated > 0) && (
             <p className="dealer-hint">
               Sync SideSwap:
-              {report.sync.imported > 0 && ` ${report.sync.imported} trade(s) importado(s).`}
-              {report.sync.updated > 0 && ` ${report.sync.updated} trade(s) atualizado(s).`}
-              {Array.isArray(report.sync.dealers) && report.sync.dealers.some((d) => d.error) && (
+              {reportMeta.sync.imported > 0 && ` ${reportMeta.sync.imported} trade(s) importado(s).`}
+              {reportMeta.sync.updated > 0 && ` ${reportMeta.sync.updated} trade(s) atualizado(s).`}
+              {Array.isArray(reportMeta.sync.dealers) && reportMeta.sync.dealers.some((d) => d.error) && (
                 <span className="dealer-tx-sync-warn">
                   {' '}Alguns PIDs falharam no sync — verifique se o dealer está online.
                 </span>
@@ -603,9 +874,23 @@ export default function TransactionsPanel({
                   ))}
                 </tbody>
               </table>
-              {report?.total > filteredTx.length && (
+              {/* ── Paginação: carregar mais ── */}
+              {reportMeta?.has_more && !categoryFilter && (
+                <div className="dealer-tx-load-more">
+                  <Button
+                    size="sm"
+                    variant="outline-secondary"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? '…' : `Carregar mais (${reportMeta.total - allTx.length} restantes)`}
+                  </Button>
+                </div>
+              )}
+              {reportMeta?.total != null && (
                 <p className="dealer-tx-limit-note">
-                  Mostrando {filteredTx.length} de {report.total} — use filtro de período para refinar.
+                  {allTx.length} de {reportMeta.total} transações carregadas.
+                  {categoryFilter && reportMeta.total > allTx.length && ' Use "Tudo" no filtro para ver o total.'}
                 </p>
               )}
             </div>

@@ -83,8 +83,11 @@ import {
 import DealerStatusBadge from './DealerStatusBadge';
 import DealerSettings from './DealerSettings';
 import SystemStatusBar from './SystemStatusBar';
+import MarketRatesBar from './MarketRatesBar';
 import OrderStatusSignal from './OrderStatusSignal';
 import { loadDealerPreferences } from './utils/dealerPreferences';
+import { log, registerPushLog } from './utils/logger';
+import LogsPanel from './LogsPanel';
 import { FollowRefLink } from './utils/followTarget';
 import './Dealer.css';
 import useMobileLayout from './useMobileLayout';
@@ -1290,6 +1293,15 @@ export default function DealerConsole() {
     status, agentConnected, agentMeta, state, messages, events, sendCommand, disconnect, lastError,
   } = useDealerWs(session?.wsUrl, session?.token, !!session?.authenticated);
 
+  // Registra push_log no logger global assim que o WS estiver disponível
+  useEffect(() => {
+    registerPushLog((entry) => {
+      if (status === 'connected') {
+        sendCommand('push_log', entry).catch(() => {});
+      }
+    });
+  }, [status, sendCommand]);
+
   const dealers = useMemo(
     () => buildDealerList(state?.dealers || [], fetchedDealers),
     [state?.dealers, fetchedDealers],
@@ -1361,7 +1373,7 @@ export default function DealerConsole() {
     reconnect: reconnectScan,
   } = useMarketScan(
     marketData.assets,
-    mainView === 'oportunidades' || mainView === 'arquitetura' || mainView === 'geral',
+    !!marketData.assets?.length,
   );
 
   const refreshAssets = React.useCallback(async () => {
@@ -1377,13 +1389,18 @@ export default function DealerConsole() {
           assets: assetsResult.data.assets || [],
           combinations: assetsResult.data.combinations || [],
         });
+      } else {
+        log.warn('get_assets falhou ou sem dados', assetsResult?.data);
       }
       if (listResult?.ok && listResult.data?.dealers) {
         setFetchedDealers(listResult.data.dealers);
         setLastAssetRefresh(new Date().toLocaleTimeString('pt-BR'));
+        log.debug('list_detailed OK', listResult.data.dealers.length, 'dealer(s)');
+      } else {
+        log.warn('list_detailed falhou ou sem dealers', listResult?.data);
       }
-    } catch {
-      // silencioso — state_update continua em background
+    } catch (err) {
+      log.error('refreshAssets exceção', err);
     } finally {
       setRefreshingAssets(false);
     }
@@ -1392,18 +1409,18 @@ export default function DealerConsole() {
   useEffect(() => {
     if (status !== 'connected' || !agentConnected) return;
     sendCommand('get_telegram_config', {}).then((res) => {
-      if (!res?.ok) return;
+      if (!res?.ok) { log.warn('get_telegram_config falhou', res?.data); return; }
       const bots = res.data?.bots || [];
       const chatCount = bots.reduce((n, b) => n + (b.chat_count || 0), 0);
       setTelegramStatus({ active: chatCount > 0, botCount: bots.length, chatCount });
-    }).catch(() => {});
+    }).catch((err) => log.warn('get_telegram_config exceção', err));
     sendCommand('get_telegram_alerts_config', {}).then((res) => {
-      if (!res?.ok) return;
+      if (!res?.ok) { log.warn('get_telegram_alerts_config falhou', res?.data); return; }
       const pct = res.data?.below_market_threshold_pct;
       if (pct != null && Number.isFinite(Number(pct))) {
         setBelowMarketThresholdPct(Number(pct));
       }
-    }).catch(() => {});
+    }).catch((err) => log.warn('get_telegram_alerts_config exceção', err));
   }, [status, agentConnected, sendCommand]);
 
   useEffect(() => {
@@ -1488,6 +1505,12 @@ export default function DealerConsole() {
           <div className="dealer-topbar-inner">
             <div className="dealer-topbar-title-row">
               <h2>Dealer Console</h2>
+              <MarketRatesBar
+                indPrices={scanIndPrices}
+                pairs={scanPairs}
+                status={scanStatus}
+                lastUpdate={scanLastUpdate}
+              />
               <div className="dealer-topbar-actions">
                 <Button
                   variant="outline-secondary"
@@ -1561,6 +1584,21 @@ export default function DealerConsole() {
                   <TbSettings /> Configurações
                 </Nav.Link>
               </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  active={mainView === 'logs'}
+                  onClick={() => setMainView('logs')}
+                  className="dealer-main-nav-link dealer-main-nav-link-logs"
+                >
+                  <TbBug />
+                  {' Logs'}
+                  {(state?.log_summary?.error_count || 0) > 0 && (
+                    <Badge bg="danger" className="ms-1 dealer-nav-log-badge">
+                      {state.log_summary.error_count}
+                    </Badge>
+                  )}
+                </Nav.Link>
+              </Nav.Item>
             </Nav>
           </div>
           <SystemStatusBar
@@ -1608,8 +1646,40 @@ export default function DealerConsole() {
         </div>
       )}
 
+      {state?.log_summary?.error_count > 0 && mainView !== 'logs' && (
+        <div className="dealer-status-banner dealer-status-banner-log-error" role="alert">
+          <Container fluid>
+            <strong>{state.log_summary.error_count} erro{state.log_summary.error_count !== 1 ? 's' : ''} no manager.</strong>
+            {state.log_summary.last_error && (
+              <> Último: <code>{state.log_summary.last_error.source}</code> — {state.log_summary.last_error.message}</>
+            )}
+            {' '}
+            <button
+              type="button"
+              className="dealer-log-error-banner-link"
+              onClick={() => setMainView('logs')}
+            >
+              Ver Logs →
+            </button>
+          </Container>
+        </div>
+      )}
+
       <Container fluid className="dealer-main px-2 px-md-3">
-        {mainView === 'config' ? (
+        {mainView === 'logs' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <LogsPanel
+                  sendCommand={sendCommand}
+                  wsStatus={status}
+                  wsEvents={events}
+                  logSummary={state?.log_summary || null}
+                />
+              </div>
+            </Col>
+          </Row>
+        ) : mainView === 'config' ? (
           <Row className="g-3">
             <Col xs={12}>
               <div className="dealer-panel dealer-settings-panel dealer-panel-scroll">
