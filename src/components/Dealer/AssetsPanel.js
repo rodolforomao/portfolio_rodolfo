@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
 import { TbRefresh, TbCoins, TbLayersLinked } from 'react-icons/tb';
+import { ManagerBadge } from './SourceBadge';
 import { formatAssetBalance, normalizeBalances } from './utils/dealerFormat';
 
 const SATS_PER_LBTC = 1e8;
@@ -330,6 +331,7 @@ export default function AssetsPanel({
       <div className="dealer-assets-header">
         <h3>
           <TbCoins /> Saldos
+          <ManagerBadge title="Saldos via state_update do manager_dealer" />
           {dealer && (
             <span className="dealer-assets-sub">PID {dealer.pid} · {dealer.wallet_name}</span>
           )}

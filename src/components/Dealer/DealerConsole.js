@@ -1128,6 +1128,7 @@ export default function DealerConsole() {
   const [rendPid, setRendPid] = useState(null);
   const [consolePrefs, setConsolePrefs] = useState(() => loadDealerPreferences());
   const [telegramStatus, setTelegramStatus] = useState(null);
+  const [belowMarketThresholdPct, setBelowMarketThresholdPct] = useState(0.5);
   const isMobileLayout = useMobileLayout();
 
   const bumpOrderRegistry = useCallback(() => setOrderRegistryTick((n) => n + 1), []);
@@ -1203,7 +1204,7 @@ export default function DealerConsole() {
     books: scanBooks,
     indPrices: scanIndPrices,
     reconnect: reconnectScan,
-  } = useMarketScan(marketData.assets, mainView === 'rendimentos');
+  } = useMarketScan(marketData.assets, mainView === 'oportunidades');
 
   const refreshAssets = React.useCallback(async () => {
     if (status !== 'connected') return;
@@ -1237,6 +1238,13 @@ export default function DealerConsole() {
       const bots = res.data?.bots || [];
       const chatCount = bots.reduce((n, b) => n + (b.chat_count || 0), 0);
       setTelegramStatus({ active: chatCount > 0, botCount: bots.length, chatCount });
+    }).catch(() => {});
+    sendCommand('get_telegram_alerts_config', {}).then((res) => {
+      if (!res?.ok) return;
+      const pct = res.data?.below_market_threshold_pct;
+      if (pct != null && Number.isFinite(Number(pct))) {
+        setBelowMarketThresholdPct(Number(pct));
+      }
     }).catch(() => {});
   }, [status, agentConnected, sendCommand]);
 
@@ -1339,11 +1347,20 @@ export default function DealerConsole() {
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link
-                  active={mainView === 'rendimentos'}
-                  onClick={() => setMainView('rendimentos')}
+                  active={mainView === 'historico'}
+                  onClick={() => setMainView('historico')}
                   className="dealer-main-nav-link"
                 >
-                  <TbChartLine /> Rendimentos
+                  <TbChartLine /> Histórico
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  active={mainView === 'oportunidades'}
+                  onClick={() => setMainView('oportunidades')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbArrowsExchange /> Oportunidades
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
@@ -1417,9 +1434,9 @@ export default function DealerConsole() {
               </div>
             </Col>
           </Row>
-        ) : mainView === 'rendimentos' ? (
+        ) : mainView === 'historico' ? (
           <>
-          <div className="dealer-mobile-panel-nav dealer-mobile-panel-nav--two d-lg-none" role="tablist" aria-label="Painéis de rendimentos">
+          <div className="dealer-mobile-panel-nav dealer-mobile-panel-nav--two d-lg-none" role="tablist" aria-label="Painéis de histórico">
             <button
               type="button"
               role="tab"
@@ -1436,14 +1453,14 @@ export default function DealerConsole() {
               className={`dealer-mobile-panel-btn${mobileRendPanel === 'dados' ? ' active' : ''}`}
               onClick={() => setMobileRendPanel('dados')}
             >
-              <TbChartLine /> Dados
+              <TbChartLine /> Histórico
             </button>
           </div>
           <Row className="g-3">
             {(!isMobileLayout || mobileRendPanel === 'carteiras') && (
             <Col xs={12} lg={3} className="dealer-mobile-panel-col">
               <div className="dealer-panel dealer-panel-scroll">
-                <h3 className="dealer-rend-sidebar-title"><TbChartLine /> Carteiras</h3>
+                <h3 className="dealer-rend-sidebar-title"><TbWallet /> Carteiras</h3>
                 <button
                   className={`dealer-rend-pid-btn${rendPid === null ? ' active' : ''}`}
                   onClick={() => setRendPid(null)}
@@ -1478,21 +1495,6 @@ export default function DealerConsole() {
             {(!isMobileLayout || mobileRendPanel === 'dados') && (
             <Col xs={12} lg={9} className="dealer-mobile-panel-col">
               <div className="dealer-panel dealer-panel-scroll dealer-rend-main">
-                <MarketOpportunities
-                  pairs={scanPairs}
-                  books={scanBooks}
-                  indPrices={scanIndPrices}
-                  status={scanStatus}
-                  error={scanError}
-                  lastUpdate={scanLastUpdate}
-                  dealers={dealers}
-                  reconnect={reconnectScan}
-                  onGoToOrder={(base, quote) => {
-                    setMainView('geral');
-                    setMidTab('operacional');
-                  }}
-                />
-                <div className="dealer-rend-divider" />
                 <TransactionsPanel
                   dealer={rendPid != null ? dealers.find((d) => d.pid === rendPid) || null : null}
                   dealers={dealers}
@@ -1505,6 +1507,28 @@ export default function DealerConsole() {
             )}
           </Row>
           </>
+        ) : mainView === 'oportunidades' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <MarketOpportunities
+                  pairs={scanPairs}
+                  books={scanBooks}
+                  indPrices={scanIndPrices}
+                  status={scanStatus}
+                  error={scanError}
+                  lastUpdate={scanLastUpdate}
+                  dealers={dealers}
+                  reconnect={reconnectScan}
+                  onGoToOrder={() => {
+                    setMainView('geral');
+                    setMidTab('operacional');
+                  }}
+                  belowMarketThresholdPct={belowMarketThresholdPct}
+                />
+              </div>
+            </Col>
+          </Row>
         ) : (
         <>
         <div className="dealer-mobile-panel-nav d-lg-none" role="tablist" aria-label="Painéis do console">

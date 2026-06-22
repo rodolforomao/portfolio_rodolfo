@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   SIDESWAP_WS_URL,
   SIDESWAP_CANONICAL_PAIRS,
@@ -30,6 +30,13 @@ export default function useMarketScan(assets, enabled = true) {
   const hadDataRef = useRef(false);
 
   enabledRef.current = enabled;
+
+  /* Chave estável: só muda quando os IDs dos assets realmente mudam.
+     Impede que o state_update de 3s (nova referência de array) feche/reabra o WS. */
+  const assetsKey = useMemo(
+    () => (assets?.length ? [...assets].map((a) => a.id).sort().join(',') : ''),
+    [assets],
+  );
 
   /* Resolve pares canônicos com asset IDs */
   const buildPairs = useCallback(() => {
@@ -171,7 +178,7 @@ export default function useMarketScan(assets, enabled = true) {
   }, [buildPairs, closeSocket, openSocket]);
 
   useEffect(() => {
-    if (!enabled || !assets?.length) {
+    if (!enabled || !assetsKey) {
       closeSocket(true);
       setBooks({});
       setIndPrices({});
@@ -183,7 +190,7 @@ export default function useMarketScan(assets, enabled = true) {
     const pairs = buildPairs();
     openSocket(pairs);
     return () => closeSocket(true);
-  }, [enabled, assets]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enabled, assetsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     status,

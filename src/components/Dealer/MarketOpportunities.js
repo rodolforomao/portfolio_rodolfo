@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
-import { TbRefresh, TbExternalLink, TbAlertTriangle, TbCircleCheck, TbMinus } from 'react-icons/tb';
+import { TbRefresh, TbExternalLink, TbAlertTriangle, TbCircleCheck, TbMinus, TbTag } from 'react-icons/tb';
+import { SideswapBadge } from './SourceBadge';
 import { sortBookSide, formatBookPrice } from './utils/sideswapBook';
 import { prepareDealerOrders } from './utils/orderMarketNormalize';
+import { findBelowMarketSells } from './utils/marketBargain';
 
 /* ── Funções de análise ── */
 
@@ -201,6 +203,77 @@ function OpportunityCard({ pair, book, indPrice, dealerOrderIds, onGoToOrder }) 
   );
 }
 
+function BelowMarketCard({ pair, hits, indPrice, marketUrl }) {
+  const [expanded, setExpanded] = useState(false);
+  const best = hits[0];
+  if (!best) return null;
+
+  const visibleHits = expanded ? hits : hits.slice(0, 3);
+  const hasMore = hits.length > 3;
+
+  return (
+    <div className="dealer-opp-card dealer-opp-below-market">
+      {/* Cabeçalho */}
+      <div className="dealer-opp-head">
+        <div className="dealer-opp-pair">
+          <span className="dealer-opp-pair-name">{pair.base}/{pair.quote}</span>
+          <Badge bg="success" className="dealer-opp-below-badge">
+            <TbTag /> {hits.length} venda{hits.length !== 1 ? 's' : ''} abaixo
+          </Badge>
+        </div>
+        <span className="dealer-opp-below-discount" title="Maior desconto encontrado">
+          −{best.discountPct.toFixed(2)}%
+        </span>
+      </div>
+
+      {/* Referência de mercado */}
+      <div className="dealer-opp-below-ref">
+        <span className="dealer-opp-price-label">ind_price SideSwap</span>
+        <span className="dealer-opp-ref-val">{formatBookPrice(indPrice)}</span>
+      </div>
+
+      {/* Chamada de ação */}
+      <div className="dealer-opp-below-cta">
+        Compra abaixo do mercado — alguém está vendendo {pair.base} mais barato que o preço de referência.
+      </div>
+
+      {/* Lista de hits */}
+      <div className="dealer-opp-below-hits">
+        <div className="dealer-opp-below-hits-header">
+          <span>Preço (Sell)</span>
+          <span>Desconto</span>
+          <span>Order ID</span>
+        </div>
+        {visibleHits.map((hit, idx) => (
+          <div key={hit.orderId ?? idx} className={`dealer-opp-below-hit-row${idx === 0 ? ' best' : ''}`}>
+            <span className="dealer-opp-price-val sell">{formatBookPrice(hit.price)}</span>
+            <span className="dealer-opp-below-hit-discount">−{hit.discountPct.toFixed(2)}%</span>
+            <code className="dealer-opp-below-hit-id">{hit.orderId ?? '—'}</code>
+          </div>
+        ))}
+        {hasMore && (
+          <button
+            type="button"
+            className="dealer-opp-below-expand"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? `Mostrar menos` : `+${hits.length - 3} mais`}
+          </button>
+        )}
+      </div>
+
+      {/* Ação */}
+      {marketUrl && (
+        <div className="dealer-opp-actions">
+          <a href={marketUrl} target="_blank" rel="noopener noreferrer" className="dealer-opp-link">
+            <TbExternalLink /> Comprar no Swap Market
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MarketOpportunities({
   pairs,
   books,
@@ -211,7 +284,9 @@ export default function MarketOpportunities({
   dealers = [],
   reconnect,
   onGoToOrder,
+  belowMarketThresholdPct = 0.5,
 }) {
+  const [viewMode, setViewMode] = useState('spread');
   /* Coleta todos os order_ids das nossas ordens (para verificar cobertura no livro) */
   const dealerOrderIds = useMemo(() => {
     const ids = new Set();
@@ -246,6 +321,21 @@ export default function MarketOpportunities({
     });
   }, [pairs, books, indPrices, dealerOrderIds]);
 
+  const belowMarketByPair = useMemo(() => {
+    if (!pairs.length) return [];
+    return pairs
+      .map((pair) => {
+        const book = books[pair.key] || [];
+        const ind = indPrices[pair.key]?.indPrice;
+        const hits = findBelowMarketSells(book, ind, belowMarketThresholdPct)
+          .sort((a, b) => b.discountPct - a.discountPct);
+        if (!hits.length) return null;
+        return { pair, hits, indPrice: ind };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.hits[0].discountPct - a.hits[0].discountPct);
+  }, [pairs, books, indPrices, belowMarketThresholdPct]);
+
   const statusDot = status === 'connected' ? 'ok'
     : status === 'connecting' || status === 'reconnecting' ? 'warn' : 'off';
 
@@ -257,7 +347,10 @@ export default function MarketOpportunities({
     <div className="dealer-opp-panel">
       <div className="dealer-opp-header">
         <div className="dealer-opp-header-left">
-          <h4 className="dealer-opp-title">Oportunidades de mercado</h4>
+          <h4 className="dealer-opp-title">
+            Oportunidades de mercado
+            <SideswapBadge title="Livro público SideSwap — WebSocket direto, sem passar pelo manager" />
+          </h4>
           <div className="dealer-opp-source">
             <span className={`dealer-opp-status-dot ${statusDot}`} />
             <span className="dealer-opp-status-text">
@@ -278,9 +371,29 @@ export default function MarketOpportunities({
       </div>
 
       <p className="dealer-opp-intro">
-        Varredura do livro público SideSwap — pares onde o spread está amplo e/ou não temos cobertura.
-        Score calculado em tempo real: spread × profundidade × presença.
+        Varredura do livro público SideSwap — spread amplo, cobertura e vendas abaixo do{' '}
+        <code>ind_price</code>. Alertas Telegram em Configurações → Telegram.
       </p>
+
+      <div className="dealer-opp-view-tabs mb-3">
+        <button
+          type="button"
+          className={`dealer-opp-view-tab${viewMode === 'spread' ? ' active' : ''}`}
+          onClick={() => setViewMode('spread')}
+        >
+          Spread &amp; cobertura
+        </button>
+        <button
+          type="button"
+          className={`dealer-opp-view-tab${viewMode === 'below' ? ' active' : ''}`}
+          onClick={() => setViewMode('below')}
+        >
+          Abaixo do mercado
+          {belowMarketByPair.length > 0 && (
+            <Badge bg="success" className="ms-1">{belowMarketByPair.length}</Badge>
+          )}
+        </button>
+      </div>
 
       {error && <p className="dealer-placement-error">{error}</p>}
 
@@ -292,6 +405,27 @@ export default function MarketOpportunities({
         <p className="dealer-empty">Conectando ao livro SideSwap…</p>
       )}
 
+      {viewMode === 'below' ? (
+        <>
+          <p className="dealer-opp-below-hint">
+            Ordens <strong>Sell</strong> com preço ≥ {belowMarketThresholdPct}% abaixo do ind_price SideSwap.
+          </p>
+          {belowMarketByPair.length === 0 && status === 'connected' && (
+            <p className="dealer-empty">Nenhuma venda abaixo do mercado nos pares monitorados.</p>
+          )}
+          <div className="dealer-opp-grid">
+            {belowMarketByPair.map(({ pair, hits, indPrice }) => (
+              <BelowMarketCard
+                key={pair.key}
+                pair={pair}
+                hits={hits}
+                indPrice={indPrice}
+                marketUrl={pair.marketUrl}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
       <div className="dealer-opp-grid">
         {sortedPairs.map((pair) => (
           <OpportunityCard
@@ -304,6 +438,7 @@ export default function MarketOpportunities({
           />
         ))}
       </div>
+      )}
     </div>
   );
 }

@@ -718,6 +718,183 @@ body.dealer-route-active .App.app-ready {
   margin: 24px 0;
 }
 
+/* ── Badges de fonte de dados ── */
+.dealer-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px 1px 4px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 7px;
+  line-height: 1.6;
+  cursor: default;
+}
+.dealer-source-manager {
+  background: #0d1f3c;
+  color: #58a6ff;
+  border: 1px solid #1f6feb55;
+}
+.dealer-source-sideswap {
+  background: #0d2218;
+  color: #3fb950;
+  border: 1px solid #23863655;
+}
+.dealer-source-badge svg {
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+
+.dealer-rend-tabs {
+  margin-bottom: 16px;
+}
+
+.dealer-opp-view-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dealer-opp-view-tab {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #8b949e;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.dealer-opp-view-tab.active {
+  color: #e6edf3;
+  border-color: rgba(88, 166, 255, 0.45);
+  background: rgba(88, 166, 255, 0.12);
+}
+
+.dealer-opp-below-hint {
+  font-size: 0.82rem;
+  color: #8b949e;
+  margin-bottom: 12px;
+}
+
+.dealer-opp-card.dealer-opp-below-market {
+  border-color: rgba(63, 185, 80, 0.35);
+  background: rgba(63, 185, 80, 0.06);
+}
+
+.dealer-opp-below-badge {
+  font-size: 0.68rem;
+  vertical-align: middle;
+}
+
+.dealer-opp-below-discount {
+  color: #3fb950;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.dealer-opp-below-body {
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dealer-opp-below-id {
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.dealer-opp-below-id code {
+  color: #c9d1d9;
+}
+
+.dealer-opp-below-ref {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+}
+
+.dealer-opp-below-cta {
+  font-size: 0.8rem;
+  color: #3fb950;
+  background: rgba(63, 185, 80, 0.1);
+  border-left: 3px solid #3fb950;
+  padding: 5px 8px;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 10px;
+}
+
+.dealer-opp-below-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.dealer-opp-below-hits-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6e7681;
+  padding: 0 4px 3px;
+  border-bottom: 1px solid #30363d;
+}
+
+.dealer-opp-below-hit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  align-items: center;
+  font-size: 0.82rem;
+  padding: 3px 4px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.02);
+}
+
+.dealer-opp-below-hit-row.best {
+  background: rgba(63, 185, 80, 0.12);
+  border: 1px solid rgba(63, 185, 80, 0.25);
+}
+
+.dealer-opp-below-hit-discount {
+  color: #3fb950;
+  font-weight: 700;
+}
+
+.dealer-opp-below-hit-id {
+  font-size: 0.7rem;
+  color: #8b949e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dealer-opp-below-expand {
+  background: none;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  margin-top: 2px;
+  align-self: flex-start;
+}
+
+.dealer-opp-below-expand:hover {
+  background: #21262d;
+  color: #c9d1d9;
+}
+
 /* ── Painel de Oportunidades ── */
 .dealer-opp-panel {
   margin-bottom: 8px;

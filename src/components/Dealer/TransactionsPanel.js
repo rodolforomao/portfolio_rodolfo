@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
 import { TbRefresh, TbChartLine, TbArrowRight, TbTrendingUp, TbTrendingDown, TbCoin, TbWallet, TbArrowsExchange, TbChevronDown, TbChevronUp } from 'react-icons/tb';
+import { ManagerBadge } from './SourceBadge';
 import {
   formatTxTimestamp,
   profitClass,
@@ -363,6 +364,7 @@ export default function TransactionsPanel({
       <div className="dealer-transactions-header">
         <h3>
           <TbChartLine /> Histórico &amp; Lucro
+          <ManagerBadge title="Transações via get_transactions do manager_dealer" />
           {titleLabel && <span className="dealer-assets-sub">{titleLabel}</span>}
           {report?.total != null && <span className="dealer-assets-sub">{report.total} registros</span>}
         </h3>

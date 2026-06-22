@@ -10,6 +10,7 @@ import {
   TbBell, TbHistory,
 } from 'react-icons/tb';
 import { parseChatIds, runSettingsCommand } from '../utils/settingsCommand';
+import { BELOW_MARKET_PAIR_OPTIONS } from '../utils/marketBargain';
 import { fetchVaultDealers, dealersToWallets } from '../vault/vaultApi';
 
 const DEFAULT_BOT_ID = 'main';
@@ -26,6 +27,7 @@ const ALERT_TYPE_META = {
   notify_low_balance:           { label: 'Saldo baixo (threshold configurável)', group: 'avancado' },
   notify_order_stuck_pending:   { label: 'Ordem presa pendente (sem order_id)', group: 'avancado' },
   notify_price_oracle_unavailable: { label: 'Oracle de preços indisponível',    group: 'avancado' },
+  notify_below_market:           { label: 'Venda abaixo do preço de mercado (SideSwap)', group: 'avancado' },
 };
 
 const ALERT_GROUPS = {
@@ -46,6 +48,7 @@ const EVENT_TYPE_LABELS = {
   order_stuck_pending:      'Ordem presa',
   manager_disconnected:     'Manager desconectado',
   price_oracle_unavailable: 'Oracle indisponível',
+  below_market:             'Abaixo do mercado',
 };
 
 function BotFormFields({
@@ -191,10 +194,16 @@ function NotificationHistoryPanel({ history, onRefresh, loading }) {
   );
 }
 
-function AlertsConfigPanel({ alerts, onSave, busy, canUseWs, lowBalanceThresholds, onSaveThresholds }) {
+function AlertsConfigPanel({
+  alerts, onSave, busy, canUseWs, lowBalanceThresholds, onSaveThresholds,
+  belowMarketPairs, belowMarketThresholdPct, onSaveBelowMarket,
+}) {
   const [localAlerts, setLocalAlerts] = useState({});
   const [thresholdText, setThresholdText] = useState('');
   const [thresholdAsset, setThresholdAsset] = useState('USDt');
+  const [localBelowPairs, setLocalBelowPairs] = useState([]);
+  const [localBelowThreshold, setLocalBelowThreshold] = useState('0.5');
+  const [belowDirty, setBelowDirty] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
@@ -205,6 +214,14 @@ function AlertsConfigPanel({ alerts, onSave, busy, canUseWs, lowBalanceThreshold
       setDirty(false);
     }
   }, [alerts]);
+
+  useEffect(() => {
+    setLocalBelowPairs(Array.isArray(belowMarketPairs) ? [...belowMarketPairs] : []);
+    setLocalBelowThreshold(
+      belowMarketThresholdPct != null ? String(belowMarketThresholdPct) : '0.5',
+    );
+    setBelowDirty(false);
+  }, [belowMarketPairs, belowMarketThresholdPct]);
 
   const toggle = (key) => {
     setLocalAlerts((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -227,6 +244,25 @@ function AlertsConfigPanel({ alerts, onSave, busy, canUseWs, lowBalanceThreshold
     const updated = { ...lowBalanceThresholds };
     delete updated[asset];
     onSaveThresholds(updated);
+  };
+
+  const toggleBelowPair = (pair) => {
+    setLocalBelowPairs((prev) => {
+      const s = new Set(prev);
+      if (s.has(pair)) s.delete(pair);
+      else s.add(pair);
+      return [...s];
+    });
+    setBelowDirty(true);
+  };
+
+  const handleSaveBelowMarket = () => {
+    const val = parseFloat(String(localBelowThreshold).replace(',', '.'));
+    onSaveBelowMarket({
+      pairs: localBelowPairs,
+      thresholdPct: Number.isFinite(val) ? val : 0.5,
+    });
+    setBelowDirty(false);
   };
 
   const groupKeys = Object.entries(ALERT_GROUPS).map(([groupId, groupLabel]) => ({
@@ -328,6 +364,55 @@ function AlertsConfigPanel({ alerts, onSave, busy, canUseWs, lowBalanceThreshold
           </InputGroup>
         </div>
       )}
+
+      {(localAlerts.notify_below_market ?? alerts?.notify_below_market?.enabled) && (
+        <div className="dealer-tg-threshold-section">
+          <div className="dealer-tg-alert-group-label">Pares monitorados — abaixo do mercado</div>
+          <p className="dealer-hint">
+            Alerta quando uma ordem <strong>Sell</strong> no livro SideSwap estiver abaixo do{' '}
+            <code>ind_price</code>. O manager_dealer envia via Telegram (24/7).
+          </p>
+          {BELOW_MARKET_PAIR_OPTIONS.map((pair) => (
+            <Form.Check
+              key={pair}
+              type="checkbox"
+              id={`below-pair-${pair}`}
+              className="dealer-settings-switch"
+              label={pair}
+              checked={localBelowPairs.includes(pair)}
+              onChange={() => toggleBelowPair(pair)}
+              disabled={busy || !canUseWs}
+            />
+          ))}
+          <Form.Group className="mt-2 mb-2">
+            <Form.Label>Desconto mínimo (% abaixo do ind_price)</Form.Label>
+            <Form.Control
+              size="sm"
+              style={{ maxWidth: 120 }}
+              value={localBelowThreshold}
+              onChange={(e) => {
+                setLocalBelowThreshold(e.target.value);
+                setBelowDirty(true);
+              }}
+              placeholder="0.5"
+              disabled={busy || !canUseWs}
+            />
+          </Form.Group>
+          {belowDirty && (
+            <Button
+              size="sm"
+              className="dealer-btn-primary"
+              disabled={busy || !canUseWs || localBelowPairs.length === 0}
+              onClick={handleSaveBelowMarket}
+            >
+              Salvar pares abaixo-do-mercado
+            </Button>
+          )}
+          {localBelowPairs.length === 0 && (
+            <p className="dealer-hint mb-0">Selecione ao menos um par para receber alertas.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -342,6 +427,8 @@ export default function TelegramSettings({ sendCommand, wsStatus, agentConnected
   const [wallets, setWallets] = useState([]);
   const [alertsConfig, setAlertsConfig] = useState(null);
   const [lowBalanceThresholds, setLowBalanceThresholds] = useState({});
+  const [belowMarketPairs, setBelowMarketPairs] = useState([]);
+  const [belowMarketThresholdPct, setBelowMarketThresholdPct] = useState(0.5);
   const [notificationHistory, setNotificationHistory] = useState([]);
   const [activeSection, setActiveSection] = useState('bots');
   const [lastSavedBotId, setLastSavedBotId] = useState(null);
@@ -383,6 +470,8 @@ export default function TelegramSettings({ sendCommand, wsStatus, agentConnected
       if (alertsCfg) {
         setAlertsConfig(alertsCfg.alerts || null);
         setLowBalanceThresholds(alertsCfg.low_balance_thresholds || {});
+        setBelowMarketPairs(alertsCfg.below_market_pairs || []);
+        setBelowMarketThresholdPct(alertsCfg.below_market_threshold_pct ?? 0.5);
       }
       if (tgConfig.default_notifications) {
         setDefaults({
@@ -593,6 +682,18 @@ export default function TelegramSettings({ sendCommand, wsStatus, agentConnected
       });
       setLowBalanceThresholds(result.low_balance_thresholds || {});
       flash('Thresholds salvos.');
+    });
+  };
+
+  const handleSaveBelowMarket = ({ pairs, thresholdPct }) => {
+    runAction(async () => {
+      const result = await runSettingsCommand(sendCommand, 'update_telegram_alerts_config', {
+        below_market_pairs: pairs,
+        below_market_threshold_pct: thresholdPct,
+      });
+      setBelowMarketPairs(result.below_market_pairs || []);
+      setBelowMarketThresholdPct(result.below_market_threshold_pct ?? thresholdPct);
+      flash('Pares abaixo-do-mercado salvos.');
     });
   };
 
@@ -931,6 +1032,9 @@ export default function TelegramSettings({ sendCommand, wsStatus, agentConnected
               canUseWs={canUseWs}
               lowBalanceThresholds={lowBalanceThresholds}
               onSaveThresholds={handleSaveThresholds}
+              belowMarketPairs={belowMarketPairs}
+              belowMarketThresholdPct={belowMarketThresholdPct}
+              onSaveBelowMarket={handleSaveBelowMarket}
             />
           ) : (
             <p className="dealer-hint">

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import Badge from 'react-bootstrap/Badge';
 import { TbListDetails } from 'react-icons/tb';
+import { ManagerBadge } from './SourceBadge';
 import OrderStatusSignal from './OrderStatusSignal';
 import OrderMarginBadge from './OrderMarginBadge';
 import { formatBookPrice } from './utils/sideswapBook';
@@ -65,6 +66,7 @@ export default function OrdersPanel({ dealer, managerOffline = false, confirmedO
       <div className="dealer-orders-header">
         <h3>
           <TbListDetails /> Ordens
+          <ManagerBadge title="Ordens via state_update do manager_dealer" />
           {dealer && (
             <span className="dealer-assets-sub">
               PID {dealer.pid} · {sentCount} enviada{sentCount !== 1 ? 's' : ''}

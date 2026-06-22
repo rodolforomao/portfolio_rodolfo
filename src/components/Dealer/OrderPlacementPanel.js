@@ -2,6 +2,7 @@ import React from 'react';
 import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
 import { TbExternalLink, TbRefresh, TbCircleCheck, TbCircleX, TbAlertTriangle } from 'react-icons/tb';
+import { SideswapBadge, ManagerBadge } from './SourceBadge';
 import OrderMarginBadge from './OrderMarginBadge';
 import { FollowRefLink, bookOrderAnchorId } from './utils/followTarget';
 import { computeExternalMargin, computeVsBookTop } from './utils/orderMargin';
@@ -67,7 +68,7 @@ export default function OrderPlacementPanel({
   if (!dealer) {
     return (
       <section className="dealer-order-placement">
-        <h3>Livro SideSwap (público)</h3>
+        <h3>Livro SideSwap (público) <SideswapBadge /></h3>
         <p className="dealer-empty">Selecione um dealer para verificar ordens no mercado público.</p>
       </section>
     );
@@ -77,7 +78,7 @@ export default function OrderPlacementPanel({
     const pending = prepared.length - ownOrders.length;
     return (
       <section className="dealer-order-placement">
-        <h3>Livro SideSwap (público)</h3>
+        <h3>Livro SideSwap (público) <SideswapBadge /></h3>
         <p className="dealer-empty">
           {pending > 0
             ? `${pending} ordem(ns) pendente(s) — nenhuma enviada ao SideSwap ainda.`
@@ -98,7 +99,11 @@ export default function OrderPlacementPanel({
   return (
     <section className="dealer-order-placement">
       <div className="dealer-placement-header">
-        <h3>Livro SideSwap (público)</h3>
+        <h3>
+          Livro SideSwap (público)
+          <SideswapBadge title="Posições do livro via WebSocket público SideSwap" />
+          <ManagerBadge title="Suas ordens via manager_dealer" />
+        </h3>
         <div className="dealer-placement-actions">
           <span className={`dealer-placement-status ${status}`}>{statusLabel}</span>
           <Button variant="outline-secondary" size="sm" onClick={reconnect} title="Reconectar">
