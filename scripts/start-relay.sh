@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Inicia ws_relay_server.py do manager_dealer com o token do .env deste projeto.
+# LOCAL DEV ONLY — não é usado em produção (systemd portfolio-relay na VPS).
+# Inicia ws_relay_server.py (neste repo) com o token do .env.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MD="${MANAGER_DEALER_DIR:-$ROOT/../../../profissional/liquid_projects/manager_dealer}"
+RELAY_PY="$ROOT/ws_relay_server.py"
 
-if [[ ! -f "$MD/ws_relay_server.py" ]]; then
-  echo "[relay] manager_dealer não encontrado em: $MD" >&2
-  echo "        Defina MANAGER_DEALER_DIR=/caminho/para/manager_dealer" >&2
+if [[ ! -f "$RELAY_PY" ]]; then
+  echo "[relay] ws_relay_server.py não encontrado em: $RELAY_PY" >&2
   exit 1
 fi
 
@@ -26,8 +26,13 @@ fi
 export WS_RELAY_PORT="${WS_RELAY_PORT:-8765}"
 export WS_RELAY_HOST="${WS_RELAY_HOST:-0.0.0.0}"
 
-PY="$MD/venv/bin/python"
-[[ -x "$PY" ]] || PY=python3
+if ss -tln 2>/dev/null | grep -q ":${WS_RELAY_PORT} "; then
+  echo "[relay] porta ${WS_RELAY_HOST}:${WS_RELAY_PORT} já em uso — relay provavelmente ativo (ok)"
+  exit 0
+fi
 
-echo "[relay] $MD/ws_relay_server.py em ${WS_RELAY_HOST}:${WS_RELAY_PORT}"
-exec "$PY" "$MD/ws_relay_server.py"
+bash "$ROOT/scripts/ensure-venv.sh"
+PY="$ROOT/venv/bin/python"
+
+echo "[relay] $RELAY_PY em ${WS_RELAY_HOST}:${WS_RELAY_PORT}"
+exec "$PY" "$RELAY_PY"

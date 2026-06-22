@@ -162,12 +162,15 @@ function AssetPLCard({ asset, row, loading }) {
 function TxRow({ tx }) {
   const [open, setOpen] = useState(false);
   const isSwap = tx.type === 'swap';
+  const isDeposit = tx.category === 'external_deposit';
+  const isWithdrawal = tx.category === 'external_withdrawal';
   const hasDetail = tx.reference_price || tx.txid || tx.related_order_id || tx.related_pair;
 
   return (
     <>
       <tr
         className={`dealer-tx-row ${profitClass(tx.profit_kind)}${hasDetail ? ' dealer-tx-row-expandable' : ''}`}
+        data-category={tx.category}
         onClick={hasDetail ? () => setOpen((v) => !v) : undefined}
       >
         <td className="dealer-tx-ts">{formatTxTimestamp(tx.timestamp)}</td>
@@ -193,6 +196,10 @@ function TxRow({ tx }) {
                 <span className="dealer-tx-price"> @ {formatAmount(null, tx.executed_price)}</span>
               )}
             </span>
+          ) : isDeposit ? (
+            <span className="dealer-tx-flow-hint">recebimento externo</span>
+          ) : isWithdrawal ? (
+            <span className="dealer-tx-flow-hint">saída de fundos</span>
           ) : (
             <span className="dealer-tx-flow-hint">
               {tx.flow_role === 'settlement' ? 'liquidação swap' : tx.profit_label || tx.flow_role}
@@ -200,11 +207,20 @@ function TxRow({ tx }) {
           )}
         </td>
         <td className="dealer-tx-amounts">
-          {tx.filled_base != null && (
-            <div>{fmtAsset(tx.base, tx.filled_base)}</div>
-          )}
-          {tx.filled_quote != null && (
-            <div>{fmtAsset(tx.quote, tx.filled_quote)}</div>
+          {isSwap ? (
+            <>
+              {tx.filled_base != null && <div>{fmtAsset(tx.base, tx.filled_base)}</div>}
+              {tx.filled_quote != null && <div>{fmtAsset(tx.quote, tx.filled_quote)}</div>}
+            </>
+          ) : (isDeposit || isWithdrawal) ? (
+            <div className={`dealer-tx-flow-amount${isDeposit ? ' deposit' : ' withdrawal'}`}>
+              {tx.profit_label || '—'}
+            </div>
+          ) : (
+            <>
+              {tx.filled_base != null && <div>{fmtAsset(tx.base, tx.filled_base)}</div>}
+              {tx.filled_quote != null && <div>{fmtAsset(tx.quote, tx.filled_quote)}</div>}
+            </>
           )}
         </td>
         <td>
@@ -212,6 +228,10 @@ function TxRow({ tx }) {
             <span className={`dealer-tx-profit ${tx.profit_kind}`}>
               {tx.profit_label || '—'}
             </span>
+          ) : isDeposit ? (
+            <span className="dealer-tx-received-label">recebimento</span>
+          ) : isWithdrawal ? (
+            <span className="dealer-tx-withdrawal-label">saque</span>
           ) : (
             <span className="dealer-tx-flow-role">
               {tx.flow_role === 'settlement' ? 'perna swap' : tx.flow_role === 'external' ? 'externo' : ''}
@@ -490,7 +510,7 @@ export default function TransactionsPanel({
                     <th>Par / Carteira</th>
                     <th>Operação</th>
                     <th>Quantidade</th>
-                    <th>Lucro dealer</th>
+                    <th>Lucro / Valor</th>
                     <th className="dealer-tx-expand-col" />
                   </tr>
                 </thead>
@@ -509,9 +529,10 @@ export default function TransactionsPanel({
           )}
 
           <p className="dealer-tx-footnote">
-            <strong>Troca dealer</strong> = ordem executada no book (com lucro calculado).
+            <strong>Troca dealer</strong> = ordem executada no book — aqui está o lucro real do dealer.
+            {' '}<strong>Capital / entrada</strong> = DePix recebido externamente (<em>não é lucro</em> — é capital operacional).
+            {' '}<strong>Saque</strong> = saída de fundos da carteira.
             {' '}<strong>Liquidação swap</strong> = movimento on-chain correlacionado ao trade.
-            {' '}<strong>Capital / Saque</strong> = movimentos externos não correlacionados.
           </p>
         </>
       )}

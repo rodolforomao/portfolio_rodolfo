@@ -61,12 +61,43 @@ export default function VaultSetup({ embedded = false, onRequestKeySync }) {
 
   useEffect(() => { loadDealers(); }, [loadDealers]);
 
+  // Atualiza status enquanto aguarda chaves do manager
+  useEffect(() => {
+    if (!selected || selected.has_keys || selected.status === 'ready') return undefined;
+    const timer = setInterval(loadDealers, 4000);
+    return () => clearInterval(timer);
+  }, [selected, loadDealers]);
+
+  const handleSyncManager = async () => {
+    setResult(null);
+    setBusy(true);
+    try {
+      if (onRequestKeySync) {
+        await onRequestKeySync();
+      }
+      await loadDealers();
+      setResult({
+        ok: true,
+        msg: 'Status atualizado. Se o manager estiver online, as chaves aparecem em segundos.',
+      });
+    } catch (err) {
+      setResult({
+        ok: false,
+        msg: err.message || 'Manager offline — inicie o manager_dealer no celular.',
+      });
+      await loadDealers();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const mismatch = confirm.length > 0 && passphrase !== confirm;
   const tooShort = passphrase.length > 0 && passphrase.length < MIN_LEN;
   const canRegister = !busy && selected
     && selected.has_keys
     && passphrase.length >= MIN_LEN
     && passphrase === confirm;
+  const waitingKeys = selected && !selected.has_keys && selected.status !== 'ready';
   const canCreate = !busy && newWalletName.trim().length >= 2;
 
   const handleCreate = async () => {
@@ -273,6 +304,9 @@ export default function VaultSetup({ embedded = false, onRequestKeySync }) {
             <strong>{selected.wallet_name || selected.dealer_id}</strong>
           </span>
           <div className="dealer-vault-selected-btns">
+            <Button size="sm" variant="outline-secondary" disabled={busy} onClick={handleSyncManager}>
+              <TbRefresh className="me-1" /> Sync manager
+            </Button>
             <Button size="sm" variant="outline-warning" disabled={busy} onClick={handleReset}>
               Redefinir
             </Button>
@@ -281,6 +315,13 @@ export default function VaultSetup({ embedded = false, onRequestKeySync }) {
             </Button>
           </div>
         </div>
+      )}
+
+      {waitingKeys && (
+        <Alert variant="warning" className="mb-3 py-2 dealer-vault-alert">
+          Aguardando chaves do manager. Clique <strong>Sync manager</strong> ou reinicie o
+          manager no celular — depois disso você pode salvar a passphrase.
+        </Alert>
       )}
 
       {result?.ok && (
@@ -308,7 +349,7 @@ export default function VaultSetup({ embedded = false, onRequestKeySync }) {
                     value={passphrase}
                     onChange={(e) => setPassphrase(e.target.value)}
                     placeholder={`Mínimo ${MIN_LEN} caracteres`}
-                    disabled={busy || !selected.has_keys}
+                    disabled={busy}
                     autoComplete="new-password"
                     isInvalid={tooShort}
                   />
@@ -324,7 +365,7 @@ export default function VaultSetup({ embedded = false, onRequestKeySync }) {
                   type={show ? 'text' : 'password'}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  disabled={busy || !selected.has_keys}
+                  disabled={busy}
                   autoComplete="new-password"
                   isInvalid={mismatch}
                 />
@@ -334,10 +375,13 @@ export default function VaultSetup({ embedded = false, onRequestKeySync }) {
                 className="dealer-btn-primary w-100"
                 disabled={!canRegister}
                 onClick={handleRegister}
+                title={waitingKeys ? 'Aguardando chaves do manager' : undefined}
               >
                 {busy
                   ? <><TbRefresh className="dealer-spin me-1" /> Cifrando…</>
-                  : <><TbLock className="me-1" /> Salvar passphrase</>}
+                  : waitingKeys
+                    ? <><TbLock className="me-1" /> Aguardando manager…</>
+                    : <><TbLock className="me-1" /> Salvar passphrase</>}
               </Button>
             </>
           )}

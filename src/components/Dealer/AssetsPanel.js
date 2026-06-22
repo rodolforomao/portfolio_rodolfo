@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import Button from 'react-bootstrap/Button';
-import { TbRefresh, TbCoins } from 'react-icons/tb';
+import Badge from 'react-bootstrap/Badge';
+import { TbRefresh, TbCoins, TbLayersLinked } from 'react-icons/tb';
 import { formatAssetBalance, normalizeBalances } from './utils/dealerFormat';
 
 const SATS_PER_LBTC = 1e8;
@@ -73,7 +74,7 @@ function ConvHead({ label, rate }) {
   );
 }
 
-function BalanceTable({ balances, convMap, hasConv }) {
+function BalanceTable({ balances, convMap, hasConv, consolidated = false }) {
   const rateUsdtPerLbtc = convMap['L-BTC→USDt'];      // quanto 1 BTC vale em USD
   const rateDepixPerUsdt = convMap['USDt→DePix'];     // quanto 1 USD vale em BRL
   const rateDepixPerLbtc = convMap['L-BTC→DePix'];   // quanto 1 BTC vale em BRL
@@ -102,7 +103,8 @@ function BalanceTable({ balances, convMap, hasConv }) {
   const cols = hasConv ? 4 : 2;
 
   return (
-    <table className="dealer-assets-table">
+    <div className={`dealer-table-scroll${consolidated ? ' dealer-table-scroll-consolidated' : ''}`}>
+    <table className={`dealer-assets-table${consolidated ? ' dealer-assets-table-consolidated' : ''}`}>
       <thead>
         <tr>
           <th>Asset</th>
@@ -155,7 +157,7 @@ function BalanceTable({ balances, convMap, hasConv }) {
         <tfoot>
           <tr className="dealer-assets-total">
             <td colSpan={2} className="dealer-assets-total-label">
-              Total{totals.partial ? '*' : ''}
+              {consolidated ? 'Total consolidado' : 'Total'}{totals.partial ? '*' : ''}
             </td>
             <td className="dealer-asset-conv dealer-assets-total-value">{fmtUsdt(totals.usdt) ?? '—'}</td>
             <td className="dealer-asset-conv dealer-assets-total-value">{fmtLbtc(totals.lbtc) ?? '—'}</td>
@@ -171,10 +173,11 @@ function BalanceTable({ balances, convMap, hasConv }) {
         </tfoot>
       )}
     </table>
+    </div>
   );
 }
 
-function SummaryView({ dealers, convMap, hasConv }) {
+function SummaryView({ dealers, convMap, hasConv, conversionStatus, conversionLastUpdate }) {
   const allBalances = useMemo(() => {
     const totals = {};
     for (const d of dealers) {
@@ -187,15 +190,63 @@ function SummaryView({ dealers, convMap, hasConv }) {
       .sort((a, b) => a.asset.localeCompare(b.asset));
   }, [dealers]);
 
+  const dealersWithBalances = dealers.filter(
+    (d) => normalizeBalances(d.balances).length > 0,
+  );
+
   return (
     <>
       {dealers.length > 1 && allBalances.length > 0 && (
-        <div className="dealer-assets-wallet-section dealer-assets-wallet-total">
-          <div className="dealer-assets-wallet-label">
-            Total — {dealers.length} carteiras
+        <section
+          className="dealer-assets-consolidated"
+          aria-label="Saldos consolidados de todas as carteiras"
+        >
+          <div className="dealer-assets-consolidated-head">
+            <span className="dealer-assets-consolidated-icon" aria-hidden="true">
+              <TbLayersLinked />
+            </span>
+            <div className="dealer-assets-consolidated-text">
+              <strong className="dealer-assets-consolidated-title">
+                Junção de todas as carteiras
+              </strong>
+              <span className="dealer-assets-consolidated-desc">
+                Soma dos saldos de todas as carteiras listadas abaixo
+                {' '}— colunas USDt / L-BTC / DePix são equivalentes
+              </span>
+            </div>
+            <Badge bg="primary" className="dealer-assets-consolidated-badge">
+              {dealers.length} PIDs
+            </Badge>
           </div>
-          <BalanceTable balances={allBalances} convMap={convMap} hasConv={hasConv} />
-        </div>
+
+          <ul className="dealer-assets-consolidated-pids">
+            {dealers.map((d) => (
+              <li key={d.pid} className="dealer-assets-consolidated-pid">
+                <span className="dealer-assets-consolidated-pid-name">
+                  PID {d.pid}
+                </span>
+                <span className="dealer-assets-consolidated-pid-wallet">
+                  {d.wallet_name || '—'}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          {hasConv && (
+            <ConversionSource status={conversionStatus} lastUpdate={conversionLastUpdate} />
+          )}
+
+          <BalanceTable
+            balances={allBalances}
+            convMap={convMap}
+            hasConv={hasConv}
+            consolidated
+          />
+        </section>
+      )}
+
+      {dealersWithBalances.length > 0 && dealers.length > 1 && (
+        <h4 className="dealer-assets-per-wallet-heading">Detalhe por carteira</h4>
       )}
 
       {dealers.map((d) => {
@@ -283,7 +334,9 @@ export default function AssetsPanel({
             <span className="dealer-assets-sub">PID {dealer.pid} · {dealer.wallet_name}</span>
           )}
           {showSummary && (
-            <span className="dealer-assets-sub">visão geral</span>
+            <span className="dealer-assets-sub dealer-assets-sub-summary">
+              Visão geral · junção de {dealers.length} carteira{dealers.length !== 1 ? 's' : ''}
+            </span>
           )}
         </h3>
         <Button
@@ -298,12 +351,18 @@ export default function AssetsPanel({
         </Button>
       </div>
 
-      {hasConv && (
+      {hasConv && !showSummary && (
         <ConversionSource status={conversionStatus} lastUpdate={conversionLastUpdate} />
       )}
 
       {showSummary ? (
-        <SummaryView dealers={dealers} convMap={convMap} hasConv={hasConv} />
+        <SummaryView
+          dealers={dealers}
+          convMap={convMap}
+          hasConv={hasConv}
+          conversionStatus={conversionStatus}
+          conversionLastUpdate={conversionLastUpdate}
+        />
       ) : !dealer ? (
         <p className="dealer-empty">Clique em um dealer à esquerda para ver os saldos deste PID.</p>
       ) : balances.length === 0 ? (

@@ -28,9 +28,10 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "start:vault": "python3 vault_server.py",
+    "start:vault": "bash scripts/start-vault.sh",
     "start:relay": "bash scripts/start-relay.sh",
-    "dev": "concurrently --names \"react,vault,relay\" --prefix-colors \"cyan,magenta,yellow\" \"npm run start\" \"npm run start:vault\" \"npm run start:relay\"",
+    "start:dev": "bash scripts/start-dev.sh",
+    "dev": "bash scripts/ensure-venv.sh && concurrently --names \"react,vault,relay\" --prefix-colors \"cyan,magenta,yellow\" \"npm run start\" \"npm run start:vault\" \"npm run start:relay\"",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
     "deploy:ssh": "bash scripts/deploy-ssh.sh",

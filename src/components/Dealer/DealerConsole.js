@@ -13,7 +13,7 @@ import {
   TbPlayerPlay, TbList, TbPlayerStop, TbSend, TbX,
   TbArrowsExchange, TbRefresh, TbHistory, TbMessage,
   TbBug, TbLogout, TbWallet, TbBook, TbHeartbeat, TbCoins,
-  TbSettings, TbLayoutDashboard, TbChartLine,
+  TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2,
 } from 'react-icons/tb';
 import useDealerWs from './useDealerWs';
 import useSideswapBook from './useSideswapBook';
@@ -78,6 +78,7 @@ import OrderStatusSignal from './OrderStatusSignal';
 import { loadDealerPreferences } from './utils/dealerPreferences';
 import { FollowRefLink } from './utils/followTarget';
 import './Dealer.css';
+import useMobileLayout from './useMobileLayout';
 
 function DealerCard({ dealer, onSelect, selected, managerOffline = false }) {
   const assets = normalizeBalances(dealer.balances);
@@ -1122,9 +1123,12 @@ export default function DealerConsole() {
   const [orderRegistryTick, setOrderRegistryTick] = useState(0);
   const [mainView, setMainView] = useState('geral');
   const [midTab, setMidTab] = useState('operacional');
+  const [mobilePanel, setMobilePanel] = useState('center');
+  const [mobileRendPanel, setMobileRendPanel] = useState('dados');
   const [rendPid, setRendPid] = useState(null);
   const [consolePrefs, setConsolePrefs] = useState(() => loadDealerPreferences());
   const [telegramStatus, setTelegramStatus] = useState(null);
+  const isMobileLayout = useMobileLayout();
 
   const bumpOrderRegistry = useCallback(() => setOrderRegistryTick((n) => n + 1), []);
 
@@ -1257,6 +1261,13 @@ export default function DealerConsole() {
     }
   }, [dealers, selectedPid]);
 
+  const handleSelectPid = useCallback((pid) => {
+    setSelectedPid(pid);
+    if (pid != null && typeof window !== 'undefined' && window.matchMedia('(max-width: 991.98px)').matches) {
+      setMobilePanel('center');
+    }
+  }, []);
+
   const handleDealerStarted = useCallback((data) => {
     setFetchedDealers((prev) => {
       const rest = prev.filter((d) => d.pid !== data.pid);
@@ -1296,55 +1307,55 @@ export default function DealerConsole() {
       <header className="dealer-topbar">
         <Container fluid>
           <div className="dealer-topbar-inner">
-            <div className="dealer-topbar-left">
+            <div className="dealer-topbar-title-row">
               <h2>Dealer Console</h2>
-              <Nav variant="pills" className="dealer-main-nav">
-                <Nav.Item>
-                  <Nav.Link
-                    active={mainView === 'geral'}
-                    onClick={() => setMainView('geral')}
-                    className="dealer-main-nav-link"
-                  >
-                    <TbLayoutDashboard /> Geral
-                  </Nav.Link>
-                </Nav.Item>
-                <Nav.Item>
-                  <Nav.Link
-                    active={mainView === 'rendimentos'}
-                    onClick={() => setMainView('rendimentos')}
-                    className="dealer-main-nav-link"
-                  >
-                    <TbChartLine /> Rendimentos
-                  </Nav.Link>
-                </Nav.Item>
-                <Nav.Item>
-                  <Nav.Link
-                    active={mainView === 'config'}
-                    onClick={() => setMainView('config')}
-                    className="dealer-main-nav-link"
-                  >
-                    <TbSettings /> Configurações
-                  </Nav.Link>
-                </Nav.Item>
-              </Nav>
+              <div className="dealer-topbar-actions">
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => setShowMessages(true)}
+                  className="dealer-messages-btn"
+                >
+                  <TbMessage />
+                  <span className="dealer-messages-btn-label">Mensagens</span>
+                  {messageCount > 0 && (
+                    <Badge bg="secondary" className="dealer-messages-badge">{messageCount}</Badge>
+                  )}
+                </Button>
+                <Button variant="outline-danger" size="sm" onClick={handleLogout}>
+                  <TbLogout /> <span className="dealer-logout-label">Sair</span>
+                </Button>
+              </div>
             </div>
-            <div className="dealer-topbar-actions">
-              <Button
-                variant="outline-secondary"
-                size="sm"
-                onClick={() => setShowMessages(true)}
-                className="dealer-messages-btn"
-              >
-                <TbMessage />
-                <span className="dealer-messages-btn-label">Mensagens</span>
-                {messageCount > 0 && (
-                  <Badge bg="secondary" className="dealer-messages-badge">{messageCount}</Badge>
-                )}
-              </Button>
-              <Button variant="outline-danger" size="sm" onClick={handleLogout}>
-                <TbLogout /> <span className="dealer-logout-label">Sair</span>
-              </Button>
-            </div>
+            <Nav variant="pills" className="dealer-main-nav flex-wrap">
+              <Nav.Item>
+                <Nav.Link
+                  active={mainView === 'geral'}
+                  onClick={() => setMainView('geral')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbLayoutDashboard /> Geral
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  active={mainView === 'rendimentos'}
+                  onClick={() => setMainView('rendimentos')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbChartLine /> Rendimentos
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  active={mainView === 'config'}
+                  onClick={() => setMainView('config')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbSettings /> Configurações
+                </Nav.Link>
+              </Nav.Item>
+            </Nav>
           </div>
           <SystemStatusBar
             wsStatus={status}
@@ -1391,11 +1402,11 @@ export default function DealerConsole() {
         </div>
       )}
 
-      <Container fluid className="dealer-main">
+      <Container fluid className="dealer-main px-2 px-md-3">
         {mainView === 'config' ? (
           <Row className="g-3">
             <Col xs={12}>
-              <div className="dealer-panel dealer-settings-panel">
+              <div className="dealer-panel dealer-settings-panel dealer-panel-scroll">
                 <DealerSettings
                   sendCommand={sendCommand}
                   wsStatus={status}
@@ -1407,8 +1418,30 @@ export default function DealerConsole() {
             </Col>
           </Row>
         ) : mainView === 'rendimentos' ? (
+          <>
+          <div className="dealer-mobile-panel-nav dealer-mobile-panel-nav--two d-lg-none" role="tablist" aria-label="Painéis de rendimentos">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileRendPanel === 'carteiras'}
+              className={`dealer-mobile-panel-btn${mobileRendPanel === 'carteiras' ? ' active' : ''}`}
+              onClick={() => setMobileRendPanel('carteiras')}
+            >
+              <TbWallet /> Carteiras
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileRendPanel === 'dados'}
+              className={`dealer-mobile-panel-btn${mobileRendPanel === 'dados' ? ' active' : ''}`}
+              onClick={() => setMobileRendPanel('dados')}
+            >
+              <TbChartLine /> Dados
+            </button>
+          </div>
           <Row className="g-3">
-            <Col xs={12} lg={3}>
+            {(!isMobileLayout || mobileRendPanel === 'carteiras') && (
+            <Col xs={12} lg={3} className="dealer-mobile-panel-col">
               <div className="dealer-panel dealer-panel-scroll">
                 <h3 className="dealer-rend-sidebar-title"><TbChartLine /> Carteiras</h3>
                 <button
@@ -1422,7 +1455,12 @@ export default function DealerConsole() {
                   <button
                     key={d.pid}
                     className={`dealer-rend-pid-btn${rendPid === d.pid ? ' active' : ''}`}
-                    onClick={() => setRendPid(d.pid)}
+                    onClick={() => {
+                      setRendPid(d.pid);
+                      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 991.98px)').matches) {
+                        setMobileRendPanel('dados');
+                      }
+                    }}
                   >
                     <span className="dealer-rend-pid-label">
                       PID {d.pid}
@@ -1436,7 +1474,9 @@ export default function DealerConsole() {
                 )}
               </div>
             </Col>
-            <Col xs={12} lg={9}>
+            )}
+            {(!isMobileLayout || mobileRendPanel === 'dados') && (
+            <Col xs={12} lg={9} className="dealer-mobile-panel-col">
               <div className="dealer-panel dealer-panel-scroll dealer-rend-main">
                 <MarketOpportunities
                   pairs={scanPairs}
@@ -1462,10 +1502,43 @@ export default function DealerConsole() {
                 />
               </div>
             </Col>
+            )}
           </Row>
+          </>
         ) : (
+        <>
+        <div className="dealer-mobile-panel-nav d-lg-none" role="tablist" aria-label="Painéis do console">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === 'dealers'}
+            className={`dealer-mobile-panel-btn${mobilePanel === 'dealers' ? ' active' : ''}`}
+            onClick={() => setMobilePanel('dealers')}
+          >
+            <TbList /> Dealers
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === 'center'}
+            className={`dealer-mobile-panel-btn${mobilePanel === 'center' ? ' active' : ''}`}
+            onClick={() => setMobilePanel('center')}
+          >
+            <TbLayoutDashboard /> Operacional
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === 'commands'}
+            className={`dealer-mobile-panel-btn${mobilePanel === 'commands' ? ' active' : ''}`}
+            onClick={() => setMobilePanel('commands')}
+          >
+            <TbTerminal2 /> Comandos
+          </button>
+        </div>
         <Row className="g-3">
-          <Col xs={12} lg={4}>
+          {(!isMobileLayout || mobilePanel === 'dealers') && (
+          <Col xs={12} lg={4} className="dealer-mobile-panel-col">
             <div className="dealer-panel dealer-panel-scroll">
               <div className="dealer-list-header">
                 <h3>Dealers — {dealersSummaryLabel(dealers)}</h3>
@@ -1474,7 +1547,7 @@ export default function DealerConsole() {
                     size="sm"
                     variant="outline-secondary"
                     className="dealer-deselect-btn"
-                    onClick={() => setSelectedPid(null)}
+                    onClick={() => handleSelectPid(null)}
                     title="Ver resumo de todas as carteiras"
                   >
                     Visão geral
@@ -1489,15 +1562,16 @@ export default function DealerConsole() {
                     key={d.pid}
                     dealer={d}
                     selected={selectedPid === d.pid}
-                    onSelect={setSelectedPid}
+                    onSelect={handleSelectPid}
                     managerOffline={!agentConnected}
                   />
                 ))
               )}
             </div>
           </Col>
-
-          <Col xs={12} lg={4}>
+          )}
+          {(!isMobileLayout || mobilePanel === 'center') && (
+          <Col xs={12} lg={4} className="dealer-mobile-panel-col">
             <div className="dealer-panel dealer-panel-scroll dealer-panel-middle">
               <div className="dealer-mid-tabs">
                 <button
@@ -1557,8 +1631,9 @@ export default function DealerConsole() {
               )}
             </div>
           </Col>
-
-          <Col xs={12} lg={4}>
+          )}
+          {(!isMobileLayout || mobilePanel === 'commands') && (
+          <Col xs={12} lg={4} className="dealer-mobile-panel-col">
             <div className="dealer-panel dealer-panel-commands">
               <h3>Comandos {selectedPid ? `(PID ${selectedPid})` : ''}</h3>
               {!agentConnected && status === 'connected' && (
@@ -1568,7 +1643,7 @@ export default function DealerConsole() {
               )}
               <CommandPanel
                 selectedPid={selectedPid}
-                onSelectPid={setSelectedPid}
+                onSelectPid={handleSelectPid}
                 activeDealers={dealers}
                 onDealerStarted={handleDealerStarted}
                 onDealerStopped={handleDealerStopped}
@@ -1590,7 +1665,9 @@ export default function DealerConsole() {
               )}
             </div>
           </Col>
+          )}
         </Row>
+        </>
         )}
       </Container>
       </div>

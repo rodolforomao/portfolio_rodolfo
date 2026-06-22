@@ -89,6 +89,7 @@ export default function OrdersPanel({ dealer, managerOffline = false, confirmedO
       ) : orders.length === 0 ? (
         <p className="dealer-empty">Nenhuma ordem neste PID.</p>
       ) : (
+        <div className="dealer-table-scroll">
         <table className="dealer-orders-table">
           <thead>
             <tr>
@@ -162,6 +163,7 @@ export default function OrdersPanel({ dealer, managerOffline = false, confirmedO
             })}
           </tbody>
         </table>
+        </div>
       )}
 
       {managerOffline && orders.length > 0 && (
