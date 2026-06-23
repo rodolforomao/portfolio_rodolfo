@@ -1,0 +1,738 @@
+/* ═══════════════════════════════════════════════════════════════
+   DEALER — DESIGN SYSTEM OVERLAY
+   Importar APÓS Dealer.css para refinar hierarquia visual,
+   tipografia, cards e tokens sem reescrever o arquivo principal.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Tokens ────────────────────────────────────────────────── */
+:root {
+  /* Surface */
+  --ds-bg-base:       #0d1117;
+  --ds-bg-surface:    #161b22;
+  --ds-bg-elevated:   #1c2128;
+  --ds-bg-overlay:    #21262d;
+
+  /* Borders */
+  --ds-border-subtle:  #21262d;
+  --ds-border-default: #30363d;
+  --ds-border-muted:   #484f58;
+
+  /* Text */
+  --ds-text-primary:   #e6edf3;
+  --ds-text-secondary: #8b949e;
+  --ds-text-muted:     #6e7681;
+  --ds-text-faint:     #484f58;
+
+  /* Accent */
+  --ds-accent:        #c770f0;
+  --ds-accent-dim:    rgba(199,112,240,0.12);
+  --ds-accent-glow:   rgba(199,112,240,0.25);
+
+  /* Semantic */
+  --ds-green:         #3fb950;
+  --ds-green-dim:     rgba(63,185,80,0.12);
+  --ds-green-border:  #238636;
+  --ds-red:           #f85149;
+  --ds-red-dim:       rgba(248,81,73,0.10);
+  --ds-red-border:    rgba(248,81,73,0.40);
+  --ds-yellow:        #d29922;
+  --ds-yellow-dim:    rgba(210,153,34,0.12);
+  --ds-blue:          #58a6ff;
+  --ds-blue-dim:      rgba(88,166,255,0.12);
+
+  /* Radius */
+  --ds-r-sm:   6px;
+  --ds-r-md:   10px;
+  --ds-r-lg:   14px;
+
+  /* Shadow */
+  --ds-shadow-sm: 0 1px 3px rgba(0,0,0,0.35);
+  --ds-shadow-md: 0 4px 16px rgba(0,0,0,0.45);
+
+  /* Type scale */
+  --ds-text-xs:   0.68rem;
+  --ds-text-sm:   0.78rem;
+  --ds-text-base: 0.875rem;
+  --ds-text-lg:   1rem;
+  --ds-text-xl:   1.15rem;
+  --ds-text-2xl:  1.4rem;
+  --ds-text-3xl:  1.75rem;
+}
+
+/* ── Topbar upgrade ─────────────────────────────────────────── */
+.dealer-topbar {
+  background: var(--ds-bg-surface);
+  border-bottom: 1px solid var(--ds-border-default);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.dealer-topbar-title-row h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ds-text-primary);
+}
+
+/* ── Status bar (sys pills) ─────────────────────────────────── */
+.dealer-sys-bar {
+  padding: 8px 0 4px;
+  margin-top: 6px;
+  gap: 6px 10px;
+  border-top-color: var(--ds-border-subtle);
+}
+
+.dealer-sys-primary {
+  font-size: var(--ds-text-sm);
+  border-radius: var(--ds-r-md);
+  padding: 5px 12px;
+  gap: 8px;
+  background: var(--ds-bg-elevated);
+  border-color: var(--ds-border-default);
+  box-shadow: var(--ds-shadow-sm);
+  transition: border-color 0.2s;
+}
+
+.dealer-sys-primary-online {
+  border-color: var(--ds-green-border) !important;
+  background: rgba(35,134,54,0.08);
+}
+
+.dealer-sys-primary-label {
+  font-weight: 700;
+  font-size: var(--ds-text-sm);
+}
+
+.dealer-sys-primary-status {
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--ds-r-sm);
+}
+
+.dealer-sys-pill {
+  font-size: var(--ds-text-xs);
+  padding: 3px 9px;
+  border-radius: var(--ds-r-sm);
+  border: 1px solid var(--ds-border-subtle);
+  background: var(--ds-bg-overlay);
+  gap: 5px;
+  transition: border-color 0.2s;
+}
+
+.dealer-sys-pill-ok {
+  border-color: rgba(35,134,54,0.5);
+  background: rgba(35,134,54,0.06);
+}
+
+.dealer-sys-pill-ok .dealer-sys-pill-dot { background: var(--ds-green); }
+
+.dealer-sys-pill-warn {
+  border-color: rgba(210,153,34,0.5);
+  background: rgba(210,153,34,0.06);
+}
+
+.dealer-sys-pill-off {
+  border-color: rgba(248,81,73,0.3);
+  background: rgba(248,81,73,0.05);
+}
+
+.dealer-sys-pill-label {
+  font-weight: 600;
+  color: var(--ds-text-secondary);
+}
+
+.dealer-sys-pill-ok .dealer-sys-pill-label { color: var(--ds-green); }
+.dealer-sys-pill-warn .dealer-sys-pill-label { color: var(--ds-yellow); }
+.dealer-sys-pill-off .dealer-sys-pill-label { color: var(--ds-red); }
+
+.dealer-sys-pill-detail {
+  color: var(--ds-text-muted);
+  font-size: 0.65rem;
+}
+
+/* ── Panels ──────────────────────────────────────────────────── */
+.dealer-panel {
+  background: var(--ds-bg-surface);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-r-md);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.dealer-panel h3 {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ds-text-muted);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── KPI cards — valores muito maiores ──────────────────────── */
+.dealer-kpi-row {
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dealer-kpi-card {
+  background: var(--ds-bg-surface);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-r-md);
+  padding: 16px 18px;
+  gap: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.dealer-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+  background: var(--ds-border-default);
+  transition: background 0.2s;
+}
+
+.dealer-kpi-card:hover {
+  box-shadow: var(--ds-shadow-md);
+}
+
+.dealer-kpi-card.kpi-lucro { border-color: var(--ds-green-border); }
+.dealer-kpi-card.kpi-lucro::before { background: var(--ds-green); }
+.dealer-kpi-card.kpi-perda { border-color: var(--ds-red-border); }
+.dealer-kpi-card.kpi-perda::before { background: var(--ds-red); }
+.dealer-kpi-card.kpi-info { border-color: rgba(88,166,255,0.4); }
+.dealer-kpi-card.kpi-info::before { background: var(--ds-blue); }
+
+.dealer-kpi-icon {
+  font-size: 1.05rem;
+  margin-bottom: 10px;
+  color: var(--ds-text-muted);
+  padding-top: 0;
+}
+
+.dealer-kpi-card.kpi-lucro .dealer-kpi-icon { color: var(--ds-green); }
+.dealer-kpi-card.kpi-perda .dealer-kpi-icon { color: var(--ds-red); }
+.dealer-kpi-card.kpi-info  .dealer-kpi-icon { color: var(--ds-blue); }
+
+.dealer-kpi-label {
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ds-text-muted);
+  margin-bottom: 6px;
+}
+
+.dealer-kpi-value {
+  font-size: var(--ds-text-3xl);   /* 1.75rem — era 1rem */
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dealer-kpi-card.kpi-lucro .dealer-kpi-value { color: var(--ds-green); }
+.dealer-kpi-card.kpi-perda .dealer-kpi-value { color: var(--ds-red); }
+.dealer-kpi-loading { opacity: 0.35; }
+
+.dealer-kpi-sub {
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.dealer-kpi-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  margin-top: 5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.dealer-kpi-trend-up {
+  color: var(--ds-green);
+  background: var(--ds-green-dim);
+}
+
+.dealer-kpi-trend-down {
+  color: var(--ds-red);
+  background: var(--ds-red-dim);
+}
+
+.dealer-kpi-trend-neutral {
+  color: var(--ds-text-muted);
+  background: var(--ds-bg-overlay);
+}
+
+/* ── Flow card ────────────────────────────────────────────── */
+.dealer-flow-card {
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--ds-r-md);
+}
+
+.dealer-flow-title {
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ds-text-muted);
+}
+
+.dealer-flow-step-label {
+  font-size: 0.67rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dealer-flow-step-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* ── Asset P&L cards ──────────────────────────────────────── */
+.dealer-asset-pl-row {
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dealer-asset-pl-card {
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-r-md);
+  padding: 14px 16px;
+}
+
+.dealer-asset-pl-stat-label {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.dealer-asset-pl-avg {
+  font-size: 0.88rem;
+}
+
+/* ── Period filter ────────────────────────────────────────── */
+.dealer-tx-period-bar {
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.dealer-tx-period-btn {
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: var(--ds-r-sm);
+  border-color: var(--ds-border-default);
+  background: var(--ds-bg-overlay);
+  transition: all 0.15s;
+}
+
+.dealer-tx-period-btn.active {
+  background: var(--ds-blue-dim);
+  border-color: var(--ds-blue);
+  color: var(--ds-blue);
+}
+
+/* ── Dealer cards ──────────────────────────────────────────── */
+.dealer-card {
+  background: var(--ds-bg-elevated);
+  border-radius: var(--ds-r-md);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  box-shadow: var(--ds-shadow-sm);
+}
+
+.dealer-card:hover,
+.dealer-card.selected {
+  box-shadow: 0 0 0 2px var(--wallet-accent, var(--ds-accent)), var(--ds-shadow-md);
+}
+
+.dealer-card-head {
+  font-size: var(--ds-text-sm);
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.dealer-card-head strong {
+  font-size: var(--ds-text-base);
+  font-weight: 700;
+  color: var(--ds-text-primary);
+}
+
+.dealer-card-meta {
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-faint);
+  margin-top: 3px;
+}
+
+.dealer-card-balances {
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.dealer-balance-chip {
+  font-size: var(--ds-text-xs);
+  padding: 4px 10px;
+  border-radius: var(--ds-r-sm);
+}
+
+.dealer-balance-chip strong {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* ── Rail chips ──────────────────────────────────────────── */
+.dealer-rail-chip {
+  font-size: var(--ds-text-xs);
+  padding: 5px 10px;
+  border-radius: var(--ds-r-sm);
+  transition: all 0.15s;
+}
+
+/* ── Orders table ────────────────────────────────────────── */
+.dealer-orders-table th {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ds-text-muted);
+  background: var(--ds-bg-overlay);
+  border-bottom: 1px solid var(--ds-border-default);
+  padding: 8px 10px;
+}
+
+.dealer-orders-table td {
+  padding: 8px 10px;
+  font-size: var(--ds-text-sm);
+  border-bottom: 1px solid var(--ds-border-subtle);
+  vertical-align: middle;
+}
+
+.dealer-orders-table tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,0.015);
+}
+
+.dealer-orders-table tbody tr:hover td {
+  background: rgba(88,166,255,0.05);
+}
+
+/* ── Transactions table ──────────────────────────────────── */
+.dealer-tx-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.dealer-tx-table thead th {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ds-text-muted);
+  background: var(--ds-bg-elevated);
+  padding: 9px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid var(--ds-border-default);
+  white-space: nowrap;
+}
+
+.dealer-tx-table tbody td {
+  padding: 9px 12px;
+  font-size: var(--ds-text-sm);
+  border-bottom: 1px solid var(--ds-border-subtle);
+  vertical-align: middle;
+}
+
+.dealer-tx-table tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,0.018);
+}
+
+.dealer-tx-row:hover td {
+  background: rgba(88,166,255,0.06) !important;
+  cursor: pointer;
+}
+
+/* ── Transactions header ─────────────────────────────────── */
+.dealer-transactions-header h3 {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ds-text-muted);
+}
+
+/* ── Feedback box ────────────────────────────────────────── */
+.dealer-feedback {
+  border-radius: var(--ds-r-md);
+  font-size: var(--ds-text-sm);
+  border-left-width: 3px;
+}
+
+/* ── Form / input fields ─────────────────────────────────── */
+.dealer-price-fields .form-control {
+  background: var(--ds-bg-overlay);
+  border-color: var(--ds-border-default);
+  color: var(--ds-text-primary);
+  font-size: var(--ds-text-sm);
+  border-radius: var(--ds-r-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dealer-price-fields .form-control:focus {
+  border-color: var(--ds-accent);
+  box-shadow: 0 0 0 3px var(--ds-accent-dim);
+  background: var(--ds-bg-surface);
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.dealer-btn-primary {
+  background: var(--ds-accent) !important;
+  border-color: var(--ds-accent) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, box-shadow 0.15s !important;
+}
+
+.dealer-btn-primary:hover {
+  background: #b55de0 !important;
+  box-shadow: 0 0 12px var(--ds-accent-glow) !important;
+}
+
+/* ── Section divider labels ──────────────────────────────── */
+.ds-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ds-text-muted);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.ds-section-label svg {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* ── Wallet comparison cards (P&L por wallet) ─────────────── */
+.dealer-pnl-wallet-grid {
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dealer-pnl-wallet-card {
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-r-md);
+  padding: 14px 16px;
+  transition: border-color 0.15s;
+}
+
+.dealer-pnl-wallet-card:hover {
+  border-color: var(--ds-border-muted);
+}
+
+.dealer-pnl-wallet-name {
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ds-text-secondary);
+  margin-bottom: 6px;
+}
+
+.dealer-pnl-wallet-pct {
+  font-size: var(--ds-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.dealer-pnl-wallet-swaps {
+  font-size: var(--ds-text-xs);
+  color: var(--ds-text-muted);
+  margin-top: 4px;
+}
+
+/* ── Follow target position buttons ─────────────────────── */
+.dealer-follow-pos-btn {
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--ds-r-sm);
+  transition: all 0.15s;
+}
+
+.dealer-follow-pos-btn.active {
+  background: var(--ds-blue-dim);
+  border-color: var(--ds-blue);
+  color: var(--ds-blue);
+}
+
+.dealer-follow-pos-btn:hover:not(.active) {
+  border-color: var(--ds-blue);
+  color: var(--ds-blue);
+}
+
+/* ── Market rates bar ────────────────────────────────────── */
+.dealer-rate-chip-pair {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ds-text-muted);
+}
+
+.dealer-rate-chip-val {
+  color: var(--ds-text-primary);
+  font-weight: 700;
+}
+
+/* ── Empty states ────────────────────────────────────────── */
+.dealer-empty {
+  color: var(--ds-text-muted);
+  font-size: var(--ds-text-sm);
+}
+
+/* ── Log panel ───────────────────────────────────────────── */
+.dealer-logs-panel {
+  font-size: var(--ds-text-xs);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+}
+
+/* ── Opportunity cards ────────────────────────────────────── */
+.dealer-opp-card {
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-r-md);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dealer-opp-card:hover {
+  border-color: var(--ds-border-muted);
+  box-shadow: var(--ds-shadow-md);
+}
+
+/* ── Mini book ────────────────────────────────────────────── */
+.dealer-mini-book-head {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ds-text-muted);
+  padding: 5px 10px;
+  background: var(--ds-bg-elevated);
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.dealer-mini-book-row {
+  font-size: var(--ds-text-xs);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--ds-border-subtle);
+  transition: background 0.1s;
+}
+
+.dealer-mini-book-row:hover {
+  background: rgba(88,166,255,0.05);
+}
+
+.dealer-mini-book-row.selected {
+  background: var(--ds-blue-dim) !important;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+.dealer-tabs .nav-link {
+  font-size: var(--ds-text-sm);
+  font-weight: 500;
+  color: var(--ds-text-secondary);
+  border-radius: var(--ds-r-sm) var(--ds-r-sm) 0 0;
+  padding: 6px 14px;
+  transition: color 0.15s;
+}
+
+.dealer-tabs .nav-link.active {
+  font-weight: 700;
+  color: var(--ds-text-primary);
+}
+
+/* ── Profit % in sidebar ──────────────────────────────────── */
+.dealer-rend-pid-pct {
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* ── DealerBalancesBar ────────────────────────────────────── */
+.dealer-balances-bar {
+  background: var(--ds-bg-elevated);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--ds-r-md);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--ds-shadow-sm);
+}
+
+/* ── Architecture / strategy panel ───────────────────────── */
+.dealer-arch-panel,
+.dealer-strategy-panel {
+  border-radius: var(--ds-r-md);
+  border: 1px solid var(--ds-border-default);
+}
+
+/* ── Settings section ─────────────────────────────────────── */
+.dealer-settings {
+  border-radius: var(--ds-r-md);
+}
+
+/* ── Scrollbars (webkit) ──────────────────────────────────── */
+.dealer-root ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dealer-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dealer-root ::-webkit-scrollbar-thumb {
+  background: var(--ds-border-default);
+  border-radius: 3px;
+}
+
+.dealer-root ::-webkit-scrollbar-thumb:hover {
+  background: var(--ds-border-muted);
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 576px) {
+  .dealer-kpi-value {
+    font-size: var(--ds-text-2xl);
+  }
+
+  .dealer-kpi-card {
+    padding: 12px 14px;
+  }
+
+  .dealer-flow-step-value {
+    font-size: 0.95rem;
+  }
+}

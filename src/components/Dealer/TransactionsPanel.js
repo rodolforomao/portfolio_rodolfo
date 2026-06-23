@@ -57,16 +57,21 @@ function periodToSince(period) {
 }
 
 /* ── KPI card ── */
-function KpiCard({ icon: Icon, label, value, sub, kind, loading }) {
+function KpiCard({ icon: Icon, label, value, sub, trend, kind, loading }) {
   const kindClass = kind === 'lucro' ? 'kpi-lucro' : kind === 'perda' ? 'kpi-perda' : kind === 'info' ? 'kpi-info' : '';
+  const trendClass = trend > 0 ? 'dealer-kpi-trend-up' : trend < 0 ? 'dealer-kpi-trend-down' : 'dealer-kpi-trend-neutral';
   return (
     <div className={`dealer-kpi-card ${kindClass}`}>
-      <div className="dealer-kpi-icon"><Icon /></div>
-      <div className="dealer-kpi-body">
-        <div className="dealer-kpi-label">{label}</div>
-        <div className={`dealer-kpi-value${loading ? ' dealer-kpi-loading' : ''}`}>{loading ? '…' : value}</div>
-        {sub && <div className="dealer-kpi-sub">{sub}</div>}
-      </div>
+      <div className="dealer-kpi-icon"><Icon size={18} /></div>
+      <div className="dealer-kpi-label">{label}</div>
+      <div className={`dealer-kpi-value${loading ? ' dealer-kpi-loading' : ''}`}>{loading ? '—' : value}</div>
+      {trend != null && !loading && (
+        <div className={`dealer-kpi-trend ${trendClass}`}>
+          {trend > 0 ? '▲' : trend < 0 ? '▼' : '—'}
+          {trend !== 0 && ` ${Math.abs(trend).toFixed(2)}%`}
+        </div>
+      )}
+      {sub && <div className="dealer-kpi-sub">{sub}</div>}
     </div>
   );
 }
@@ -841,7 +846,8 @@ export default function TransactionsPanel({
                   icon={TbArrowsExchange}
                   label="Swaps executados"
                   value={String(swapCount)}
-                  sub={`${lucroTotal} lucro / ${perdaTotal} perda`}
+                  sub={`${lucroTotal} lucro · ${perdaTotal} perda`}
+                  trend={swapCount > 0 ? ((lucroTotal - perdaTotal) / swapCount * 100) : null}
                   kind={lucroTotal >= perdaTotal && swapCount > 0 ? 'lucro' : swapCount > 0 ? 'perda' : undefined}
                   loading={loading}
                 />
@@ -850,6 +856,7 @@ export default function TransactionsPanel({
                   label="Lucro médio (swaps)"
                   value={fmtPct(avgPct) ?? '—'}
                   sub="vs original_price"
+                  trend={avgPct != null ? avgPct * 100 : null}
                   kind={avgPct == null ? undefined : avgPct > 0.01 ? 'lucro' : avgPct < -0.01 ? 'perda' : undefined}
                   loading={loading}
                 />

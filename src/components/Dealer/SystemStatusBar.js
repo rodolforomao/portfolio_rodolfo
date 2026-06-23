@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react';
+import { TbNetwork, TbCpu, TbLayoutList, TbRefresh, TbBrandTelegram } from 'react-icons/tb';
 import { countDealersByStatus } from './utils/dealerStatus';
 import { countOrdersByStatus } from './utils/orderStatus';
 import { prepareDealerOrders } from './utils/orderMarketNormalize';
 
-function SecondaryPill({ ok, warn, label, detail, title }) {
+function SecondaryPill({ ok, warn, label, detail, title, icon: Icon }) {
   const state = ok ? 'ok' : warn ? 'warn' : 'off';
   return (
     <span className={`dealer-sys-pill dealer-sys-pill-${state}`} title={title || detail}>
       <span className="dealer-sys-pill-dot" />
+      {Icon && <Icon size={11} />}
       <span className="dealer-sys-pill-label">{label}</span>
       {detail && <span className="dealer-sys-pill-detail">{detail}</span>}
     </span>
@@ -157,12 +159,14 @@ export default function SystemStatusBar({
       <SecondaryPill
         ok={wsOk}
         warn={wsConnecting}
+        icon={TbNetwork}
         label={wsLabel}
         detail={wsOk ? 'browser ↔ relay' : wsConnecting ? 'conectando' : wsStatus}
         title="Conexão WebSocket do browser com o relay (ws_relay_server)"
       />
       <SecondaryPill
         ok={agentConnected}
+        icon={TbCpu}
         label={managerLabel}
         detail={managerDetail}
         title={managerTitle}
@@ -170,6 +174,7 @@ export default function SystemStatusBar({
       <SecondaryPill
         ok={orderTotals.sent > 0}
         warn={unsent > 0 && orderTotals.sent === 0}
+        icon={TbLayoutList}
         label="Ordens"
         detail={orderDetail}
         title={`Total: ${totalDealers} PID${totalDealers !== 1 ? 's' : ''} · ${dealerSecondaryDetail} · Enviada = no SideSwap; Pendente = aguardando`}
@@ -177,6 +182,7 @@ export default function SystemStatusBar({
       {syncLabel && (
         <SecondaryPill
           ok={wsOk && agentConnected}
+          icon={TbRefresh}
           label="Sync"
           detail={syncLabel}
           title="Último state_update do manager"
@@ -186,6 +192,7 @@ export default function SystemStatusBar({
         <SecondaryPill
           ok={telegramStatus.active}
           warn={telegramStatus.botCount > 0 && !telegramStatus.active}
+          icon={TbBrandTelegram}
           label="Telegram"
           detail={
             telegramStatus.active

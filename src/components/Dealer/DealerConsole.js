@@ -89,6 +89,7 @@ import { log, registerPushLog } from './utils/logger';
 import LogsPanel from './LogsPanel';
 import { FollowRefLink } from './utils/followTarget';
 import './Dealer.css';
+import './DealerTheme.css';
 import useMobileLayout from './useMobileLayout';
 import { getWalletColor, walletColorStyle } from './utils/walletColors';
 
