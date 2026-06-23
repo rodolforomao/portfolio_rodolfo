@@ -1,23 +1,31 @@
 import React from 'react';
-import { computeOrderMargin, formatPriceMin } from './utils/orderMargin';
+import { formatOrderConfigSummary, getOrderPricingMode } from './utils/orderPricing';
 import { formatFollowSummary } from './utils/followTarget';
+import { formatPriceMin } from './utils/orderMargin';
 
-export default function OrderMarginBadge({ order, showPm = false, showFollow = true, explicit = false }) {
-  const margin = computeOrderMargin(order);
-  const pm = showPm ? formatPriceMin(order) : null;
-  const follow = showFollow ? formatFollowSummary(order) : null;
+/**
+ * Exibe o parâmetro de preço CONFIGURADO (spread, pm, fixo, follow).
+ * Não mostra lucro/perda calculado vs mercado — isso é outro contexto.
+ */
+export default function OrderMarginBadge({ order, showPm = false, showFollow = true }) {
+  const mode = getOrderPricingMode(order);
+  const summary = formatOrderConfigSummary(order);
+  const pm = showPm && mode !== 'follow' ? formatPriceMin(order) : null;
+  const follow = showFollow && mode === 'follow' ? formatFollowSummary(order) : null;
 
-  if (!margin.kind && !follow) {
-    return <span className="dealer-order-margin dealer-order-margin-na">margem —</span>;
+  if (mode === 'none' || mode === 'pending') {
+    return <span className="dealer-order-config dealer-order-config-na">{summary}</span>;
   }
 
   return (
-    <span className={`dealer-order-margin${margin.kind ? ` dealer-order-margin-${margin.kind}` : ''}`}>
-      {margin.kind && (explicit ? margin.label : margin.shortLabel)}
-      {follow && (
+    <span className={`dealer-order-config dealer-order-config-${mode}`} title="Parâmetro enviado">
+      {summary}
+      {follow && follow !== summary && (
         <span className="dealer-order-follow"> · {follow}</span>
       )}
-      {pm && !follow && <span className="dealer-order-pm"> · {pm}</span>}
+      {pm && mode !== 'spread' && mode !== 'pm' && (
+        <span className="dealer-order-pm"> · {pm}</span>
+      )}
     </span>
   );
 }

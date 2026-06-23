@@ -172,11 +172,15 @@ export default function useDealerWs(wsUrl, token, enabled) {
 
     if (type === 'error') {
       const errMsg = msg.message || 'Erro desconhecido';
-      log.error('Erro do relay', errMsg, 'ação:', msg.action, 'req_id:', msg.req_id);
-      setLastError(errMsg);
-      if (/agent/i.test(errMsg)) {
+      const isAgentOffline = /agent.*conect|agente.*conect/i.test(errMsg);
+      if (isAgentOffline) {
+        // warn (não error) para não disparar push_log → cascata infinita de req_ids
+        log.warn('Relay: agent offline', 'req_id:', msg.req_id);
         setAgentConnected(false);
+      } else {
+        log.error('Erro do relay', errMsg, 'ação:', msg.action, 'req_id:', msg.req_id);
       }
+      setLastError(errMsg);
       addLog(`[error] ${errMsg}`);
       const reqKey = String(msg.req_id);
       const resolver = pendingRef.current.get(reqKey);

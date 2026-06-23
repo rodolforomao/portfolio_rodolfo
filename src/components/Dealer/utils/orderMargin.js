@@ -1,8 +1,8 @@
 /**
  * Margem lucro/perda da ordem — mesma regra do terminal manager_dealer.
- * Com preço fixo: (price - original_price) / original_price * 100
- * Com spread: price_porc * 100
+ * Usa o modo configurado; não trata preço do livro como preço fixo.
  */
+import { getOrderPricingMode } from './orderPricing';
 function buildMarginResult(marginPct, source, referencePrice = null) {
   if (marginPct == null || !Number.isFinite(marginPct)) {
     return { pct: null, kind: null, label: '—', shortLabel: '—', source, referencePrice };
@@ -94,18 +94,33 @@ export function computeOrderMargin(order) {
     return { pct: null, kind: null, label: '—', shortLabel: '—', source: null };
   }
 
-  const price = parseFloat(order.price);
-  const original = parseFloat(order.original_price);
+  const mode = getOrderPricingMode(order);
 
-  if (Number.isFinite(price) && Number.isFinite(original) && original !== 0) {
-    return marginFromPriceDiff(order, original, 'dealer');
+  if (mode === 'follow') {
+    return buildMarginResult(null, 'follow', null);
   }
 
-  if (order.price_porc != null && order.price_porc !== '') {
+  if (mode === 'spread') {
     const porc = Number(order.price_porc);
     if (Number.isFinite(porc)) {
       return buildMarginResult(porc * 100, 'spread', null);
     }
+  }
+
+  if (mode === 'pm') {
+    const pm = Number(order.price_min);
+    if (Number.isFinite(pm)) {
+      return buildMarginResult(pm * 100, 'pm', null);
+    }
+  }
+
+  if (mode === 'fixed') {
+    const price = parseFloat(order.price);
+    const original = parseFloat(order.original_price);
+    if (Number.isFinite(price) && Number.isFinite(original) && original !== 0) {
+      return marginFromPriceDiff(order, original, 'dealer');
+    }
+    return buildMarginResult(null, 'fixed', price);
   }
 
   return buildMarginResult(null, null, null);

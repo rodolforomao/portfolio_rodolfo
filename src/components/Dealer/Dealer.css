@@ -864,8 +864,70 @@ body.dealer-route-active .App.app-ready {
   color: #6e7681;
 }
 
+.dealer-rend-pid-pct {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .dealer-rend-main {
   min-height: 320px;
+}
+
+/* ── P&L por carteira (multi-mode) ── */
+.dealer-pnl-wallet-section {
+  margin: 0.75rem 0;
+}
+
+.dealer-pnl-wallet-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6e7681;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.dealer-pnl-wallet-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dealer-pnl-wallet-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  min-width: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  cursor: default;
+}
+
+.dealer-pnl-wallet-card.lucro { border-color: #238636; }
+.dealer-pnl-wallet-card.perda { border-color: #6e1a1a; }
+
+.dealer-pnl-wallet-name {
+  font-size: 0.72rem;
+  color: #8b949e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.dealer-pnl-wallet-pct {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dealer-pnl-wallet-swaps {
+  font-size: 0.68rem;
+  color: #6e7681;
 }
 
 .dealer-rend-divider {
@@ -3107,6 +3169,35 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-follow-picker-manual .dealer-field-label {
   margin-bottom: 4px;
+}
+
+.dealer-order-config-main {
+  font-weight: 600;
+  color: #e6edf3;
+  font-size: 0.78rem;
+}
+
+.dealer-order-live-price {
+  font-variant-numeric: tabular-nums;
+  color: #8b949e;
+  font-size: 0.78rem;
+}
+
+.dealer-order-config {
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+
+.dealer-order-config-spread,
+.dealer-order-config-pm,
+.dealer-order-config-fixed,
+.dealer-order-config-follow {
+  color: #79c0ff;
+}
+
+.dealer-order-config-na {
+  color: #6e7681;
+  font-style: italic;
 }
 
 .dealer-order-spread-summary {
@@ -5681,3 +5772,45 @@ body.dealer-route-active .App.app-ready {
 
 /* Badge na nav */
 .dealer-nav-log-badge { font-size: 0.6rem; vertical-align: middle; }
+
+/* ── Follow target — posição alvo ── */
+.dealer-follow-position-section {
+  border-bottom: 1px solid #21262d;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.dealer-follow-position-btns {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.dealer-follow-pos-btn {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #8b949e;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.dealer-follow-pos-btn:hover {
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+.dealer-follow-pos-btn.active {
+  background: #0d2a4a;
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+.dealer-follow-position-hint {
+  font-size: 0.7rem;
+  color: #6e7681;
+  margin: 0.35rem 0 0;
+}

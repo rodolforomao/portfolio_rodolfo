@@ -356,21 +356,25 @@ export default function TransactionsPanel({
   // pages: { [offset]: { rows: [], hash: string } }
   // reportMeta: total, has_more, next_offset, profit_loss, asset_summary, category_summary, sync
   const [loading, setLoading] = useState(false);
+  const [bgSyncing, setBgSyncing] = useState(false); // sync em background após load rápido
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [pages, setPages] = useState({});
   const [reportMeta, setReportMeta] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [period, setPeriod] = useState('today');
+  const [period, setPeriod] = useState(''); // padrão Tudo — usuário filtra se quiser
   const [lastSync, setLastSync] = useState(null);
   const [autoRefreshNote, setAutoRefreshNote] = useState('');
   // syncProgress: [{ pid, wallet, dealer_index, dealer_total, progress_pct, done, imported, updated, skipped, total_checked, pct_new }]
   const [syncProgress, setSyncProgress] = useState([]);
   const loadRef = useRef(null);
+  const bgSyncRunningRef = useRef(false); // previne sync duplo em background
   const txSummarySigRef = useRef('');
   const autoRefreshTimerRef = useRef(null);
   // armazena hash da página 0 para comparação em refreshes silenciosos
   const page0HashRef = useRef('');
+  // evita bgSync duplo quando período muda internamente (ex: auto-switch para Tudo)
+  const skipNextBgSyncRef = useRef(false);
 
   const PAGE_SIZE = 50;
 
@@ -378,47 +382,90 @@ export default function TransactionsPanel({
   const targetPid = dealer?.pid ?? null;
   const wsOk = wsStatus === 'connected';
 
-  // Carrega a página 0 (reset completo do painel)
-  const load = useCallback(async (sync = true, source = 'manual') => {
-    if (!wsOk || !sendCommand) return;
-    setLoading(true);
-    setError(null);
-    if (sync) setSyncProgress([]);
+  // Aplica dados de get_transactions na state (reutilizado pelas duas fases)
+  const _applyTxData = useCallback((data, source) => {
+    setPages({ 0: { rows: data.transactions || [], hash: data.page_hash || '' } });
+    page0HashRef.current = data.page_hash || '';
+    setReportMeta({
+      total: data.total,
+      has_more: data.has_more,
+      next_offset: data.next_offset,
+      profit_loss: data.profit_loss,
+      asset_summary: data.asset_summary,
+      category_summary: data.category_summary,
+      sync: data.sync,
+    });
+    setLastSync(new Date().toLocaleTimeString('pt-BR'));
+    if (source !== 'manual') {
+      const imported = data.sync?.imported || 0;
+      setAutoRefreshNote(
+        imported > 0
+          ? `${imported} trade(s) importado(s) do SideSwap.`
+          : 'Histórico atualizado.',
+      );
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fase 2: sync em background — nunca bloqueia a UI principal
+  const runBgSync = useCallback(async (source) => {
+    if (bgSyncRunningRef.current) return; // já tem um sync rodando
+    bgSyncRunningRef.current = true;
+    setBgSyncing(true);
+    setSyncProgress([]);
     try {
       const result = await sendCommand('get_transactions', {
         pid: targetPid,
         limit: PAGE_SIZE,
         offset: 0,
-        sync,
+        sync: true,
         since: periodToSince(period) ?? undefined,
-      }, 90000); // 90s — sync HTTP pode demorar com vários dealers
+      }, 120000); // 120s para sync com muitos dealers
       if (result?.ok && result.data && !result.data.error) {
         const data = result.data;
-        // Reset completo: descarta todas as páginas antigas e inicia com página 0
-        setPages({ 0: { rows: data.transactions || [], hash: data.page_hash || '' } });
-        page0HashRef.current = data.page_hash || '';
-        setReportMeta({
-          total: data.total,
-          has_more: data.has_more,
-          next_offset: data.next_offset,
-          profit_loss: data.profit_loss,
-          asset_summary: data.asset_summary,
-          category_summary: data.category_summary,
-          sync: data.sync,
-        });
-        log.debug('get_transactions OK', 'total:', data.total, 'sync:', data.sync, 'source:', source, 'pid:', targetPid);
-        setLastSync(new Date().toLocaleTimeString('pt-BR'));
-        if (source !== 'manual') {
-          const imported = data.sync?.imported || 0;
-          setAutoRefreshNote(
-            imported > 0
-              ? `${imported} trade(s) importado(s) do SideSwap.`
-              : 'Histórico atualizado.',
-          );
+        const totalChecked = data.sync?.total_checked || 0;
+        log.debug('bg sync OK', 'total:', data.total, 'sync:', data.sync, 'source:', source);
+        // Sempre aplica resultado (sem comparação de hash — evita tabela vazia após sync)
+        _applyTxData(data, source);
+        // Se a tabela ficou vazia mas o sync encontrou dados históricos, muda para "Tudo"
+        if (data.total === 0 && totalChecked > 0) {
+          log.debug('bg sync: dados históricos em outros períodos — exibindo Tudo');
+          skipNextBgSyncRef.current = true; // evita bgSync duplo no useEffect de período
+          setPeriod('');
         }
       } else {
+        log.warn('bg sync falhou', result?.data?.error, 'pid:', targetPid);
+      }
+    } catch (err) {
+      log.warn('bg sync exceção (ignorado)', err.message, 'pid:', targetPid);
+    } finally {
+      bgSyncRunningRef.current = false;
+      setBgSyncing(false);
+      setTimeout(() => setSyncProgress([]), 4000);
+    }
+  }, [targetPid, sendCommand, period, reportMeta?.total, _applyTxData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Carrega a página 0 (reset completo do painel)
+  // Fase 1: load rápido sem sync → mostra dados existentes imediatamente
+  // Fase 2: sync em background → atualiza tabela quando concluir
+  const load = useCallback(async (sync = true, source = 'manual') => {
+    if (!wsOk || !sendCommand) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await sendCommand('get_transactions', {
+        pid: targetPid,
+        limit: PAGE_SIZE,
+        offset: 0,
+        sync: false, // fase 1 é sempre rápida — sem sync
+        since: periodToSince(period) ?? undefined,
+      }); // timeout padrão 30s (leitura pura é sempre rápida)
+      if (result?.ok && result.data && !result.data.error) {
+        const data = result.data;
+        log.debug('get_transactions fast OK', 'total:', data.total, 'source:', source, 'pid:', targetPid);
+        _applyTxData(data, source);
+      } else {
         const errMsg = result?.data?.error || result?.data?.message || 'Falha ao carregar transações';
-        log.error('get_transactions falhou', errMsg, 'pid:', targetPid, 'source:', source, 'result:', result);
+        log.error('get_transactions falhou', errMsg, 'pid:', targetPid, 'source:', source);
         setError(errMsg);
       }
     } catch (err) {
@@ -426,10 +473,12 @@ export default function TransactionsPanel({
       setError(err.message);
     } finally {
       setLoading(false);
-      // Mantém syncProgress visível por 4s após sync concluir, depois limpa
-      setTimeout(() => setSyncProgress([]), 4000);
     }
-  }, [targetPid, sendCommand, wsOk, period]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Fase 2: sync em background (não aguarda — fire and forget)
+    if (sync && wsOk && sendCommand) {
+      runBgSync(source);
+    }
+  }, [targetPid, sendCommand, wsOk, period, runBgSync, _applyTxData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Carrega a próxima página (append)
   const loadMore = useCallback(async () => {
@@ -546,7 +595,14 @@ export default function TransactionsPanel({
   }, [dealer?.pid, isMulti, wsOk]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (wsOk && (dealer?.pid || isMulti)) load(true, 'period');
+    if (!wsOk || (!dealer?.pid && !isMulti)) return;
+    if (skipNextBgSyncRef.current) {
+      // Mudança de período foi interna (auto-switch Tudo após bgSync vazio) — só fast load
+      skipNextBgSyncRef.current = false;
+      load(false, 'period-auto');
+    } else {
+      load(true, 'period');
+    }
   }, [period]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -707,13 +763,13 @@ export default function TransactionsPanel({
           <Button
             size="sm"
             variant="outline-secondary"
-            onClick={() => load(true, 'manual')}
-            disabled={loading || (!dealer && !isMulti) || !wsOk}
+            onClick={() => bgSyncRunningRef.current ? null : runBgSync('manual')}
+            disabled={bgSyncing || loading || (!dealer && !isMulti) || !wsOk}
             className="dealer-tx-refresh"
             title="Importar trades do SideSwap e recarregar"
           >
-            <TbRefresh className={loading ? 'dealer-spin' : ''} />
-            {loading ? '…' : 'Atualizar'}
+            <TbRefresh className={bgSyncing ? 'dealer-spin' : ''} />
+            {bgSyncing ? '…' : 'Atualizar'}
           </Button>
         </div>
       </div>
@@ -731,9 +787,9 @@ export default function TransactionsPanel({
             <p className="dealer-hint dealer-tx-auto-refresh-note">{autoRefreshNote}</p>
           )}
 
-          {/* ── Progresso de sync em tempo real ── */}
-          {(loading || syncProgress.length > 0) && (
-            <SyncProgressList progress={syncProgress} loading={loading} />
+          {/* ── Progresso de sync em background ── */}
+          {(bgSyncing || syncProgress.length > 0) && (
+            <SyncProgressList progress={syncProgress} loading={bgSyncing} />
           )}
 
           {reportMeta?.sync && (reportMeta.sync.imported > 0 || reportMeta.sync.updated > 0) && (
@@ -808,6 +864,35 @@ export default function TransactionsPanel({
                   <AssetPLCard key={a} asset={a} row={assetSummary[a]} loading={loading} />
                 ))}
               </div>
+
+              {/* ── P&L por carteira (multi-mode) ── */}
+              {isMulti && dealers.length > 1 && (
+                <div className="dealer-pnl-wallet-section">
+                  <div className="dealer-pnl-wallet-title">P&amp;L por carteira</div>
+                  <div className="dealer-pnl-wallet-grid">
+                    {dealers.map((d) => {
+                      const summary = d.transactions_summary || {};
+                      const pct = summary.total_profit_percent;
+                      const kind = pct == null ? '' : pct > 0.005 ? 'lucro' : pct < -0.005 ? 'perda' : '';
+                      return (
+                        <div key={d.pid} className={`dealer-pnl-wallet-card ${kind}`}>
+                          <div className="dealer-pnl-wallet-name">
+                            {d.wallet_name || `PID ${d.pid}`}
+                          </div>
+                          <div className={`dealer-pnl-wallet-pct dealer-tx-${kind || 'flow'}`}>
+                            {pct != null
+                              ? `${pct >= 0 ? '+' : ''}${(pct * 100).toFixed(2)}%`
+                              : '—'}
+                          </div>
+                          <div className="dealer-pnl-wallet-swaps">
+                            {summary.swap_count ?? 0} swap{summary.swap_count !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* ── Contadores de categoria ── */}
               <div className="dealer-tx-cat-counts">

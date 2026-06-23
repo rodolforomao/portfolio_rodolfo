@@ -205,6 +205,7 @@ async def handle_browser(ws: websockets.WebSocketServerProtocol):
                             "type": "error",
                             "message": "Dealer agent não está conectado",
                             "req_id": msg.get("req_id"),
+                            "action": msg.get("action"),
                         }))
             except Exception as e:
                 await ws.send(json.dumps({"type": "error", "message": str(e)}))

@@ -3,9 +3,7 @@ import Badge from 'react-bootstrap/Badge';
 import { TbListDetails } from 'react-icons/tb';
 import { ManagerBadge } from './SourceBadge';
 import OrderStatusSignal from './OrderStatusSignal';
-import OrderMarginBadge from './OrderMarginBadge';
-import { formatBookPrice } from './utils/sideswapBook';
-import { formatOrderSpreadSummary } from './PriceFields';
+import { formatOrderConfigSummary, formatOrderLivePrice } from './utils/orderPricing';
 import { prepareDealerOrders, cleanPairName } from './utils/orderMarketNormalize';
 import { getOrderStatus, countOrdersByStatus } from './utils/orderStatus';
 import { FollowRefLink } from './utils/followTarget';
@@ -98,7 +96,8 @@ export default function OrdersPanel({ dealer, managerOffline = false, confirmedO
               <th className="dealer-orders-signal-col" aria-label="Status" />
               <th>Par</th>
               <th>Dir</th>
-              <th>Preço</th>
+              <th>Parâmetro</th>
+              <th>No livro</th>
               <th>Order ID</th>
               <th>Alvo</th>
               <th>Book</th>
@@ -108,7 +107,8 @@ export default function OrdersPanel({ dealer, managerOffline = false, confirmedO
           <tbody>
             {orders.map((order) => {
               const pairLabel = cleanPairName(order.base, order.quote);
-              const price = order.price ?? order.original_price;
+              const livePrice = formatOrderLivePrice(order);
+              const configLabel = formatOrderConfigSummary(order);
               const status = getOrderStatus(order);
               const inBook = managerOffline && confirmedOrderIds != null
                 && order.order_id != null
@@ -132,14 +132,15 @@ export default function OrdersPanel({ dealer, managerOffline = false, confirmedO
                   </td>
                   <td>{order.trade_dir}</td>
                   <td>
-                    {price != null ? formatBookPrice(price) : '—'}
-                    <div className="dealer-order-spread-summary">
-                      {formatOrderSpreadSummary(order)}
-                    </div>
-                    {order.follow_target && (
-                      <div className="dealer-order-margin-wrap">
-                        <OrderMarginBadge order={order} showPm explicit />
-                      </div>
+                    <span className="dealer-order-config-main">{configLabel}</span>
+                  </td>
+                  <td>
+                    {livePrice ? (
+                      <span className="dealer-order-live-price" title="Preço calculado no livro">
+                        {livePrice}
+                      </span>
+                    ) : (
+                      '—'
                     )}
                   </td>
                   <td>

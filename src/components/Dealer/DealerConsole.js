@@ -32,7 +32,6 @@ import DealerBalancesBar from './DealerBalancesBar';
 import OrdersPanel from './OrdersPanel';
 import OrderPlacementPanel from './OrderPlacementPanel';
 import TransactionsPanel from './TransactionsPanel';
-import OrderMarginBadge from './OrderMarginBadge';
 import OrderBookPresenceBadge from './OrderBookPresenceBadge';
 import { formatBookAmount } from './utils/sideswapBook';
 import {
@@ -163,7 +162,6 @@ function DealerCard({ dealer, onSelect, selected, managerOffline = false }) {
               </div>
               <div className="dealer-order-chip-meta">
                 {o.order_id && <code className="dealer-order-chip-id">{o.order_id}</code>}
-                <OrderMarginBadge order={o} showPm explicit />
                 {o.book_label && o.book_label !== '-' && (
                   <span className="dealer-order-pos">book {o.book_label}</span>
                 )}
@@ -268,6 +266,7 @@ const CommandPanel = React.memo(function CommandPanel({
   const [priceMin, setPriceMin] = useState('');
   const [followTarget, setFollowTarget] = useState(false);
   const [followTargetOrderId, setFollowTargetOrderId] = useState('');
+  const [followTargetPosition, setFollowTargetPosition] = useState(1);
   const [amount, setAmount] = useState('999999');
   const [orderId, setOrderId] = useState('');
   const [cancelPick, setCancelPick] = useState(null);
@@ -425,6 +424,7 @@ const CommandPanel = React.memo(function CommandPanel({
     setPriceMin(form.priceMin);
     setFollowTarget(form.followTarget);
     setFollowTargetOrderId(form.followTargetOrderId);
+    setFollowTargetPosition(form.followTargetPosition || 1);
   };
 
   const isSpreadItemSelected = (item) => (
@@ -473,6 +473,8 @@ const CommandPanel = React.memo(function CommandPanel({
     if (pm != null) params.price_min = pm;
     const pin = String(followTargetOrderId || '').trim();
     if (pin) params.follow_target_order_id = pin;
+    const pos = parseInt(followTargetPosition, 10);
+    if (pos >= 1) params.follow_target_position = pos;
     const result = await run('set_follow_target', params);
     if (result?.ok) {
       setFollowTarget(enabled);
@@ -544,6 +546,7 @@ const CommandPanel = React.memo(function CommandPanel({
     setPriceMin(form.priceMin);
     setFollowTarget(form.followTarget);
     setFollowTargetOrderId(form.followTargetOrderId);
+    setFollowTargetPosition(form.followTargetPosition || 1);
     setAmount(form.amount);
   };
 
@@ -869,9 +872,6 @@ const CommandPanel = React.memo(function CommandPanel({
                     <> · amt {formatBookAmount(entry.amount, entry.base)}</>
                   )}
                 </span>
-                <span className="dealer-order-history-margin">
-                  <OrderMarginBadge order={historyOrder} explicit />
-                </span>
                 {entry.order_id && (
                   <code className="dealer-cancel-id">{entry.order_id}</code>
                 )}
@@ -928,6 +928,7 @@ const CommandPanel = React.memo(function CommandPanel({
             priceMin={priceMin}
             followTarget={followTarget}
             followTargetOrderId={followTargetOrderId}
+            followTargetPosition={followTargetPosition}
             followTargetChoices={followTargetChoices}
             base={base}
             quote={quote}
@@ -945,6 +946,7 @@ const CommandPanel = React.memo(function CommandPanel({
             onPriceMinChange={setPriceMin}
             onFollowTargetChange={setFollowTarget}
             onFollowTargetOrderIdChange={setFollowTargetOrderId}
+            onFollowTargetPositionChange={setFollowTargetPosition}
             onAmountChange={setAmount}
           />
           <Button
@@ -1000,9 +1002,7 @@ const CommandPanel = React.memo(function CommandPanel({
                   )}
                 </span>
                 <span className="dealer-cancel-price">
-                  {item.isPending
-                    ? formatOrderSpreadSummary(item.order)
-                    : `@ ${item.order.price ?? item.order.price_porc ?? '—'}`}
+                  {formatOrderSpreadSummary(item.order)}
                 </span>
                 {item.isPending ? (
                   <span className="dealer-cancel-id dealer-cancel-id-pending">sem ID — remove local</span>
@@ -1135,6 +1135,7 @@ const CommandPanel = React.memo(function CommandPanel({
               priceMin={priceMin}
               followTarget={followTarget}
               followTargetOrderId={followTargetOrderId}
+              followTargetPosition={followTargetPosition}
               followTargetChoices={followTargetChoices}
               base={base}
               quote={quote}
@@ -1152,6 +1153,7 @@ const CommandPanel = React.memo(function CommandPanel({
               onPriceMinChange={setPriceMin}
               onFollowTargetChange={setFollowTarget}
               onFollowTargetOrderIdChange={setFollowTargetOrderId}
+              onFollowTargetPositionChange={setFollowTargetPosition}
               onAmountChange={setAmount}
             />
             <div className="dealer-follow-actions mt-2">
@@ -1297,8 +1299,9 @@ export default function DealerConsole() {
   useEffect(() => {
     registerPushLog((entry) => {
       if (status === 'connected') {
-        sendCommand('push_log', entry).catch(() => {});
+        return sendCommand('push_log', entry).catch(() => {});
       }
+      return null;
     });
   }, [status, sendCommand]);
 
@@ -1377,7 +1380,7 @@ export default function DealerConsole() {
   );
 
   const refreshAssets = React.useCallback(async () => {
-    if (status !== 'connected') return;
+    if (status !== 'connected' || !agentConnected) return;
     setRefreshingAssets(true);
     try {
       const [listResult, assetsResult] = await Promise.all([
@@ -1404,7 +1407,7 @@ export default function DealerConsole() {
     } finally {
       setRefreshingAssets(false);
     }
-  }, [status, sendCommand]);
+  }, [status, agentConnected, sendCommand]);
 
   useEffect(() => {
     if (status !== 'connected' || !agentConnected) return;
@@ -1729,6 +1732,8 @@ export default function DealerConsole() {
                 </button>
                 {dealers.map((d) => {
                   const wallet = d.wallet_name || '—';
+                  const pct = d.transactions_summary?.total_profit_percent;
+                  const pctKind = pct == null ? '' : pct > 0.005 ? 'lucro' : pct < -0.005 ? 'perda' : '';
                   return (
                   <button
                     key={d.pid}
@@ -1746,6 +1751,11 @@ export default function DealerConsole() {
                       <span className={`dealer-rend-pid-dot dealer-rend-pid-dot-${d.dealerStatus}`} />
                     </span>
                     <span className="dealer-rend-pid-wallet">{wallet}</span>
+                    {pct != null && (
+                      <span className={`dealer-rend-pid-pct dealer-tx-${pctKind || 'flow'}`}>
+                        {pct >= 0 ? '+' : ''}{(pct * 100).toFixed(2)}%
+                      </span>
+                    )}
                   </button>
                   );
                 })}

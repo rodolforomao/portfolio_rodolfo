@@ -1,5 +1,4 @@
-import { computeOrderMargin } from './orderMargin';
-import { formatOrderSpreadSummary } from '../PriceFields';
+import { formatOrderConfigSummary, getOrderPricingMode } from './orderPricing';
 import { normalizeOrderMarket } from './orderMarketNormalize';
 
 export const ORDER_REGISTRY_KEY = 'dealer_order_registry';
@@ -26,19 +25,16 @@ export function buildOrderRegistryId(entry) {
   return `${entry.pid}|${entry.base}|${entry.quote}|${entry.trade_dir}|${entry.savedAt || 'draft'}`;
 }
 
-function snapshotMargin(order) {
-  const margin = computeOrderMargin(order);
+function snapshotConfig(order) {
   return {
-    marginKind: margin.kind,
-    marginLabel: margin.label,
-    marginShort: margin.shortLabel,
-    marginPct: margin.pct,
+    pricingMode: getOrderPricingMode(order),
+    spreadSummary: formatOrderConfigSummary(order),
   };
 }
 
 export function buildRegistryEntry(dealer, order, { source = 'live', now = new Date().toISOString() } = {}) {
   const { order: normalized } = normalizeOrderMarket(order);
-  const margin = snapshotMargin(normalized);
+  const config = snapshotConfig(normalized);
   const entry = {
     registryId: null,
     pid: dealer?.pid,
@@ -58,8 +54,8 @@ export function buildRegistryEntry(dealer, order, { source = 'live', now = new D
     amount: normalized?.amount ?? 999999,
     book_label: normalized?.book_label ?? null,
     book_position: normalized?.book_position ?? null,
-    spreadSummary: formatOrderSpreadSummary(order),
-    ...margin,
+    spreadSummary: config.spreadSummary,
+    pricingMode: config.pricingMode,
     source,
     isLive: source === 'live',
     savedAt: now,

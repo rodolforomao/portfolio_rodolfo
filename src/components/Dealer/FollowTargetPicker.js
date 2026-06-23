@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import { TbRefresh } from 'react-icons/tb';
+import { FOLLOW_POSITION_OPTIONS } from './utils/followTarget';
 import {
   describeMarketNormalize,
   formatBookAmount,
@@ -108,6 +109,8 @@ function SelectableMiniBook({
 export default function FollowTargetPicker({
   followTargetOrderId = '',
   onFollowTargetOrderIdChange,
+  followTargetPosition = 1,
+  onFollowTargetPositionChange,
   followTargetChoices = [],
   base = 'L-BTC',
   quote = 'USDt',
@@ -140,6 +143,29 @@ export default function FollowTargetPicker({
 
   return (
     <div className="dealer-follow-picker">
+
+      {/* ── Posição alvo no book ── */}
+      <div className="dealer-follow-picker-section dealer-follow-position-section">
+        <div className="dealer-follow-picker-title">Posição alvo no book</div>
+        <div className="dealer-follow-position-btns">
+          {FOLLOW_POSITION_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={`dealer-follow-pos-btn${followTargetPosition === opt.value ? ' active' : ''}`}
+              onClick={() => onFollowTargetPositionChange?.(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <p className="dealer-follow-position-hint">
+          {followTargetPosition <= 1
+            ? 'Bate o competidor mais agressivo (dentro do price_min).'
+            : `Fica logo atrás do ${followTargetPosition - 1}º lugar — não compete pelo 1º.`}
+        </p>
+      </div>
+
       {followTargetChoices.length > 0 && (
         <div className="dealer-follow-picker-section">
           <div className="dealer-follow-picker-title">Ordens dos dealers</div>

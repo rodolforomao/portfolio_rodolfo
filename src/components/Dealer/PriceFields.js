@@ -2,7 +2,10 @@ import React from 'react';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
-import { formatBookPrice } from './utils/sideswapBook';
+import {
+  formatOrderConfigSummary,
+  orderConfigToFormFields,
+} from './utils/orderPricing';
 import FollowTargetPicker from './FollowTargetPicker';
 
 /**
@@ -22,7 +25,7 @@ export function parsePriceInput(value) {
 }
 
 export function buildPriceParams({
-  price, pricePorc, priceMin, followTarget, followTargetOrderId,
+  price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
 }) {
   const p = {};
   const min = parsePercentInput(priceMin);
@@ -31,6 +34,8 @@ export function buildPriceParams({
     if (min !== null) p.price_min = min;
     const pin = String(followTargetOrderId || '').trim();
     if (pin) p.follow_target_order_id = pin;
+    const pos = parseInt(followTargetPosition, 10);
+    if (pos >= 1) p.follow_target_position = pos;
     return p;
   }
   const fixed = parsePriceInput(price);
@@ -41,12 +46,15 @@ export function buildPriceParams({
   return p;
 }
 
-export function validatePriceForm({ price, pricePorc, priceMin, followTarget, followTargetOrderId }) {
+export function validatePriceForm({ price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition }) {
   if (followTarget) {
-    if (!String(followTargetOrderId || '').trim()) {
+    // Com posição alvo definida, order_id é opcional
+    const hasPosition = parseInt(followTargetPosition, 10) >= 1;
+    const hasPin = !!String(followTargetOrderId || '').trim();
+    if (!hasPosition && !hasPin) {
       return {
         ok: false,
-        error: 'Selecione o dealer/ordem alvo (follow_target_order_id obrigatório).',
+        error: 'Selecione uma posição alvo ou ordem específica para o follow_target.',
       };
     }
     if (parsePercentInput(priceMin) === null) {
@@ -84,60 +92,13 @@ export function formatPriceForInput(value) {
   return String(n).replace('.', ',');
 }
 
+/** @deprecated use formatOrderConfigSummary — mantido para imports existentes */
 export function formatOrderSpreadSummary(order) {
-  if (!order) return '—';
-  if (order.follow_target) {
-    const pm = order.price_min != null && order.price_min !== ''
-      ? `pm ${formatPercentForInput(order.price_min)}%`
-      : 'pm —';
-    const ref = order.follow_ref_order_id
-      ? ` → #${order.follow_ref_order_id}`
-      : order.follow_target_order_id
-        ? ` pin #${order.follow_target_order_id}`
-        : '';
-    const live = order.price_porc != null && order.price_porc !== ''
-      ? ` (${formatPercentForInput(order.price_porc)}%)`
-      : '';
-    return `follow ${pm}${ref}${live}`;
-  }
-  if (order.price != null && order.price !== '') {
-    return `preço fixo ${formatBookPrice(order.price)}`;
-  }
-  if (order.price_porc != null && order.price_porc !== '') {
-    return `spread ${formatPercentForInput(order.price_porc)}%`;
-  }
-  if (order.price_min != null && order.price_min !== '') {
-    return `pm ${formatPercentForInput(order.price_min)}%`;
-  }
-  return '—';
+  return formatOrderConfigSummary(order);
 }
 
 export function orderToSpreadForm(order) {
-  if (!order) {
-    return {
-      base: 'L-BTC',
-      quote: 'USDt',
-      tradeDir: 'Buy',
-      price: '',
-      pricePorc: '',
-      priceMin: '',
-      followTarget: false,
-      followTargetOrderId: '',
-    };
-  }
-  return {
-    base: order.base || 'L-BTC',
-    quote: order.quote || 'USDt',
-    tradeDir: order.trade_dir || 'Buy',
-    price: order.price != null && order.price !== '' ? formatPriceForInput(order.price) : '',
-    pricePorc: order.price_porc != null && order.price_porc !== ''
-      ? formatPercentForInput(order.price_porc) : '',
-    priceMin: order.price_min != null && order.price_min !== ''
-      ? formatPercentForInput(order.price_min) : '',
-    followTarget: !!order.follow_target,
-    followTargetOrderId: order.follow_target_order_id
-      ? String(order.follow_target_order_id) : '',
-  };
+  return orderConfigToFormFields(order);
 }
 
 export function orderToSendForm(order) {
@@ -155,6 +116,7 @@ export default function PriceFields({
   amount,
   followTarget = false,
   followTargetOrderId = '',
+  followTargetPosition = 1,
   followTargetChoices = [],
   base = 'L-BTC',
   quote = 'USDt',
@@ -172,6 +134,7 @@ export default function PriceFields({
   onAmountChange,
   onFollowTargetChange,
   onFollowTargetOrderIdChange,
+  onFollowTargetPositionChange,
   showFollowOptions = true,
   showAmount = true,
 }) {
@@ -259,6 +222,8 @@ export default function PriceFields({
           <FollowTargetPicker
             followTargetOrderId={followTargetOrderId}
             onFollowTargetOrderIdChange={onFollowTargetOrderIdChange}
+            followTargetPosition={followTargetPosition}
+            onFollowTargetPositionChange={onFollowTargetPositionChange}
             followTargetChoices={followTargetChoices}
             base={base}
             quote={quote}

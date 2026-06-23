@@ -275,7 +275,7 @@ export default function OrderPlacementPanel({
                   ? <code>{order.order_id}</code>
                   : <em className="dealer-placement-unpublished">não publicada</em>}
               </span>
-              <OrderMarginBadge order={order} showPm explicit />
+              <OrderMarginBadge order={order} showPm />
               {order.follow_ref_order_id && (
                 <span className="dealer-placement-follow-ref">
                   alvo: <FollowRefLink orderId={order.follow_ref_order_id} />

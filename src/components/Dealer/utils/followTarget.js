@@ -7,10 +7,19 @@ export function bookOrderAnchorId(orderId) {
   return `book-order-${orderId}`;
 }
 
+export const FOLLOW_POSITION_OPTIONS = [
+  { value: 1, label: '1º lugar' },
+  { value: 2, label: '2º lugar' },
+  { value: 3, label: '3º lugar' },
+  { value: 4, label: '4º lugar' },
+  { value: 5, label: '5º lugar' },
+];
+
 /** Resumo legível do modo follow (badge / chips). */
 export function formatFollowSummary(order) {
   if (!order?.follow_target) return null;
-  const parts = ['follow'];
+  const pos = order.follow_target_position || 1;
+  const parts = [`follow #${pos}`];
   const pm = order.price_min;
   if (pm != null && pm !== '') {
     parts.push(`pm ${formatPercentForInput(pm)}%`);
@@ -23,11 +32,13 @@ export function formatFollowSummary(order) {
   return parts.join(' · ');
 }
 
-export function buildFollowParams({ followTarget, followTargetOrderId, priceMin }) {
+export function buildFollowParams({ followTarget, followTargetOrderId, followTargetPosition, priceMin }) {
   if (!followTarget) return { follow_target: false };
   const p = { follow_target: true };
   const pin = String(followTargetOrderId || '').trim();
   if (pin) p.follow_target_order_id = pin;
+  const pos = parseInt(followTargetPosition, 10);
+  if (pos >= 1) p.follow_target_position = pos;
   return p;
 }
 
