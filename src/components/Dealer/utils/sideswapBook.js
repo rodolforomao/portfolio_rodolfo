@@ -192,14 +192,20 @@ export function formatBookAmount(amount, baseAsset = null) {
   return asHuman.toLocaleString('pt-BR', { maximumFractionDigits: 8 });
 }
 
-/** Valor total em quote (amount × price) quando ambos existem. */
-export function formatBookNotional(amount, price, quoteAsset = null) {
+/** Valor numérico total em quote (amount × price). */
+export function bookNotional(amount, price) {
   const amt = Number(amount);
   const px = Number(price);
   if (!Number.isFinite(amt) || !Number.isFinite(px)) return null;
   const amtHuman = Number.isInteger(amt) && Math.abs(amt) >= 1_000_000 ? amt / 1e8 : amt;
   const total = amtHuman * px;
-  if (!Number.isFinite(total)) return null;
+  return Number.isFinite(total) ? total : null;
+}
+
+/** Valor total em quote (amount × price) quando ambos existem. */
+export function formatBookNotional(amount, price, quoteAsset = null) {
+  const total = bookNotional(amount, price);
+  if (total == null) return null;
   if (quoteAsset) {
     return formatAssetBalance(quoteAsset, total);
   }

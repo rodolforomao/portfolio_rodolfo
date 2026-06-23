@@ -131,6 +131,14 @@ export function computeExternalMargin(order, indPrice) {
   return marginFromPriceDiff(order, indPrice, 'sideswap');
 }
 
+/** Custo monetário estimado se a ordem subir ao 1º lugar (total × vs mercado do topo). */
+export function computeTopPlaceCost(notional, topVsMarketPct) {
+  const n = Number(notional);
+  const pct = Number(topVsMarketPct);
+  if (!Number.isFinite(n) || !Number.isFinite(pct)) return null;
+  return n * (pct / 100);
+}
+
 /** Distância do topo do book no mesmo lado (Buy/Sell). */
 export function computeVsBookTop(order, bookOrders = []) {
   const tradeDir = String(order?.trade_dir || 'Buy');

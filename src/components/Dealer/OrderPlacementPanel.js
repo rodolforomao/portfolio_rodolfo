@@ -6,12 +6,18 @@ import { SideswapBadge, ManagerBadge } from './SourceBadge';
 import OrderMarginBadge from './OrderMarginBadge';
 import OrderBookPresenceBadge from './OrderBookPresenceBadge';
 import { FollowRefLink, bookOrderAnchorId } from './utils/followTarget';
-import { computeExternalMargin, computeVsBookTop, marginFromPriceDiff } from './utils/orderMargin';
+import {
+  computeExternalMargin,
+  computeTopPlaceCost,
+  computeVsBookTop,
+  marginFromPriceDiff,
+} from './utils/orderMargin';
 import {
   describeMarketNormalize,
   formatBookPrice,
   formatBookAmount,
   formatBookNotional,
+  bookNotional,
   sortBookSide,
   sortPlacementsByBook,
 } from './utils/sideswapBook';
@@ -53,6 +59,14 @@ function MiniBook({
     return <p className="dealer-empty">Sem ordens {tradeDir} no book.</p>;
   }
 
+  const topVsMarket = showPct
+    ? marginFromPriceDiff(
+      { trade_dir: side[0].trade_dir || tradeDir, price: side[0].price },
+      indPrice,
+      'sideswap',
+    )
+    : null;
+
   const resolveAmount = (o) => {
     const bookAmt = o.amount;
     if (bookAmt != null && Number.isFinite(Number(bookAmt))) return bookAmt;
@@ -88,6 +102,22 @@ function MiniBook({
         const amount = resolveAmount(o);
         const amountLabel = formatBookAmount(amount, baseAsset);
         const notional = formatBookNotional(amount, o.price, quoteAsset);
+        const notionalNum = bookNotional(amount, o.price);
+        const topPlaceCost = mine && topVsMarket?.pct != null && notionalNum != null
+          ? computeTopPlaceCost(notionalNum, topVsMarket.pct)
+          : null;
+        const topPlaceCostLabel = topPlaceCost != null && Math.abs(topVsMarket.pct) >= 0.004
+          ? (() => {
+            const sign = topPlaceCost >= 0 ? '+' : '−';
+            const absLabel = quoteAsset
+              ? formatAssetBalance(quoteAsset, Math.abs(topPlaceCost))
+              : Math.abs(topPlaceCost).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+            return `1º ${sign}${absLabel}`;
+          })()
+          : null;
+        const topPlaceCostKind = topPlaceCost != null
+          ? (topPlaceCost > 0.004 ? 'lucro' : topPlaceCost < -0.004 ? 'perda' : 'neutro')
+          : null;
         return (
           <div key={o.order_id} id={anchor || undefined} className={rowClass}>
             <span className="dealer-mini-book-pos">{idx + 1}</span>
@@ -107,7 +137,15 @@ function MiniBook({
               {amountLabel}
             </span>
             <span className="dealer-mini-book-total" title="amount × preço">
-              {notional ?? '—'}
+              <span>{notional ?? '—'}</span>
+              {topPlaceCostLabel && (
+                <span
+                  className={`dealer-mini-book-top-cost dealer-order-margin dealer-order-margin-${topPlaceCostKind}`}
+                  title={`${notional ?? '—'} × ${topVsMarket.shortLabel} (vs mercado do 1º) — estimativa se subir ao topo`}
+                >
+                  {topPlaceCostLabel}
+                </span>
+              )}
             </span>
             <span className="dealer-mini-book-id">{o.order_id}</span>
             {mine && <span className="dealer-mini-book-tag">nossa</span>}
