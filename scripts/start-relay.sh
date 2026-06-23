@@ -27,8 +27,16 @@ export WS_RELAY_PORT="${WS_RELAY_PORT:-8765}"
 export WS_RELAY_HOST="${WS_RELAY_HOST:-0.0.0.0}"
 
 if ss -tln 2>/dev/null | grep -q ":${WS_RELAY_PORT} "; then
-  echo "[relay] porta ${WS_RELAY_HOST}:${WS_RELAY_PORT} já em uso — relay provavelmente ativo (ok)"
-  exit 0
+  owner_pid="$(lsof -tiTCP:"${WS_RELAY_PORT}" -sTCP:LISTEN 2>/dev/null | head -1)"
+  owner_cmd="$(ps -p "${owner_pid}" -o args= 2>/dev/null || true)"
+  if [[ "$owner_cmd" == *"ws_relay_server.py"* ]]; then
+    echo "[relay] porta ${WS_RELAY_HOST}:${WS_RELAY_PORT} já em uso — ws_relay_server ativo (ok)"
+    exit 0
+  fi
+  echo "[relay] ERRO: porta ${WS_RELAY_PORT} ocupada por outro processo (não é ws_relay_server.py)" >&2
+  echo "[relay]   PID ${owner_pid:-?}: ${owner_cmd:-desconhecido}" >&2
+  echo "[relay]   Pare o processo ou defina WS_RELAY_PORT no .env (ex.: 8767)." >&2
+  exit 1
 fi
 
 bash "$ROOT/scripts/ensure-venv.sh"

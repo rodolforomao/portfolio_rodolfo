@@ -748,6 +748,7 @@ const CommandPanel = React.memo(function CommandPanel({
   };
 
   return (
+    <div className="dealer-command-panel">
     <Tabs defaultActiveKey="run" className="dealer-tabs">
       <Tab eventKey="run" title={<><TbPlayerPlay /> Run</>}>
         <div className="dealer-form-block">
@@ -1110,6 +1111,7 @@ const CommandPanel = React.memo(function CommandPanel({
           </p>
         )}
 
+        <div className="dealer-cancel-actions">
         {cancelTargetPid && (
           <button
             type="button"
@@ -1134,7 +1136,6 @@ const CommandPanel = React.memo(function CommandPanel({
               setCancelPick({ pid: cancelTargetPid, orderId: e.target.value.trim() });
             }
           }}
-          className="mb-2 mt-2"
         />
 
         <Button
@@ -1147,6 +1148,7 @@ const CommandPanel = React.memo(function CommandPanel({
           {cancelPick?.pending && ` (${cleanPairName(cancelPick.base, cancelPick.quote)} ${cancelPick.trade_dir})`}
           {!cancelPick?.all && !cancelPick?.pending && (cancelPick?.orderId || orderId) && ` (${cancelPick?.orderId || orderId})`}
         </Button>
+        </div>
       </Tab>
 
       <Tab eventKey="spread" title={<><TbArrowsExchange /> Spread</>}>
@@ -1366,6 +1368,7 @@ const CommandPanel = React.memo(function CommandPanel({
         </div>
       </Tab>
     </Tabs>
+    </div>
   );
 });
 
@@ -1478,6 +1481,15 @@ export default function DealerConsole() {
       if (p.found && p.order?.order_id != null) s.add(String(p.order.order_id));
     }
     return s;
+  }, [bookPlacements]);
+
+  const placementByOrderId = useMemo(() => {
+    const map = new Map();
+    for (const p of bookPlacements) {
+      const id = p.order?.order_id;
+      if (id != null) map.set(String(id), p);
+    }
+    return map;
   }, [bookPlacements]);
 
   const {
@@ -1927,6 +1939,10 @@ export default function DealerConsole() {
                   sendCommand={sendCommand}
                   wsStatus={status}
                   agentConnected={agentConnected}
+                  scanPairs={scanPairs}
+                  scanIndPrices={scanIndPrices}
+                  scanBooks={scanBooks}
+                  bookPlacements={bookPlacements}
                 />
               </div>
             </Col>
@@ -2118,6 +2134,8 @@ export default function DealerConsole() {
                         dealer={selectedDealer}
                         managerOffline={!agentConnected}
                         confirmedOrderIds={confirmedOrderIds}
+                        placementByOrderId={placementByOrderId}
+                        combinations={marketData.combinations}
                       />
                     )}
                     {operacionalTab === 'livro' && (

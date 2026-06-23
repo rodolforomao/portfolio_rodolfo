@@ -1,5 +1,6 @@
 import { canonicalAssetName, isLBTC, normalizeBalances } from './dealerFormat';
 import { normalizeMarketOrder } from './sideswapBook';
+import { getOrderStatus } from './orderStatus';
 
 /** Saldo mínimo para a ordem aparecer ativa no livro público (por ativo). */
 const MIN_FUNDING_BALANCE = {
@@ -147,6 +148,58 @@ export function resolveOrderBookPresence({
     unpublished,
     invertedPair,
     bookLabel,
+  });
+}
+
+const CONFIG_SORT_RANK = {
+  follow: 1200,
+  calculating: 1300,
+  pending: 1400,
+  awaiting: 1500,
+};
+
+/** Menor = mais prioritário na lista do painel Ordens (no livro primeiro, sem ativo por último). */
+export function dealerOrdersPanelSortRank(order, presence, placement) {
+  if (presence?.key === 'found') {
+    return placement?.position ?? 0;
+  }
+  if (presence?.key === 'erro') return 1000;
+  if (presence?.key === 'inverted') return 1100;
+  if (!order?.order_id) {
+    const configKey = getOrderStatus(order).key;
+    return CONFIG_SORT_RANK[configKey] ?? 1450;
+  }
+  if (presence?.key === 'unpublished') return 1600;
+  if (presence?.key === 'sem_ativo') return 9000;
+  return 5000;
+}
+
+export function sortDealerOrdersByBookPresence(orders, {
+  placementByOrderId = new Map(),
+  balances = [],
+  combinations = [],
+} = {}) {
+  return [...orders].sort((a, b) => {
+    const placementA = a.order_id ? placementByOrderId.get(String(a.order_id)) : null;
+    const placementB = b.order_id ? placementByOrderId.get(String(b.order_id)) : null;
+    const presenceA = resolveOrderBookPresence({
+      order: a,
+      balances,
+      placement: placementA,
+      combinations,
+    });
+    const presenceB = resolveOrderBookPresence({
+      order: b,
+      balances,
+      placement: placementB,
+      combinations,
+    });
+    const rankA = dealerOrdersPanelSortRank(a, presenceA, placementA);
+    const rankB = dealerOrdersPanelSortRank(b, presenceB, placementB);
+    if (rankA !== rankB) return rankA - rankB;
+    const pairA = `${a.base}/${a.quote}`;
+    const pairB = `${b.base}/${b.quote}`;
+    return pairA.localeCompare(pairB) || String(a.trade_dir).localeCompare(String(b.trade_dir));
   });
 }
 

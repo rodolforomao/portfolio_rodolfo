@@ -3,12 +3,73 @@ import Badge from 'react-bootstrap/Badge';
 import { TbListDetails } from 'react-icons/tb';
 import { ManagerBadge } from './SourceBadge';
 import OrderStatusSignal from './OrderStatusSignal';
+import OrderBookPresenceBadge from './OrderBookPresenceBadge';
 import { formatOrderConfigSummary, formatOrderLivePrice } from './utils/orderPricing';
 import { prepareDealerOrders, cleanPairName } from './utils/orderMarketNormalize';
 import { getOrderStatus, countOrdersByStatus } from './utils/orderStatus';
+import {
+  resolveOrderBookPresence,
+  sortDealerOrdersByBookPresence,
+} from './utils/orderPlacementStatus';
 import { FollowRefLink } from './utils/followTarget';
 
 const SIDESWAP_BADGE_STYLE = { backgroundColor: '#2d9cdb', borderColor: '#2d9cdb' };
+
+const PRESENCE_SIGNAL_COLOR = {
+  found: '#3fb950',
+  sem_ativo: '#d29922',
+  erro: '#f85149',
+  inverted: '#6e7681',
+  unpublished: '#6e7681',
+};
+
+function OrderRowSignal({ order, presence, managerOffline = false, confirmedInBook = false }) {
+  if (order?.order_id && presence?.badgeLabel) {
+    const offline = managerOffline && !confirmedInBook;
+    const color = offline ? '#6e7681' : (PRESENCE_SIGNAL_COLOR[presence.key] || '#6e7681');
+    const hint = offline
+      ? `${presence.badgeLabel} · status incerto (manager offline)`
+      : presence.hint;
+    return (
+      <span
+        className="dealer-order-signal dealer-signal-md"
+        title={hint}
+        aria-label={presence.badgeLabel}
+      >
+        <span
+          className="dealer-order-signal-dot"
+          style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}88` }}
+        />
+      </span>
+    );
+  }
+  return (
+    <OrderStatusSignal
+      order={order}
+      size="md"
+      managerOffline={managerOffline}
+      confirmedInBook={confirmedInBook}
+    />
+  );
+}
+
+function OrderRowStatusBadge({ order, presence, managerOffline = false, confirmedInBook = false }) {
+  if (order?.order_id && presence?.badgeLabel) {
+    return (
+      <OrderBookPresenceBadge
+        presence={presence}
+        className="dealer-order-status"
+      />
+    );
+  }
+  return (
+    <OrderStatusBadge
+      order={order}
+      managerOffline={managerOffline}
+      confirmedInBook={confirmedInBook}
+    />
+  );
+}
 
 function OrderStatusBadge({ order, managerOffline = false, confirmedInBook = false }) {
   const status = getOrderStatus(order);
@@ -49,11 +110,26 @@ function OrderStatusBadge({ order, managerOffline = false, confirmedInBook = fal
   );
 }
 
-export default function OrdersPanel({ dealer, managerOffline = false, confirmedOrderIds = null }) {
-  const { orders, normalizeNotes } = useMemo(
+export default function OrdersPanel({
+  dealer,
+  managerOffline = false,
+  confirmedOrderIds = null,
+  placementByOrderId = null,
+  combinations = [],
+}) {
+  const { orders: rawOrders, normalizeNotes } = useMemo(
     () => prepareDealerOrders(dealer?.orders || []),
     [dealer?.orders],
   );
+
+  const orders = useMemo(() => {
+    if (!rawOrders.length) return rawOrders;
+    return sortDealerOrdersByBookPresence(rawOrders, {
+      placementByOrderId: placementByOrderId || new Map(),
+      balances: dealer?.balances,
+      combinations,
+    });
+  }, [rawOrders, placementByOrderId, dealer?.balances, combinations]);
 
   const statusCounts = useMemo(() => countOrdersByStatus(orders), [orders]);
   const sentCount = statusCounts.sent;
@@ -75,7 +151,9 @@ export default function OrdersPanel({ dealer, managerOffline = false, confirmedO
         </h3>
         {orders.length > 0 && (
           <div className="dealer-order-legend" aria-hidden="true">
-            <span><OrderStatusSignal order={{ order_id: 1 }} size="sm" managerOffline={managerOffline} /> enviada</span>
+            <span><Badge bg="success" className="dealer-legend-presence">no livro</Badge></span>
+            <span><Badge bg="warning" text="dark" className="dealer-legend-presence">sem ativo</Badge></span>
+            <span><Badge bg="danger" className="dealer-legend-presence">erro</Badge></span>
             <span><OrderStatusSignal order={{ follow_target: true, order_id: 1 }} size="sm" managerOffline={managerOffline} /> follow</span>
             <span><OrderStatusSignal order={{ follow_target: true, pending: true }} size="sm" managerOffline={managerOffline} /> calc.</span>
             <span><OrderStatusSignal order={{ price: 1 }} size="sm" managerOffline={managerOffline} /> pendente</span>
@@ -110,16 +188,33 @@ export default function OrdersPanel({ dealer, managerOffline = false, confirmedO
               const livePrice = formatOrderLivePrice(order);
               const configLabel = formatOrderConfigSummary(order);
               const status = getOrderStatus(order);
+              const placement = order.order_id
+                ? (placementByOrderId || new Map()).get(String(order.order_id))
+                : null;
+              const presence = resolveOrderBookPresence({
+                order,
+                balances: dealer?.balances,
+                placement,
+                combinations,
+              });
               const inBook = managerOffline && confirmedOrderIds != null
                 && order.order_id != null
                 && confirmedOrderIds.has(String(order.order_id));
+              const rowPresenceClass = order.order_id && presence?.key
+                ? ` dealer-order-row-${presence.key.replace('_', '-')}`
+                : '';
               return (
                 <tr
                   key={`${order.base}-${order.quote}-${order.trade_dir}-${order.order_id || 'pending'}`}
-                  className={`dealer-order-row dealer-order-row-${status.key}${managerOffline && !inBook ? ' dealer-order-row-stale' : ''}`}
+                  className={`dealer-order-row dealer-order-row-${status.key}${rowPresenceClass}${managerOffline && !inBook && order.order_id ? ' dealer-order-row-stale' : ''}`}
                 >
                   <td className="dealer-orders-signal-col">
-                    <OrderStatusSignal order={order} size="md" managerOffline={managerOffline} confirmedInBook={inBook} />
+                    <OrderRowSignal
+                      order={order}
+                      presence={presence}
+                      managerOffline={managerOffline}
+                      confirmedInBook={inBook}
+                    />
                   </td>
                   <td>
                     <span className="dealer-order-pair">{pairLabel}</span>
@@ -160,7 +255,14 @@ export default function OrdersPanel({ dealer, managerOffline = false, confirmedO
                     )}
                   </td>
                   <td>{order.book_label || '—'}</td>
-                  <td><OrderStatusBadge order={order} managerOffline={managerOffline} confirmedInBook={inBook} /></td>
+                  <td>
+                    <OrderRowStatusBadge
+                      order={order}
+                      presence={presence}
+                      managerOffline={managerOffline}
+                      confirmedInBook={inBook}
+                    />
+                  </td>
                 </tr>
               );
             })}
