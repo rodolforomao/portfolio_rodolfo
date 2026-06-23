@@ -245,21 +245,23 @@ async def handler(ws: websockets.WebSocketServerProtocol):
 
 
 async def heartbeat():
-    """Pinga browsers em paralelo com timeout — evita bloquear o event loop."""
+    """Pinga browsers em paralelo (30s timeout) — não bloqueia o event loop."""
     while True:
         await asyncio.sleep(30)
         if not browser_clients:
             continue
 
         dead: set = set()
+        clients = list(browser_clients)
 
-        async def _ping(client):
+        async def _ping_one(client):
             try:
-                await asyncio.wait_for(client.ping(), timeout=10.0)
+                await asyncio.wait_for(client.ping(), timeout=30.0)
             except Exception:
                 dead.add(client)
 
-        await asyncio.gather(*[_ping(c) for c in list(browser_clients)], return_exceptions=True)
+        tasks = [asyncio.create_task(_ping_one(c)) for c in clients]
+        await asyncio.gather(*tasks, return_exceptions=True)
         if dead:
             browser_clients.difference_update(dead)
             log(f"Heartbeat removeu {len(dead)} browser(s) morto(s) (restam: {len(browser_clients)})")
@@ -275,8 +277,7 @@ async def main():
         handler,
         HOST,
         PORT,
-        ping_interval=30,   # relay envia ping a cada 30s (mantém conexão viva por proxies/NAT)
-        ping_timeout=60,    # aguarda pong por até 60s (tolerância para rede móvel/Termux)
+        ping_interval=None,  # bridge gerencia próprio keepalive; heartbeat() cuida dos browsers
         max_size=2 * 1024 * 1024,
     ):
         log("Relay rodando. Aguardando conexões...")

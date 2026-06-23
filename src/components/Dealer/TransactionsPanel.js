@@ -14,6 +14,25 @@ import {
 
 const SATS = 1e8;
 
+// Cache de estado do histórico — persiste entre trocas de aba (módulo-level, por sessão)
+// Chave: `${pid ?? 'all'}|${period}` — valor: { hash, total, syncedAt }
+const _txSyncCache = {};
+const SYNC_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutos entre bgSyncs automáticos
+
+function _cacheKey(pid, period) {
+  return `${pid ?? 'all'}|${period ?? ''}`;
+}
+function _isCacheFresh(pid, period, serverHash, serverTotal) {
+  const c = _txSyncCache[_cacheKey(pid, period)];
+  if (!c) return false;
+  const hashMatch = c.hash === serverHash && c.total === serverTotal;
+  const recent = Date.now() - c.syncedAt < SYNC_COOLDOWN_MS;
+  return hashMatch && recent;
+}
+function _updateCache(pid, period, hash, total) {
+  _txSyncCache[_cacheKey(pid, period)] = { hash, total, syncedAt: Date.now() };
+}
+
 function fmtAsset(asset, value) {
   if (value == null || !Number.isFinite(Number(value))) return '—';
   const n = Number(value);
@@ -413,7 +432,7 @@ export default function TransactionsPanel({
 
   // Fase 2: sync em background — nunca bloqueia a UI principal
   const runBgSync = useCallback(async (source) => {
-    if (bgSyncRunningRef.current) return; // já tem um sync rodando
+    if (bgSyncRunningRef.current) return;
     bgSyncRunningRef.current = true;
     setBgSyncing(true);
     setSyncProgress([]);
@@ -424,17 +443,18 @@ export default function TransactionsPanel({
         offset: 0,
         sync: true,
         since: periodToSince(period) ?? undefined,
-      }, 120000); // 120s para sync com muitos dealers
+      }, 120000);
       if (result?.ok && result.data && !result.data.error) {
         const data = result.data;
         const totalChecked = data.sync?.total_checked || 0;
         log.debug('bg sync OK', 'total:', data.total, 'sync:', data.sync, 'source:', source);
-        // Sempre aplica resultado (sem comparação de hash — evita tabela vazia após sync)
         _applyTxData(data, source);
-        // Se a tabela ficou vazia mas o sync encontrou dados históricos, muda para "Tudo"
+        // Salva no cache: próximas visitas comparam este hash antes de re-sincronizar
+        _updateCache(targetPid, period, data.page_hash || '', data.total);
+        // Se período atual não tem dados mas o sync encontrou histórico, muda para Tudo
         if (data.total === 0 && totalChecked > 0) {
           log.debug('bg sync: dados históricos em outros períodos — exibindo Tudo');
-          skipNextBgSyncRef.current = true; // evita bgSync duplo no useEffect de período
+          skipNextBgSyncRef.current = true;
           setPeriod('');
         }
       } else {
@@ -447,40 +467,50 @@ export default function TransactionsPanel({
       setBgSyncing(false);
       setTimeout(() => setSyncProgress([]), 4000);
     }
-  }, [targetPid, sendCommand, period, reportMeta?.total, _applyTxData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [targetPid, sendCommand, period, _applyTxData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Carrega a página 0 (reset completo do painel)
   // Fase 1: load rápido sem sync → mostra dados existentes imediatamente
-  // Fase 2: sync em background → atualiza tabela quando concluir
+  // Fase 2: bgSync apenas se cache expirou OU hash mudou (evita re-sync desnecessário)
   const load = useCallback(async (sync = true, source = 'manual') => {
     if (!wsOk || !sendCommand) return;
     setLoading(true);
     setError(null);
+    let needsSync = sync;
     try {
       const result = await sendCommand('get_transactions', {
         pid: targetPid,
         limit: PAGE_SIZE,
         offset: 0,
-        sync: false, // fase 1 é sempre rápida — sem sync
+        sync: false, // fase 1 é sempre rápida
         since: periodToSince(period) ?? undefined,
-      }); // timeout padrão 30s (leitura pura é sempre rápida)
+      });
       if (result?.ok && result.data && !result.data.error) {
         const data = result.data;
-        log.debug('get_transactions fast OK', 'total:', data.total, 'source:', source, 'pid:', targetPid);
         _applyTxData(data, source);
+        // Verifica se é necessário bgSync: pula se hash igual E sync recente
+        if (sync && source !== 'manual') {
+          const fresh = _isCacheFresh(targetPid, period, data.page_hash || '', data.total);
+          if (fresh) {
+            log.debug('bgSync pulado — hash igual + sync recente', 'pid:', targetPid, 'period:', period);
+            needsSync = false;
+          }
+        }
+        log.debug('fast load OK', 'total:', data.total, 'needsSync:', needsSync, 'source:', source);
       } else {
         const errMsg = result?.data?.error || result?.data?.message || 'Falha ao carregar transações';
-        log.error('get_transactions falhou', errMsg, 'pid:', targetPid, 'source:', source);
+        log.error('get_transactions falhou', errMsg, 'pid:', targetPid);
         setError(errMsg);
+        needsSync = false;
       }
     } catch (err) {
-      log.error('get_transactions exceção', err, 'pid:', targetPid, 'source:', source);
+      log.error('get_transactions exceção', err, 'pid:', targetPid);
       setError(err.message);
+      needsSync = false;
     } finally {
       setLoading(false);
     }
-    // Fase 2: sync em background (não aguarda — fire and forget)
-    if (sync && wsOk && sendCommand) {
+    if (needsSync) {
       runBgSync(source);
     }
   }, [targetPid, sendCommand, wsOk, period, runBgSync, _applyTxData]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -593,9 +623,10 @@ export default function TransactionsPanel({
 
   useEffect(() => {
     if (wsOk && (dealer?.pid || isMulti)) load(syncOnSelect, 'mount');
-    // Reset ao trocar de dealer
+    // Reset ao trocar de dealer ou remontar
     setPages({});
     setReportMeta(null);
+    setSyncProgress([]);
     page0HashRef.current = '';
   }, [dealer?.pid, isMulti, wsOk]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -614,6 +645,8 @@ export default function TransactionsPanel({
     if (!wsEvents.length) return;
     const last = wsEvents[wsEvents.length - 1];
     if (last?.event === 'history_sync_progress') {
+      // Ignora eventos stale: só processa se bgSync está ativo neste componente
+      if (!bgSyncRunningRef.current) return;
       const d = last.data;
       setSyncProgress((prev) => {
         const idx = prev.findIndex((p) => p.pid === d.pid);

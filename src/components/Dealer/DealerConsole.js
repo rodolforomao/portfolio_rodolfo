@@ -14,6 +14,7 @@ import {
   TbArrowsExchange, TbRefresh, TbHistory, TbMessage,
   TbBug, TbLogout, TbWallet, TbBook, TbHeartbeat, TbCoins,
   TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight, TbRocket,
+  TbBookmark, TbBookmarkFilled, TbBookmarkOff,
 } from 'react-icons/tb';
 import ArchitecturePanel from './ArchitecturePanel';
 import StrategyPanel from './StrategyPanel';
@@ -53,6 +54,7 @@ import PriceFields, {
   orderToSpreadForm,
   orderToSendForm,
   validatePriceForm,
+  formatPercentForInput,
 } from './PriceFields';
 import {
   loadOrderRegistry,
@@ -276,10 +278,73 @@ const CommandPanel = React.memo(function CommandPanel({
   const [lossSendConfirm, setLossSendConfirm] = useState({ signature: null, step: 0 });
   const [direction, setDirection] = useState('Buy');
   const [histDest, setHistDest] = useState(defaultHistoryDestination);
+  const [pairDefaults, setPairDefaults] = useState([]);
+  const [defaultSaved, setDefaultSaved] = useState(false); // badge "padrão salvo"
+  const [savingDefault, setSavingDefault] = useState(false);
 
   useEffect(() => {
     setHistDest(defaultHistoryDestination);
   }, [defaultHistoryDestination]);
+
+  // ── Carregar defaults do par ao mudar o dealer ────────────────────────────
+  const loadPairDefaults = useCallback(async (pid) => {
+    if (!pid || wsStatus !== 'connected') return;
+    try {
+      const r = await sendCommand('get_pair_defaults', { pid });
+      if (r?.ok && Array.isArray(r.data?.pair_defaults)) {
+        setPairDefaults(r.data.pair_defaults);
+      } else {
+        setPairDefaults([]);
+      }
+    } catch {
+      setPairDefaults([]);
+    }
+  }, [sendCommand, wsStatus]);
+
+  useEffect(() => {
+    if (selectedPid) {
+      loadPairDefaults(selectedPid);
+    } else {
+      setPairDefaults([]);
+    }
+  }, [selectedPid, loadPairDefaults]);
+
+  // ── Auto-fill do formulário quando o par ou os defaults mudam ────────────
+  useEffect(() => {
+    if (!pairDefaults.length) { setDefaultSaved(false); return; }
+    const def = pairDefaults.find(
+      (d) => d.base === base && d.quote === quote && d.trade_dir === tradeDir,
+    );
+    if (!def) { setDefaultSaved(false); return; }
+    setDefaultSaved(true);
+    if (def.price_porc != null) setPricePorc(formatPercentForInput(def.price_porc));
+    if (def.price_min != null) setPriceMin(formatPercentForInput(def.price_min));
+    if (def.price != null) setPrice(String(def.price)); else if (def.price_porc != null) setPrice('');
+    if (def.follow_target != null) setFollowTarget(Boolean(def.follow_target));
+    if (def.follow_target_position != null) setFollowTargetPosition(Number(def.follow_target_position));
+  }, [base, quote, tradeDir, pairDefaults]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Salvar spread atual como padrão para o par ───────────────────────────
+  const handleSavePairDefault = async () => {
+    const pid = selectedPid;
+    if (!pid) return;
+    setSavingDefault(true);
+    const params = { pid, base, quote, trade_dir: tradeDir, follow_target: followTarget };
+    const pp = buildPriceParams({ price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition });
+    Object.assign(params, pp);
+    const r = await sendCommand('set_pair_default', params);
+    setSavingDefault(false);
+    if (r?.ok) {
+      await loadPairDefaults(pid);
+    }
+  };
+
+  const handleDeletePairDefault = async () => {
+    const pid = selectedPid;
+    if (!pid) return;
+    await sendCommand('delete_pair_default', { pid, base, quote, trade_dir: tradeDir });
+    await loadPairDefaults(pid);
+  };
 
   const run = async (action, params) => {
     if (wsStatus !== 'connected') {
@@ -923,6 +988,19 @@ const CommandPanel = React.memo(function CommandPanel({
           )}
 
           <PairSelectors {...pairProps} />
+          {defaultSaved && (
+            <div className="dealer-pair-default-badge">
+              <TbBookmarkFilled size={12} />
+              <span>padrão salvo para este par</span>
+              <button
+                className="dealer-pair-default-delete"
+                title="Remover padrão deste par"
+                onClick={handleDeletePairDefault}
+              >
+                <TbBookmarkOff size={11} />
+              </button>
+            </div>
+          )}
           <PriceFields
             price={price}
             pricePorc={pricePorc}
@@ -961,6 +1039,17 @@ const CommandPanel = React.memo(function CommandPanel({
               : `Enviar — ${describeTrade(base, quote, tradeDir).pairLabel}`}
             {orderPick && pendingLossStep === 0 && ' (baseado no histórico)'}
           </Button>
+          {selectedPid && (
+            <button
+              className={`dealer-pair-default-save-btn${defaultSaved ? ' saved' : ''}`}
+              disabled={savingDefault || !selectedPid}
+              onClick={handleSavePairDefault}
+              title={`Salvar spread atual como padrão para ${describeTrade(base, quote, tradeDir).pairLabel}`}
+            >
+              <TbBookmark size={13} />
+              {savingDefault ? 'Salvando…' : defaultSaved ? 'Atualizar padrão' : 'Salvar como padrão'}
+            </button>
+          )}
           {pendingLossStep > 0 && (
             <p className="dealer-loss-confirm-hint mt-2 mb-0">
               Esta ordem pode gerar prejuízo. São necessárias {LOSS_SEND_CONFIRM_STEPS} confirmações
@@ -1130,6 +1219,19 @@ const CommandPanel = React.memo(function CommandPanel({
             </div>
 
             <PairSelectors {...pairProps} />
+            {defaultSaved && (
+              <div className="dealer-pair-default-badge">
+                <TbBookmarkFilled size={12} />
+                <span>padrão salvo para este par</span>
+                <button
+                  className="dealer-pair-default-delete"
+                  title="Remover padrão deste par"
+                  onClick={handleDeletePairDefault}
+                >
+                  <TbBookmarkOff size={11} />
+                </button>
+              </div>
+            )}
             <PriceFields
               price={price}
               pricePorc={pricePorc}
@@ -1174,6 +1276,17 @@ const CommandPanel = React.memo(function CommandPanel({
             >
               Alterar spread — {describeTrade(base, quote, tradeDir).pairLabel}
             </Button>
+            {spreadTargetPid && (
+              <button
+                className={`dealer-pair-default-save-btn${defaultSaved ? ' saved' : ''}`}
+                disabled={savingDefault}
+                onClick={handleSavePairDefault}
+                title={`Salvar spread atual como padrão para ${describeTrade(base, quote, tradeDir).pairLabel}`}
+              >
+                <TbBookmark size={13} />
+                {savingDefault ? 'Salvando…' : defaultSaved ? 'Atualizar padrão' : 'Salvar como padrão'}
+              </button>
+            )}
           </div>
         )}
 
