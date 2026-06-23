@@ -501,7 +501,7 @@ const CommandPanel = React.memo(function CommandPanel({
     const pid = spreadTargetPid;
     if (!pid || !spreadPick) return;
     const validation = validatePriceForm({
-      price, pricePorc, priceMin, followTarget, followTargetOrderId,
+      price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
     });
     if (!validation.ok) {
       setFeedback({ ok: false, data: { error: validation.error } });
@@ -513,7 +513,7 @@ const CommandPanel = React.memo(function CommandPanel({
       quote,
       trade_dir: tradeDir,
       ...buildPriceParams({
-        price, pricePorc, priceMin, followTarget, followTargetOrderId,
+        price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
       }),
     });
   };
@@ -535,12 +535,17 @@ const CommandPanel = React.memo(function CommandPanel({
       trade_dir: tradeDir,
       follow_target: enabled,
     };
-    const pm = buildPriceParams({ priceMin, followTarget: true }).price_min;
-    if (pm != null) params.price_min = pm;
-    const pin = String(followTargetOrderId || '').trim();
-    if (pin) params.follow_target_order_id = pin;
-    const pos = parseInt(followTargetPosition, 10);
-    if (pos >= 1) params.follow_target_position = pos;
+    if (!enabled) {
+      params.follow_target_order_id = null;
+      params.follow_target_position = null;
+    } else {
+      const pm = buildPriceParams({ priceMin, followTarget: true }).price_min;
+      if (pm != null) params.price_min = pm;
+      const pin = String(followTargetOrderId || '').trim();
+      if (pin) params.follow_target_order_id = pin;
+      const pos = parseInt(followTargetPosition, 10);
+      if (pos >= 1) params.follow_target_position = pos;
+    }
     const result = await run('set_follow_target', params);
     if (result?.ok) {
       setFollowTarget(enabled);
@@ -579,7 +584,7 @@ const CommandPanel = React.memo(function CommandPanel({
     quote,
     trade_dir: tradeDir,
     ...buildPriceParams({
-      price, pricePorc, priceMin, followTarget, followTargetOrderId,
+      price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
     }),
     amount: parseInt(String(amount).replace(/\D/g, ''), 10) || 999999,
   }), [orderTargetPid, base, quote, tradeDir, price, pricePorc, priceMin, followTarget, followTargetOrderId, amount]);
@@ -630,10 +635,10 @@ const CommandPanel = React.memo(function CommandPanel({
       return;
     }
     const priceFields = buildPriceParams({
-      price, pricePorc, priceMin, followTarget, followTargetOrderId,
+      price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
     });
     const validation = validatePriceForm({
-      price, pricePorc, priceMin, followTarget, followTargetOrderId,
+      price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
     });
     if (!validation.ok) {
       setFeedback({

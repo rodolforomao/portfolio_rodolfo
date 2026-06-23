@@ -9,35 +9,47 @@ BASE="${1:-https://rodolforomao.com.br}"
 BASE="${BASE%/}"
 
 fail=0
+RETRIES="${VAULT_VERIFY_RETRIES:-5}"
+RETRY_DELAY="${VAULT_VERIFY_RETRY_DELAY:-2}"
 
 check_json() {
   local label="$1"
   local url="$2"
-  local body http
+  local body http attempt
 
-  body="$(curl -fsS -m 10 "$url" 2>/dev/null || true)"
-  http="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || echo "000")"
+  for ((attempt = 1; attempt <= RETRIES; attempt++)); do
+    body="$(curl -fsS -m 10 "$url" 2>/dev/null || true)"
+    http="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || echo "000")"
 
-  if [[ "$http" == "000" ]]; then
-    echo "FAIL  $label — sem resposta ($url)"
-    fail=1
-    return
-  fi
+    if [[ "$http" == "000" ]]; then
+      [[ "$attempt" -lt "$RETRIES" ]] && sleep "$RETRY_DELAY" && continue
+      echo "FAIL  $label — sem resposta ($url)"
+      fail=1
+      return
+    fi
 
-  if [[ "$body" == "<!"* || "$body" == "<html"* ]]; then
-    echo "FAIL  $label — recebeu HTML (SPA), esperava JSON ($url) HTTP $http"
-    fail=1
-    return
-  fi
+    if [[ "$body" == "<!"* || "$body" == "<html"* ]]; then
+      [[ "$attempt" -lt "$RETRIES" ]] && sleep "$RETRY_DELAY" && continue
+      echo "FAIL  $label — recebeu HTML (SPA), esperava JSON ($url) HTTP $http"
+      fail=1
+      return
+    fi
 
-  if ! printf '%s' "$body" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
-    echo "FAIL  $label — resposta não é JSON válido ($url) HTTP $http"
-    echo "      corpo: ${body:0:120}"
-    fail=1
-    return
-  fi
+    if printf '%s' "$body" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
+      if [[ "$attempt" -gt 1 ]]; then
+        echo "OK    $label — JSON HTTP $http (tentativa $attempt/$RETRIES)"
+      else
+        echo "OK    $label — JSON HTTP $http"
+      fi
+      return
+    fi
 
-  echo "OK    $label — JSON HTTP $http"
+    [[ "$attempt" -lt "$RETRIES" ]] && sleep "$RETRY_DELAY"
+  done
+
+  echo "FAIL  $label — resposta não é JSON válido ($url) HTTP $http"
+  echo "      corpo: ${body:0:120}"
+  fail=1
 }
 
 echo "Verificando vault em: $BASE"

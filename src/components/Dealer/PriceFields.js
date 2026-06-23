@@ -38,6 +38,9 @@ export function buildPriceParams({
     if (pos >= 1) p.follow_target_position = pos;
     return p;
   }
+  p.follow_target = false;
+  p.follow_target_order_id = null;
+  p.follow_target_position = null;
   const fixed = parsePriceInput(price);
   const porc = parsePercentInput(pricePorc);
   if (fixed !== null) p.price = fixed;
@@ -148,7 +151,14 @@ export default function PriceFields({
             className="dealer-follow-switch"
             label="Seguir alvo (follow_target)"
             checked={!!followTarget}
-            onChange={(e) => onFollowTargetChange(e.target.checked)}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              onFollowTargetChange(checked);
+              if (!checked) {
+                onFollowTargetOrderIdChange?.('');
+                onFollowTargetPositionChange?.(1);
+              }
+            }}
           />
           <p className="dealer-follow-hint mb-0">
             {followTarget

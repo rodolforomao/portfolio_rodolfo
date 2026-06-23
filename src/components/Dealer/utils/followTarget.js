@@ -33,7 +33,13 @@ export function formatFollowSummary(order) {
 }
 
 export function buildFollowParams({ followTarget, followTargetOrderId, followTargetPosition, priceMin }) {
-  if (!followTarget) return { follow_target: false };
+  if (!followTarget) {
+    return {
+      follow_target: false,
+      follow_target_order_id: null,
+      follow_target_position: null,
+    };
+  }
   const p = { follow_target: true };
   const pin = String(followTargetOrderId || '').trim();
   if (pin) p.follow_target_order_id = pin;
