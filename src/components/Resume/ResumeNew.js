@@ -13,6 +13,7 @@ function calculateAge() {
 }
 
 const AGE = calculateAge();
+const EXPERIENCE_YEARS = "20+";
 
 const CONTENT = {
   en: {
@@ -24,30 +25,43 @@ const CONTENT = {
       skills: "Technical Skills",
       languages: "Languages",
     },
-    role: "Senior Fullstack Software Developer",
+    role: "Computer Engineer · Senior Full Stack Developer · Blockchain & AI",
     ageStr: `${AGE} years old`,
-    summary: `Fullstack Software Developer with over 12 years of experience building enterprise systems and SaaS products from the ground up. Specialized in web technologies, blockchain forensics, and AI-powered applications. Computer Engineer with an MBA in IT Process Governance.`,
+    summary: `Computer Engineer and Senior Full Stack Developer with ${EXPERIENCE_YEARS} years of experience, programming since 2002. Builds enterprise systems, government platforms, and SaaS products. Specialized in web technologies, blockchain/DeFi, and AI-powered applications. MBA in IT Process Governance.`,
     experience: [
       {
-        company: "DNIT — National Department of Transport Infrastructure",
-        role: "Senior Fullstack Software Developer",
-        period: "2018 – Present",
-        location: "Brasília, DF, Brazil",
+        company: "LiquidX.pro / ispflash.space — Liquid Network AMM",
+        role: "Senior Fullstack Developer",
+        period: "Jan 2024 – Present",
+        location: "Remote",
         bullets: [
-          "Led development of SUPRA (Advanced Supervision System), real-time platform for monitoring federal highway construction across Brazil, increasing transparency and decision-making efficiency.",
-          "Built the DNIT Citizen Portal, enabling public access to government transport services and information.",
-          "Developed the Atlas mobile app (Flutter) for state-by-state highway construction status reporting.",
-          "Stack: PHP, Laravel, Python, React, Flutter, Docker, PostgreSQL, Linux.",
+          "Built LiquidX gateway enabling companies to receive DePix (Liquid Network tokens) via PIX (BRL).",
+          "Developed DEX aggregator (ispbanking) with liquidity and bridge services across Liquid Network, Polygon, Solana, and other blockchains.",
+          "Implemented ERP synchronization for token payment processing and automated wallet management (Elements, SideSwap).",
+          "Stack: PHP, Python, Rust, Laravel, Flask, WebSocket, Debian, Apache2.",
         ],
       },
       {
-        company: "SCM Engenharia",
+        company: "DNIT — National Department of Transport Infrastructure",
+        role: "Team Leader & Senior Fullstack Developer",
+        period: "Jul 2018 – Present",
+        location: "Brasília, DF, Brazil",
+        bullets: [
+          "Led development of SUPRA (Advanced Supervision System), real-time platform for monitoring federal highway, rail, and waterway construction across Brazil.",
+          "Built SIMA, SUPRA, and the DNIT Citizen Portal; system recognized by government control agencies (CGU, TCU) for transparency.",
+          "Developed the Atlas mobile app (Flutter) and architected REST/SOAP APIs for backend, frontend, mobile, and third-party integrations.",
+          "Stack: PHP, CodeIgniter, Java, Python, React, Node.js, Flutter, Docker, SQL Server, Linux.",
+        ],
+      },
+      {
+        company: "G4F Services / Defender / SCM Engenharia",
         role: "Freelance Fullstack Developer",
-        period: "2013 – Present",
+        period: "Dec 2011 – Present",
         location: "Brasília, DF, Brazil (Remote)",
         bullets: [
-          "Developed the DICI system for Anatel (Brazil's telecom regulator), enabling mandatory data reporting from all national telecom providers across economic, infrastructure, and service dimensions.",
-          "Stack: PHP, JavaScript, SQL Server, HTML, CSS.",
+          "Developed DICI web application for Anatel (dici.scmengenharia.com.br) and SCM Mobile app (Flutter) on Google Play.",
+          "Built Human Automation system for ANATEL regulatory processes and ETL scripts (Java) for Oracle to SQL Server migration.",
+          "Stack: PHP (CodeIgniter, Laravel), Flutter, C#/.NET, Java, SQL Server, Docker.",
         ],
       },
       {
@@ -63,26 +77,63 @@ const CONTENT = {
           "Atendente — WhatsApp-first customer service SaaS with configurable AI agents.",
         ],
       },
+      {
+        company: "AUTOTRAC",
+        role: "Fullstack Developer",
+        period: "Jan 2009 – Sep 2012",
+        location: "Brazil",
+        bullets: [
+          "Developed firmware for OBC 4 and OBC 5 vehicle tracking hardware and communication protocols for satellite/cellular trackers.",
+          "Created Giga testing application for OBC hardware validation.",
+          "Stack: C#, .NET, ASP.NET, C/C++, CodeWarrior, Linux.",
+        ],
+      },
+      {
+        company: "POLIEDRO Software Factory",
+        role: "Software Developer",
+        period: "Dec 2006 – Jan 2009",
+        location: "Brazil",
+        bullets: [
+          "RTA — Annual Electricity Tariff Readjustment system (Poliedro – ANEEL).",
+          "Espaço do Passageiro — Passenger Space system (SEBRAE-ANAC).",
+          "Stack: C#, VB.NET, ASP.NET, Java, PHP, Oracle, T-SQL.",
+        ],
+      },
     ],
     education: [
       {
-        degree: "B.Sc. Computer Engineering",
-        institution: "Catholic University of Brasília (UCB)",
+        degree: "Specialization — Work Safety Engineering",
+        institution: "Estácio de Sá University",
+        period: "2017 – 2018",
+      },
+      {
+        degree: "B.Sc. Civil Engineering",
+        institution: "Instituto de Ensino Planalto (IESPLAN)",
+        period: "2010 – 2012",
       },
       {
         degree: "MBA — IT Process Governance",
         institution: "Universa Foundation / Catholic University of Brasília",
+        period: "2009 – 2010",
+      },
+      {
+        degree: "B.Sc. Computer Engineering",
+        institution: "Instituto de Ensino Superior de Brasília (IESB)",
+        period: "2004 – 2008",
       },
     ],
     skillGroups: [
-      { label: "Primary", skills: ["PHP", "Python", "C#", "JavaScript", "TypeScript"] },
-      { label: "Frameworks", skills: ["Laravel", "React", "Node.js", "Flutter"] },
-      { label: "Secondary / DB", skills: ["Java", "C++", "HTML", "CSS", "SQL Server", "PostgreSQL"] },
-      { label: "Tools", skills: ["Docker", "Linux", "Git", "VS Code", "Postman", "Apache"] },
+      { label: "Languages", skills: ["PHP", "Python", "C#", "JavaScript", "TypeScript", "Java", "Rust", "C/C++"] },
+      { label: "Frameworks", skills: ["Laravel", "React", "Node.js", "Flutter", "Flask", "CodeIgniter", ".NET"] },
+      { label: "Blockchain", skills: ["Bitcoin", "Liquid Network", "Polygon", "Solana", "DeFi", "Wallet/RPC"] },
+      { label: "AI / ML", skills: ["OpenAI API", "Speech-to-Text", "Prompt Engineering", "Async/Queue pipelines"] },
+      { label: "Databases", skills: ["SQL Server", "MySQL", "PostgreSQL", "Oracle", "SQLite"] },
+      { label: "DevOps", skills: ["Docker", "Linux", "Git", "Apache", "Nginx", "CI/CD"] },
     ],
     humanLanguages: [
       { lang: "Portuguese", level: "Native" },
-      { lang: "English", level: "Professional" },
+      { lang: "English", level: "Upper Intermediate (B2) — EFSET certified" },
+      { lang: "Spanish", level: "Advanced" },
     ],
   },
 
@@ -95,30 +146,43 @@ const CONTENT = {
       skills: "Habilidades Técnicas",
       languages: "Idiomas",
     },
-    role: "Desenvolvedor de Software Fullstack Sênior",
+    role: "Engenheiro de Computação · Desenvolvedor Full Stack Sênior · Blockchain & IA",
     ageStr: `${AGE} anos`,
-    summary: `Desenvolvedor de Software Fullstack com mais de 12 anos de experiência na construção de sistemas corporativos e produtos SaaS. Especializado em tecnologias web, forense blockchain e aplicações com inteligência artificial. Engenheiro de Computação com MBA em Governança de Processos de TI.`,
+    summary: `Engenheiro de Computação e Desenvolvedor Full Stack Sênior com ${EXPERIENCE_YEARS} anos de experiência, programando desde 2002. Constrói sistemas corporativos, plataformas governamentais e produtos SaaS. Especializado em tecnologias web, blockchain/DeFi e aplicações com inteligência artificial. MBA em Governança de Processos de TI.`,
     experience: [
       {
-        company: "DNIT — Departamento Nacional de Infraestrutura de Transportes",
-        role: "Desenvolvedor de Software Fullstack Sênior",
-        period: "2018 – Presente",
-        location: "Brasília, DF, Brasil",
+        company: "LiquidX.pro / ispflash.space — Liquid Network AMM",
+        role: "Desenvolvedor Fullstack Sênior",
+        period: "Jan 2024 – Presente",
+        location: "Remoto",
         bullets: [
-          "Liderou o desenvolvimento do SUPRA (Sistema de Supervisão Avançada), plataforma em tempo real para monitoramento de obras de rodovias federais, aumentando a transparência e a eficiência nas tomadas de decisão.",
-          "Desenvolveu o Portal Cidadão DNIT, viabilizando o acesso público a serviços e informações de transporte.",
-          "Criou o aplicativo Atlas (Flutter) para download de relatórios de obras por estado.",
-          "Stack: PHP, Laravel, Python, React, Flutter, Docker, PostgreSQL, Linux.",
+          "Desenvolveu gateway LiquidX para empresas receberem DePix (tokens Liquid Network) via PIX (BRL).",
+          "Criou agregador DEX (ispbanking) com liquidez e bridge entre Liquid Network, Polygon, Solana e outras blockchains.",
+          "Implementou sincronização com ERP para pagamentos em tokens e gestão automatizada de carteiras (Elements, SideSwap).",
+          "Stack: PHP, Python, Rust, Laravel, Flask, WebSocket, Debian, Apache2.",
         ],
       },
       {
-        company: "SCM Engenharia",
+        company: "DNIT — Departamento Nacional de Infraestrutura de Transportes",
+        role: "Líder de Equipe & Desenvolvedor Fullstack Sênior",
+        period: "Jul 2018 – Presente",
+        location: "Brasília, DF, Brasil",
+        bullets: [
+          "Liderou o desenvolvimento do SUPRA (Sistema de Supervisão Avançada), plataforma em tempo real para monitoramento de obras rodoviárias, ferroviárias e hidroviárias federais.",
+          "Desenvolveu SIMA, SUPRA e Portal Cidadão DNIT; sistema reconhecido pelos órgãos de controle (CGU, TCU) pela transparência.",
+          "Criou o aplicativo Atlas (Flutter) e arquitetou APIs REST/SOAP para backend, frontend, mobile e integrações externas.",
+          "Stack: PHP, CodeIgniter, Java, Python, React, Node.js, Flutter, Docker, SQL Server, Linux.",
+        ],
+      },
+      {
+        company: "G4F Services / Defender / SCM Engenharia",
         role: "Desenvolvedor Fullstack Freelancer",
-        period: "2013 – Presente",
+        period: "Dez 2011 – Presente",
         location: "Brasília, DF, Brasil (Remoto)",
         bullets: [
-          "Desenvolveu o sistema DICI para a Anatel (reguladora de telecomunicações do Brasil), permitindo o reporte obrigatório de dados de todos os provedores nacionais nas dimensões econômica, de infraestrutura e de serviços.",
-          "Stack: PHP, JavaScript, SQL Server, HTML, CSS.",
+          "Desenvolveu aplicação web DICI para a Anatel (dici.scmengenharia.com.br) e app SCM Mobile (Flutter) na Google Play.",
+          "Criou sistema de Automação Humana para processos regulatórios da ANATEL e scripts ETL (Java) para migração Oracle → SQL Server.",
+          "Stack: PHP (CodeIgniter, Laravel), Flutter, C#/.NET, Java, SQL Server, Docker.",
         ],
       },
       {
@@ -134,26 +198,63 @@ const CONTENT = {
           "Atendente — SaaS de atendimento via WhatsApp com agentes de IA configuráveis.",
         ],
       },
+      {
+        company: "AUTOTRAC",
+        role: "Desenvolvedor Fullstack",
+        period: "Jan 2009 – Set 2012",
+        location: "Brasil",
+        bullets: [
+          "Desenvolveu firmware para hardware de rastreamento veicular OBC 4 e OBC 5 e protocolos de comunicação para rastreadores satelitais/celulares.",
+          "Criou aplicação de testes Giga para validação de hardware OBC.",
+          "Stack: C#, .NET, ASP.NET, C/C++, CodeWarrior, Linux.",
+        ],
+      },
+      {
+        company: "Fábrica de Software POLIEDRO",
+        role: "Desenvolvedor de Software",
+        period: "Dez 2006 – Jan 2009",
+        location: "Brasil",
+        bullets: [
+          "RTA — Sistema de Reajuste Tarifário Anual de Energia Elétrica (Poliedro – ANEEL).",
+          "Espaço do Passageiro — Sistema para SEBRAE-ANAC.",
+          "Stack: C#, VB.NET, ASP.NET, Java, PHP, Oracle, T-SQL.",
+        ],
+      },
     ],
     education: [
       {
-        degree: "Engenharia de Computação",
-        institution: "Universidade Católica de Brasília (UCB)",
+        degree: "Especialização — Engenharia de Segurança do Trabalho",
+        institution: "Universidade Estácio de Sá",
+        period: "2017 – 2018",
+      },
+      {
+        degree: "Engenharia Civil",
+        institution: "Instituto de Ensino Planalto (IESPLAN)",
+        period: "2010 – 2012",
       },
       {
         degree: "MBA — Governança de Processos de TI",
         institution: "Fundação Universa / Universidade Católica de Brasília",
+        period: "2009 – 2010",
+      },
+      {
+        degree: "Engenharia de Computação",
+        institution: "Instituto de Ensino Superior de Brasília (IESB)",
+        period: "2004 – 2008",
       },
     ],
     skillGroups: [
-      { label: "Primárias", skills: ["PHP", "Python", "C#", "JavaScript", "TypeScript"] },
-      { label: "Frameworks", skills: ["Laravel", "React", "Node.js", "Flutter"] },
-      { label: "Secundárias / BD", skills: ["Java", "C++", "HTML", "CSS", "SQL Server", "PostgreSQL"] },
-      { label: "Ferramentas", skills: ["Docker", "Linux", "Git", "VS Code", "Postman", "Apache"] },
+      { label: "Linguagens", skills: ["PHP", "Python", "C#", "JavaScript", "TypeScript", "Java", "Rust", "C/C++"] },
+      { label: "Frameworks", skills: ["Laravel", "React", "Node.js", "Flutter", "Flask", "CodeIgniter", ".NET"] },
+      { label: "Blockchain", skills: ["Bitcoin", "Liquid Network", "Polygon", "Solana", "DeFi", "Wallet/RPC"] },
+      { label: "IA / ML", skills: ["OpenAI API", "Speech-to-Text", "Prompt Engineering", "Pipelines assíncronos"] },
+      { label: "Bancos de dados", skills: ["SQL Server", "MySQL", "PostgreSQL", "Oracle", "SQLite"] },
+      { label: "DevOps", skills: ["Docker", "Linux", "Git", "Apache", "Nginx", "CI/CD"] },
     ],
     humanLanguages: [
       { lang: "Português", level: "Nativo" },
-      { lang: "Inglês", level: "Profissional" },
+      { lang: "Inglês", level: "Intermediário avançado (B2) — certificado EFSET" },
+      { lang: "Espanhol", level: "Avançado" },
     ],
   },
 
@@ -166,30 +267,43 @@ const CONTENT = {
       skills: "Habilidades Técnicas",
       languages: "Idiomas",
     },
-    role: "Desarrollador de Software Fullstack Senior",
+    role: "Ingeniero en Computación · Desarrollador Full Stack Senior · Blockchain & IA",
     ageStr: `${AGE} años`,
-    summary: `Desarrollador de Software Fullstack con más de 12 años de experiencia construyendo sistemas empresariales y productos SaaS. Especializado en tecnologías web, forensia blockchain y aplicaciones con inteligencia artificial. Ingeniero en Computación con MBA en Gobernanza de Procesos de TI.`,
+    summary: `Ingeniero en Computación y Desarrollador Full Stack Senior con ${EXPERIENCE_YEARS} años de experiencia, programando desde 2002. Construye sistemas empresariales, plataformas gubernamentales y productos SaaS. Especializado en tecnologías web, blockchain/DeFi y aplicaciones con inteligencia artificial. MBA en Gobernanza de Procesos de TI.`,
     experience: [
       {
-        company: "DNIT — Departamento Nacional de Infraestructura de Transporte (Brasil)",
-        role: "Desarrollador de Software Fullstack Senior",
-        period: "2018 – Presente",
-        location: "Brasilia, DF, Brasil",
+        company: "LiquidX.pro / ispflash.space — Liquid Network AMM",
+        role: "Desarrollador Fullstack Senior",
+        period: "Ene 2024 – Presente",
+        location: "Remoto",
         bullets: [
-          "Lideró el desarrollo de SUPRA, plataforma en tiempo real para monitoreo de obras viales federales, aumentando la transparencia y eficiencia en la toma de decisiones.",
-          "Desarrolló el Portal Ciudadano DNIT para acceso público a servicios de transporte.",
-          "Creó la app Atlas (Flutter) para descarga de informes de obras por estado.",
-          "Stack: PHP, Laravel, Python, React, Flutter, Docker, PostgreSQL, Linux.",
+          "Desarrolló gateway LiquidX para que empresas reciban DePix (tokens Liquid Network) vía PIX (BRL).",
+          "Creó agregador DEX (ispbanking) con liquidez y bridge entre Liquid Network, Polygon, Solana y otras blockchains.",
+          "Implementó sincronización con ERP para pagos en tokens y gestión automatizada de wallets (Elements, SideSwap).",
+          "Stack: PHP, Python, Rust, Laravel, Flask, WebSocket, Debian, Apache2.",
         ],
       },
       {
-        company: "SCM Engenharia",
+        company: "DNIT — Departamento Nacional de Infraestructura de Transporte (Brasil)",
+        role: "Líder de Equipo y Desarrollador Fullstack Senior",
+        period: "Jul 2018 – Presente",
+        location: "Brasilia, DF, Brasil",
+        bullets: [
+          "Lideró el desarrollo de SUPRA, plataforma en tiempo real para monitoreo de obras viales, ferroviarias e hidroviarias federales.",
+          "Desarrolló SIMA, SUPRA y Portal Ciudadano DNIT; sistema reconocido por organismos de control (CGU, TCU) por su transparencia.",
+          "Creó la app Atlas (Flutter) y arquitectó APIs REST/SOAP para backend, frontend, móvil e integraciones externas.",
+          "Stack: PHP, CodeIgniter, Java, Python, React, Node.js, Flutter, Docker, SQL Server, Linux.",
+        ],
+      },
+      {
+        company: "G4F Services / Defender / SCM Engenharia",
         role: "Desarrollador Fullstack Freelance",
-        period: "2013 – Presente",
+        period: "Dic 2011 – Presente",
         location: "Brasilia, DF, Brasil (Remoto)",
         bullets: [
-          "Desarrolló el sistema DICI para Anatel (regulador brasileño de telecomunicaciones), habilitando el reporte obligatorio de datos de todos los proveedores nacionales.",
-          "Stack: PHP, JavaScript, SQL Server, HTML, CSS.",
+          "Desarrolló aplicación web DICI para Anatel (dici.scmengenharia.com.br) y app SCM Mobile (Flutter) en Google Play.",
+          "Creó sistema de Automatización Humana para procesos regulatorios de ANATEL y scripts ETL (Java) para migración Oracle → SQL Server.",
+          "Stack: PHP (CodeIgniter, Laravel), Flutter, C#/.NET, Java, SQL Server, Docker.",
         ],
       },
       {
@@ -205,26 +319,63 @@ const CONTENT = {
           "Atendente — SaaS de atención al cliente vía WhatsApp con agentes de IA configurables.",
         ],
       },
+      {
+        company: "AUTOTRAC",
+        role: "Desarrollador Fullstack",
+        period: "Ene 2009 – Sep 2012",
+        location: "Brasil",
+        bullets: [
+          "Desarrolló firmware para hardware de rastreo vehicular OBC 4 y OBC 5 y protocolos de comunicación para rastreadores satelitales/celulares.",
+          "Creó aplicación de pruebas Giga para validación de hardware OBC.",
+          "Stack: C#, .NET, ASP.NET, C/C++, CodeWarrior, Linux.",
+        ],
+      },
+      {
+        company: "Fábrica de Software POLIEDRO",
+        role: "Desarrollador de Software",
+        period: "Dic 2006 – Ene 2009",
+        location: "Brasil",
+        bullets: [
+          "RTA — Sistema de Reajuste Tarifario Anual de Energía Eléctrica (Poliedro – ANEEL).",
+          "Espaço do Passageiro — Sistema para SEBRAE-ANAC.",
+          "Stack: C#, VB.NET, ASP.NET, Java, PHP, Oracle, T-SQL.",
+        ],
+      },
     ],
     education: [
       {
-        degree: "Ingeniería en Computación",
-        institution: "Universidad Católica de Brasilia (UCB)",
+        degree: "Especialización — Ingeniería de Seguridad del Trabajo",
+        institution: "Universidad Estácio de Sá",
+        period: "2017 – 2018",
+      },
+      {
+        degree: "Ingeniería Civil",
+        institution: "Instituto de Enseñanza Planalto (IESPLAN)",
+        period: "2010 – 2012",
       },
       {
         degree: "MBA — Gobernanza de Procesos de TI",
         institution: "Fundación Universa / Universidad Católica de Brasilia",
+        period: "2009 – 2010",
+      },
+      {
+        degree: "Ingeniería en Computación",
+        institution: "Instituto de Enseñanza Superior de Brasilia (IESB)",
+        period: "2004 – 2008",
       },
     ],
     skillGroups: [
-      { label: "Primarios", skills: ["PHP", "Python", "C#", "JavaScript", "TypeScript"] },
-      { label: "Frameworks", skills: ["Laravel", "React", "Node.js", "Flutter"] },
-      { label: "Secundarios / BD", skills: ["Java", "C++", "HTML", "CSS", "SQL Server", "PostgreSQL"] },
-      { label: "Herramientas", skills: ["Docker", "Linux", "Git", "VS Code", "Postman", "Apache"] },
+      { label: "Lenguajes", skills: ["PHP", "Python", "C#", "JavaScript", "TypeScript", "Java", "Rust", "C/C++"] },
+      { label: "Frameworks", skills: ["Laravel", "React", "Node.js", "Flutter", "Flask", "CodeIgniter", ".NET"] },
+      { label: "Blockchain", skills: ["Bitcoin", "Liquid Network", "Polygon", "Solana", "DeFi", "Wallet/RPC"] },
+      { label: "IA / ML", skills: ["OpenAI API", "Speech-to-Text", "Prompt Engineering", "Pipelines asíncronos"] },
+      { label: "Bases de datos", skills: ["SQL Server", "MySQL", "PostgreSQL", "Oracle", "SQLite"] },
+      { label: "DevOps", skills: ["Docker", "Linux", "Git", "Apache", "Nginx", "CI/CD"] },
     ],
     humanLanguages: [
       { lang: "Portugués", level: "Nativo" },
-      { lang: "Inglés", level: "Profesional" },
+      { lang: "Inglés", level: "Intermedio alto (B2) — certificado EFSET" },
+      { lang: "Español", level: "Avanzado" },
     ],
   },
 
@@ -237,30 +388,43 @@ const CONTENT = {
       skills: "Compétences Techniques",
       languages: "Langues",
     },
-    role: "Développeur Logiciel Fullstack Senior",
+    role: "Ingénieur Informatique · Développeur Full Stack Senior · Blockchain & IA",
     ageStr: `${AGE} ans`,
-    summary: `Développeur Logiciel Fullstack avec plus de 12 ans d'expérience dans la création de systèmes d'entreprise et de produits SaaS. Spécialisé dans les technologies web, la forensique blockchain et les applications d'intelligence artificielle. Ingénieur en Informatique avec un MBA en Gouvernance des Processus IT.`,
+    summary: `Ingénieur Informatique et Développeur Full Stack Senior avec ${EXPERIENCE_YEARS} ans d'expérience, programmant depuis 2002. Crée des systèmes d'entreprise, plateformes gouvernementales et produits SaaS. Spécialisé dans les technologies web, la blockchain/DeFi et les applications d'intelligence artificielle. MBA en Gouvernance des Processus IT.`,
     experience: [
       {
-        company: "DNIT — Département National des Infrastructures de Transport (Brésil)",
-        role: "Développeur Logiciel Fullstack Senior",
-        period: "2018 – Présent",
-        location: "Brasilia, DF, Brésil",
+        company: "LiquidX.pro / ispflash.space — Liquid Network AMM",
+        role: "Développeur Fullstack Senior",
+        period: "Jan 2024 – Présent",
+        location: "Télétravail",
         bullets: [
-          "A dirigé le développement de SUPRA, plateforme temps réel pour le suivi des chantiers routiers fédéraux, améliorant la transparence et l'efficacité décisionnelle.",
-          "A développé le Portail Citoyen DNIT pour l'accès public aux services de transport.",
-          "A créé l'application Atlas (Flutter) pour le téléchargement de rapports de chantiers par État.",
-          "Stack : PHP, Laravel, Python, React, Flutter, Docker, PostgreSQL, Linux.",
+          "A développé la passerelle LiquidX permettant aux entreprises de recevoir des DePix (tokens Liquid Network) via PIX (BRL).",
+          "A créé l'agrégateur DEX (ispbanking) avec liquidité et bridge entre Liquid Network, Polygon, Solana et autres blockchains.",
+          "A implémenté la synchronisation ERP pour les paiements en tokens et la gestion automatisée de portefeuilles (Elements, SideSwap).",
+          "Stack : PHP, Python, Rust, Laravel, Flask, WebSocket, Debian, Apache2.",
         ],
       },
       {
-        company: "SCM Engenharia",
+        company: "DNIT — Département National des Infrastructures de Transport (Brésil)",
+        role: "Chef d'Équipe & Développeur Fullstack Senior",
+        period: "Juil 2018 – Présent",
+        location: "Brasilia, DF, Brésil",
+        bullets: [
+          "A dirigé le développement de SUPRA, plateforme temps réel pour le suivi des chantiers routiers, ferroviaires et fluviaux fédéraux.",
+          "A développé SIMA, SUPRA et le Portail Citoyen DNIT ; système reconnu par les organismes de contrôle (CGU, TCU) pour sa transparence.",
+          "A créé l'application Atlas (Flutter) et architecturé les APIs REST/SOAP pour backend, frontend, mobile et intégrations tierces.",
+          "Stack : PHP, CodeIgniter, Java, Python, React, Node.js, Flutter, Docker, SQL Server, Linux.",
+        ],
+      },
+      {
+        company: "G4F Services / Defender / SCM Engenharia",
         role: "Développeur Fullstack Freelance",
-        period: "2013 – Présent",
+        period: "Déc 2011 – Présent",
         location: "Brasilia, DF, Brésil (Télétravail)",
         bullets: [
-          "A développé le système DICI pour Anatel (régulateur brésilien des télécoms), permettant le reporting obligatoire des données de tous les fournisseurs nationaux.",
-          "Stack : PHP, JavaScript, SQL Server, HTML, CSS.",
+          "A développé l'application web DICI pour Anatel (dici.scmengenharia.com.br) et l'app SCM Mobile (Flutter) sur Google Play.",
+          "A créé le système d'Automatisation Humaine pour les processus réglementaires ANATEL et des scripts ETL (Java) pour migration Oracle → SQL Server.",
+          "Stack : PHP (CodeIgniter, Laravel), Flutter, C#/.NET, Java, SQL Server, Docker.",
         ],
       },
       {
@@ -276,26 +440,63 @@ const CONTENT = {
           "Atendente — SaaS de service client WhatsApp avec agents IA configurables.",
         ],
       },
+      {
+        company: "AUTOTRAC",
+        role: "Développeur Fullstack",
+        period: "Jan 2009 – Sep 2012",
+        location: "Brésil",
+        bullets: [
+          "A développé le firmware pour les traceurs véhiculaires OBC 4 et OBC 5 et les protocoles de communication satellite/cellulaire.",
+          "A créé l'application de tests Giga pour la validation du matériel OBC.",
+          "Stack : C#, .NET, ASP.NET, C/C++, CodeWarrior, Linux.",
+        ],
+      },
+      {
+        company: "Usine Logicielle POLIEDRO",
+        role: "Développeur Logiciel",
+        period: "Déc 2006 – Jan 2009",
+        location: "Brésil",
+        bullets: [
+          "RTA — Système de Réajustement Tarifaire Annuel de l'Électricité (Poliedro – ANEEL).",
+          "Espaço do Passageiro — Système pour SEBRAE-ANAC.",
+          "Stack : C#, VB.NET, ASP.NET, Java, PHP, Oracle, T-SQL.",
+        ],
+      },
     ],
     education: [
       {
-        degree: "Ingénierie Informatique",
-        institution: "Université Catholique de Brasilia (UCB)",
+        degree: "Spécialisation — Ingénierie de la Sécurité du Travail",
+        institution: "Université Estácio de Sá",
+        period: "2017 – 2018",
+      },
+      {
+        degree: "Ingénierie Civile",
+        institution: "Institut d'Enseignement Planalto (IESPLAN)",
+        period: "2010 – 2012",
       },
       {
         degree: "MBA — Gouvernance des Processus IT",
         institution: "Fondation Universa / Université Catholique de Brasilia",
+        period: "2009 – 2010",
+      },
+      {
+        degree: "Ingénierie Informatique",
+        institution: "Institut d'Enseignement Supérieur de Brasilia (IESB)",
+        period: "2004 – 2008",
       },
     ],
     skillGroups: [
-      { label: "Principaux", skills: ["PHP", "Python", "C#", "JavaScript", "TypeScript"] },
-      { label: "Frameworks", skills: ["Laravel", "React", "Node.js", "Flutter"] },
-      { label: "Secondaires / BD", skills: ["Java", "C++", "HTML", "CSS", "SQL Server", "PostgreSQL"] },
-      { label: "Outils", skills: ["Docker", "Linux", "Git", "VS Code", "Postman", "Apache"] },
+      { label: "Langages", skills: ["PHP", "Python", "C#", "JavaScript", "TypeScript", "Java", "Rust", "C/C++"] },
+      { label: "Frameworks", skills: ["Laravel", "React", "Node.js", "Flutter", "Flask", "CodeIgniter", ".NET"] },
+      { label: "Blockchain", skills: ["Bitcoin", "Liquid Network", "Polygon", "Solana", "DeFi", "Wallet/RPC"] },
+      { label: "IA / ML", skills: ["OpenAI API", "Speech-to-Text", "Prompt Engineering", "Pipelines asynchrones"] },
+      { label: "Bases de données", skills: ["SQL Server", "MySQL", "PostgreSQL", "Oracle", "SQLite"] },
+      { label: "DevOps", skills: ["Docker", "Linux", "Git", "Apache", "Nginx", "CI/CD"] },
     ],
     humanLanguages: [
       { lang: "Portugais", level: "Natif" },
-      { lang: "Anglais", level: "Professionnel" },
+      { lang: "Anglais", level: "Intermédiaire supérieur (B2) — certifié EFSET" },
+      { lang: "Espagnol", level: "Avancé" },
     ],
   },
 };
@@ -425,7 +626,7 @@ function ResumeNew() {
                     margin: 0,
                   }}
                 >
-                  Rodolfo Romão
+                  Rodolfo Romão de Oliveira Neto
                 </h1>
                 <p
                   style={{
@@ -443,7 +644,7 @@ function ResumeNew() {
                 <p style={{ fontSize: "clamp(10px, 2vw, 12px)", color: "#666", margin: "4px 0", wordBreak: "break-word" }}>
                   engenheirorodolforomao@gmail.com &nbsp;·&nbsp; +55 61 98111-9944
                   <br />
-                  linkedin.com/in/rodolfo-romao-oliveira &nbsp;·&nbsp; github.com/rodolforomao
+                  rodolforomao.com.br &nbsp;·&nbsp; github.com/rodolforomao &nbsp;·&nbsp; linkedin.com/in/rodolfo-romao-oliveira
                 </p>
               </div>
 
@@ -527,6 +728,7 @@ function ResumeNew() {
                     </p>
                     <p style={{ color: "#666", margin: "2px 0", fontSize: 12 }}>
                       {edu.institution}
+                      {edu.period ? ` · ${edu.period}` : ""}
                     </p>
                   </div>
                 ))}
