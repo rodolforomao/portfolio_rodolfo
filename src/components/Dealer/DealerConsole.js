@@ -34,7 +34,7 @@ import OrdersPanel from './OrdersPanel';
 import OrderPlacementPanel from './OrderPlacementPanel';
 import TransactionsPanel from './TransactionsPanel';
 import OrderBookPresenceBadge from './OrderBookPresenceBadge';
-import { formatBookAmount } from './utils/sideswapBook';
+import { formatBookAmount, marketPairKeyFromNames } from './utils/sideswapBook';
 import {
   resolveOrderBookPresence,
   sortOrderHistoryByBook,
@@ -238,6 +238,7 @@ const CommandPanel = React.memo(function CommandPanel({
   savedOrders,
   onBumpOrderRegistry,
   agentConnected,
+  agentMeta,
   wsStatus,
   marketData,
   sendCommand,
@@ -271,6 +272,7 @@ const CommandPanel = React.memo(function CommandPanel({
   const [followTargetOrderId, setFollowTargetOrderId] = useState('');
   const [followTargetPosition, setFollowTargetPosition] = useState(1);
   const [amount, setAmount] = useState('999999');
+  const [amountAsset, setAmountAsset] = useState('base');
   const [orderId, setOrderId] = useState('');
   const [cancelPick, setCancelPick] = useState(null);
   const [spreadPick, setSpreadPick] = useState(null);
@@ -279,8 +281,10 @@ const CommandPanel = React.memo(function CommandPanel({
   const [direction, setDirection] = useState('Buy');
   const [histDest, setHistDest] = useState(defaultHistoryDestination);
   const [pairDefaults, setPairDefaults] = useState([]);
-  const [defaultSaved, setDefaultSaved] = useState(false); // badge "padrão salvo"
+  const [defaultSaved, setDefaultSaved] = useState(false);
   const [savingDefault, setSavingDefault] = useState(false);
+  const [reserveInputs, setReserveInputs] = useState({});
+  const [reserveSaving, setReserveSaving] = useState(false);
 
   useEffect(() => {
     setHistDest(defaultHistoryDestination);
@@ -586,8 +590,8 @@ const CommandPanel = React.memo(function CommandPanel({
     ...buildPriceParams({
       price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
     }),
-    amount: parseInt(String(amount).replace(/\D/g, ''), 10) || 999999,
-  }), [orderTargetPid, base, quote, tradeDir, price, pricePorc, priceMin, followTarget, followTargetOrderId, amount]);
+    amount: parseFloat(String(amount).replace(',', '.')) || 999999,
+  }), [orderTargetPid, base, quote, tradeDir, price, pricePorc, priceMin, followTarget, followTargetOrderId, amount, amountAsset]);
 
   useEffect(() => {
     if (lossSendConfirm.signature !== sendFormSignature) {
@@ -604,6 +608,16 @@ const CommandPanel = React.memo(function CommandPanel({
       if (!prev || !selectedPid || prev.pid === selectedPid) return prev;
       return null;
     });
+  }, [selectedPid]);
+
+  useEffect(() => { setAmountAsset('base'); }, [base, quote]);
+
+  useEffect(() => {
+    const rb = activeDealer?.reserve_balance || {};
+    setReserveInputs(
+      Object.fromEntries(Object.entries(rb).map(([a, v]) => [a, String(v)]))
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPid]);
 
   const selectSavedOrder = (entry) => {
@@ -647,12 +661,28 @@ const CommandPanel = React.memo(function CommandPanel({
       });
       return;
     }
+    const qtyRaw = parseFloat(String(amount).replace(',', '.'));
+    let finalAmount;
+    if (amountAsset === 'quote' && qtyRaw > 0) {
+      const pairKey = marketPairKeyFromNames(base, quote, marketData?.assets, marketData?.combinations);
+      const indPrice = pairKey ? Number(marketIndPrices[pairKey]?.indPrice) : NaN;
+      if (!Number.isFinite(indPrice) || indPrice <= 0) {
+        setFeedback({
+          ok: false,
+          data: { error: `Preço de mercado indisponível para converter ${amount} ${quote} em ${base}.` },
+        });
+        return;
+      }
+      finalAmount = qtyRaw / indPrice;
+    } else {
+      finalAmount = qtyRaw > 0 ? qtyRaw : 999999;
+    }
     const rawParams = {
       pid,
       base,
       quote,
       trade_dir: tradeDir,
-      amount: parseInt(String(amount).replace(/\D/g, ''), 10) || 999999,
+      amount: finalAmount,
       ...priceFields,
     };
     const params = normalizeSendParams(rawParams);
@@ -699,6 +729,22 @@ const CommandPanel = React.memo(function CommandPanel({
         ...result,
         data: { ...result.data, summary },
       });
+    }
+  };
+
+  const handleSaveReserve = async (asset) => {
+    if (!selectedPid) return;
+    const raw = (reserveInputs[asset] || '').replace(',', '.');
+    const val = parseFloat(raw);
+    setReserveSaving(true);
+    try {
+      await run('set_reserve_balance', {
+        pid: selectedPid,
+        asset,
+        amount: Number.isFinite(val) && val > 0 ? val : 0,
+      });
+    } finally {
+      setReserveSaving(false);
     }
   };
 
@@ -877,10 +923,53 @@ const CommandPanel = React.memo(function CommandPanel({
             <div><span>Status</span><strong><DealerStatusBadge dealer={activeDealer} /></strong></div>
             <div><span>PID</span><strong>{activeDealer.pid}</strong></div>
             <div><span>Wallet</span><strong>{activeDealer.wallet_name}</strong></div>
-            <div><span>API</span><strong>{activeDealer.port_api}</strong></div>
-            <div><span>WS</span><strong>{activeDealer.port_ws}</strong></div>
+            {agentMeta?.hostname && (
+              <div><span>Host</span><strong><code className="dealer-cmd-host">{agentMeta.hostname}</code></strong></div>
+            )}
+            <div><span>API port</span><strong><code className="dealer-cmd-port">{activeDealer.port_api}</code></strong></div>
+            <div><span>WS port</span><strong><code className="dealer-cmd-port">{activeDealer.port_ws}</code></strong></div>
+            {agentMeta?.hostname && activeDealer.port_api && (
+              <div><span>URL API</span><strong><code className="dealer-cmd-url">http://{agentMeta.hostname}:{activeDealer.port_api}</code></strong></div>
+            )}
+            {agentMeta?.hostname && activeDealer.port_ws && (
+              <div><span>URL WS</span><strong><code className="dealer-cmd-url">ws://{agentMeta.hostname}:{activeDealer.port_ws}</code></strong></div>
+            )}
           </div>
         )}
+
+        {activeDealer && (
+          <div className="dealer-reserve-section mt-3">
+            <div className="dealer-reserve-title">Reserva mínima de saldo</div>
+            {Object.keys(activeDealer.balances || {}).sort((a, b) => (a === 'L-BTC' ? 1 : b === 'L-BTC' ? -1 : 0)).map((asset) => (
+              <div key={asset} className="dealer-reserve-row">
+                <span className="dealer-reserve-asset">{asset}</span>
+                <Form.Control
+                  size="sm"
+                  type="text"
+                  inputMode="decimal"
+                  className="dealer-reserve-input"
+                  placeholder={`0 ${asset}`}
+                  value={reserveInputs[asset] ?? ''}
+                  onChange={(e) => setReserveInputs((prev) => ({ ...prev, [asset]: e.target.value }))}
+                />
+                <button
+                  type="button"
+                  className="dealer-reserve-save-btn"
+                  disabled={reserveSaving || busy}
+                  onClick={() => handleSaveReserve(asset)}
+                >
+                  {reserveSaving ? '…' : 'Salvar'}
+                </button>
+                {activeDealer.reserve_balance?.[asset] > 0 && (
+                  <span className="dealer-reserve-active">
+                    {activeDealer.reserve_balance[asset]} {asset} reservados
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <Button
           className="dealer-btn-danger mt-2"
           disabled={busy || !selectedPid}
@@ -1025,14 +1114,16 @@ const CommandPanel = React.memo(function CommandPanel({
             marketBookStatus={marketBookStatus}
             marketBookError={marketBookError}
             onReconnectMarketBook={onReconnectMarketBook}
-            amount={amount}
             onPriceChange={setPrice}
             onPricePorcChange={setPricePorc}
             onPriceMinChange={setPriceMin}
             onFollowTargetChange={setFollowTarget}
             onFollowTargetOrderIdChange={setFollowTargetOrderId}
             onFollowTargetPositionChange={setFollowTargetPosition}
+            amount={amount}
+            amountAsset={amountAsset}
             onAmountChange={setAmount}
+            onAmountAssetChange={setAmountAsset}
           />
           <Button
             className={`dealer-btn-primary mt-3${pendingLossStep > 0 ? ' dealer-btn-loss-confirm' : ''}`}
@@ -2200,6 +2291,7 @@ export default function DealerConsole() {
                 savedOrders={savedOrders}
                 onBumpOrderRegistry={bumpOrderRegistry}
                 agentConnected={agentConnected}
+                agentMeta={agentMeta}
                 wsStatus={status}
                 marketData={marketData}
                 sendCommand={sendCommand}

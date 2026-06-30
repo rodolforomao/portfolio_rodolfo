@@ -117,6 +117,7 @@ export default function PriceFields({
   pricePorc,
   priceMin,
   amount,
+  amountAsset = 'base',
   followTarget = false,
   followTargetOrderId = '',
   followTargetPosition = 1,
@@ -135,6 +136,7 @@ export default function PriceFields({
   onPricePorcChange,
   onPriceMinChange,
   onAmountChange,
+  onAmountAssetChange,
   onFollowTargetChange,
   onFollowTargetOrderIdChange,
   onFollowTargetPositionChange,
@@ -252,14 +254,36 @@ export default function PriceFields({
       {showAmount && (
         <div className="mt-2">
           <FieldLabel
-            title="Quantidade máx. (amount)"
-            hint="Limite de quantidade da ordem. Padrão 999999 = sem limite prático."
+            title={`Quantidade máx. em ${amountAsset === 'quote' ? quote : base}`}
+            hint={
+              amountAsset === 'quote'
+                ? `Digite em ${quote}. Convertido para ${base} pelo ind_price na hora do envio.`
+                : `Limite em ${base}. Padrão 999999 = sem limite prático.`
+            }
           />
+          {onAmountAssetChange && (
+            <div className="dealer-amount-asset-toggle mb-1">
+              <button
+                type="button"
+                className={`dealer-amount-asset-btn${amountAsset === 'base' ? ' active' : ''}`}
+                onClick={() => onAmountAssetChange('base')}
+              >
+                {base}
+              </button>
+              <button
+                type="button"
+                className={`dealer-amount-asset-btn${amountAsset === 'quote' ? ' active' : ''}`}
+                onClick={() => onAmountAssetChange('quote')}
+              >
+                {quote}
+              </button>
+            </div>
+          )}
           <Form.Control
             size="sm"
             type="text"
-            inputMode="numeric"
-            placeholder="999999"
+            inputMode="decimal"
+            placeholder={amountAsset === 'quote' ? `ex: 2200 ${quote}` : '999999'}
             value={amount}
             onChange={(e) => onAmountChange(e.target.value)}
           />

@@ -40,8 +40,8 @@ function fmtAsset(asset, value) {
     if (Math.abs(n) < 0.01) return `${Math.round(n * SATS).toLocaleString('pt-BR')} sats`;
     return `${n.toLocaleString('pt-BR', { maximumFractionDigits: 8 })} L-BTC`;
   }
-  if (asset === 'USDt') return `$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  if (asset === 'DePix') return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (asset === 'USDt') return `${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDt`;
+  if (asset === 'DePix') return `${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DePix`;
   return `${n.toLocaleString('pt-BR', { maximumFractionDigits: 6 })} ${asset || ''}`;
 }
 
@@ -245,7 +245,9 @@ function TxRow({ tx }) {
           ) : (
             <>
               {tx.filled_base != null && <div>{fmtAsset(tx.base, tx.filled_base)}</div>}
-              {tx.filled_quote != null && <div>{fmtAsset(tx.quote, tx.filled_quote)}</div>}
+              {tx.filled_quote != null && (
+                <div>{fmtAsset(tx.quote ?? tx.base, tx.filled_quote)}</div>
+              )}
             </>
           )}
         </td>
@@ -1023,10 +1025,10 @@ export default function TransactionsPanel({
 
           <p className="dealer-tx-footnote">
             <strong>Troca dealer</strong> = ordem executada no book — aqui está o lucro real do dealer.
-            {' '}<strong>Capital / entrada</strong> = DePix recebido externamente (<em>não é lucro</em> — é capital operacional).
-            {' '}<strong>Saque</strong> = saída de fundos da carteira.
-            {' '}<strong>Liquidação swap</strong> = movimento on-chain correlacionado ao trade.
-            {' '}O histórico atualiza automaticamente quando o manager detecta novos trades; use <strong>Atualizar</strong> para forçar importação do SideSwap.
+            {' '}<strong>Entrada/Saída (swap)</strong> = perna on-chain de um swap atômico (mesmo txid).
+            {' '}<strong>Capital / entrada</strong> = recebimento externo não correlacionado a swap.
+            {' '}<strong>Saque</strong> = saída de fundos não correlacionada a swap.
+            {' '}Use <strong>Atualizar</strong> para importar ordens executadas do SideSwap e melhorar a correlação.
           </p>
         </>
       )}

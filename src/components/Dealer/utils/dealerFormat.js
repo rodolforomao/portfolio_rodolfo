@@ -46,7 +46,9 @@ export function formatAssetBalance(asset, value) {
     return `${formatGenericAmount(n)} L-BTC`;
   }
 
-  return formatGenericAmount(n);
+  const canon = canonicalAssetName(asset);
+  const suffix = canon ? ` ${canon}` : '';
+  return `${formatGenericAmount(n)}${suffix}`;
 }
 
 export function normalizeBalances(balances) {
