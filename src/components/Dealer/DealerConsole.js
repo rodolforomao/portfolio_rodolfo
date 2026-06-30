@@ -229,6 +229,18 @@ function DealerRailCollapsed({ dealers, selectedPid, onSelectPid, onExpand, mana
   );
 }
 
+function CommandFeedback({ feedback, onDismiss }) {
+  if (!feedback) return null;
+  return (
+    <div className={`dealer-cmd-feedback dealer-cmd-feedback-${feedback.ok ? 'ok' : 'err'}`}>
+      <pre className="dealer-cmd-feedback-body">
+        {feedback.data?.summary || JSON.stringify(feedback.data ?? feedback, null, 2)}
+      </pre>
+      <button type="button" className="dealer-cmd-feedback-close" onClick={onDismiss} aria-label="Fechar">✕</button>
+    </div>
+  );
+}
+
 const CommandPanel = React.memo(function CommandPanel({
   selectedPid,
   onSelectPid,
@@ -244,6 +256,7 @@ const CommandPanel = React.memo(function CommandPanel({
   sendCommand,
   busy,
   setBusy,
+  feedback,
   setFeedback,
   defaultHistoryDestination = 'api',
   bookPlacements = [],
@@ -800,6 +813,7 @@ const CommandPanel = React.memo(function CommandPanel({
 
   return (
     <div className="dealer-command-panel">
+    <CommandFeedback feedback={feedback} onDismiss={() => setFeedback(null)} />
     <Tabs defaultActiveKey="run" className="dealer-tabs">
       <Tab eventKey="run" title={<><TbPlayerPlay /> Run</>}>
         <div className="dealer-form-block">
@@ -2297,6 +2311,7 @@ export default function DealerConsole() {
                 sendCommand={sendCommand}
                 busy={busy}
                 setBusy={setBusy}
+                feedback={feedback}
                 setFeedback={setFeedback}
                 defaultHistoryDestination={consolePrefs.defaultHistoryDestination}
                 bookPlacements={bookPlacements}
@@ -2306,11 +2321,6 @@ export default function DealerConsole() {
                 marketBookError={scanError}
                 onReconnectMarketBook={reconnectScan}
               />
-              {feedback && (
-                <pre className={`dealer-feedback ${feedback.ok ? 'ok' : 'err'}`}>
-                  {feedback.data?.summary || JSON.stringify(feedback, null, 2)}
-                </pre>
-              )}
             </div>
           </Col>
           )}
