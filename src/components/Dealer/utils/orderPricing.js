@@ -56,7 +56,10 @@ export function formatOrderConfigSummary(order) {
   }
 
   if (mode === 'spread') {
-    return `spread ${formatPercentDisplay(order.price_porc)}%`;
+    const pmSuffix = isSet(order.price_min)
+      ? ` · pm ${formatPercentDisplay(order.price_min)}%`
+      : '';
+    return `spread ${formatPercentDisplay(order.price_porc)}%${pmSuffix}`;
   }
 
   if (mode === 'pm') {
@@ -64,6 +67,14 @@ export function formatOrderConfigSummary(order) {
   }
 
   if (mode === 'fixed') {
+    // order_id presente = ordem sincronizada da exchange (own_orders), não do
+    // formulário — "preço fixo" aqui não é algo que o operador configurou, é
+    // metadado de spread/pm perdido (ex.: ordem redescoberta após reset do
+    // config.toml). Só rotula como "fixo" de fato quando ainda é um pick local
+    // (sem order_id) com price digitado manualmente no formulário.
+    if (order.order_id) {
+      return `sem spread registrado · ${formatBookPrice(order.price)}`;
+    }
     return `preço fixo ${formatBookPrice(order.price)}`;
   }
 
@@ -123,6 +134,7 @@ export function orderConfigToFormFields(order) {
     return {
       ...base,
       pricePorc: formatPercentDisplay(order.price_porc),
+      priceMin: isSet(order.price_min) ? formatPercentDisplay(order.price_min) : '',
     };
   }
 

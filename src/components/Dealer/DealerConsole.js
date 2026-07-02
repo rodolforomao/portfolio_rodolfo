@@ -14,10 +14,12 @@ import {
   TbArrowsExchange, TbRefresh, TbHistory, TbMessage,
   TbBug, TbLogout, TbWallet, TbBook, TbHeartbeat, TbCoins,
   TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight, TbRocket,
-  TbBookmark, TbBookmarkFilled, TbBookmarkOff,
+  TbBookmark, TbBookmarkFilled, TbBookmarkOff, TbShieldCheck, TbTrash,
+  TbAlertTriangle,
 } from 'react-icons/tb';
 import ArchitecturePanel from './ArchitecturePanel';
 import StrategyPanel from './StrategyPanel';
+import PendingApprovalsPanel from './PendingApprovalsPanel';
 import useDealerWs from './useDealerWs';
 import useSideswapBook from './useSideswapBook';
 import useMarketScan from './useMarketScan';
@@ -64,7 +66,8 @@ import {
   registryEntryToOrder,
   ORDER_REGISTRY_KEY,
 } from './utils/orderRegistry';
-import { formatAssetBalance, normalizeBalances, flattenDealerOrders } from './utils/dealerFormat';
+import { flattenDealerOrders, enrichBalancesWithReserve } from './utils/dealerFormat';
+import { DealerBalanceChip, DealerReserveSummary, dealerHasReserve } from './DealerBalanceDisplay';
 import {
   prepareDealerOrders,
   normalizeSendParams,
@@ -95,8 +98,16 @@ import './DealerTheme.css';
 import useMobileLayout from './useMobileLayout';
 import { getWalletColor, walletColorStyle } from './utils/walletColors';
 
+// Motor 1/3 do StrategyPanel chamam send_order direto, sem o gate de
+// aprovação (assessOrderLoss + confirmação) que existe em handleSendOrder.
+// Desativado até unificarmos os dois fluxos. Reativar trocando para true.
+const STRATEGY_PANEL_ENABLED = false;
+
+// Espelha DEPIX_LOW_MARGIN_THRESHOLD em manager_dealer/services/order_approval.py
+const DEPIX_LOW_MARGIN_THRESHOLD = 0.03;
+
 function DealerCard({ dealer, onSelect, selected, managerOffline = false }) {
-  const assets = normalizeBalances(dealer.balances);
+  const assets = enrichBalancesWithReserve(dealer.balances, dealer?.reserve_balance);
   const { orders: displayOrders } = prepareDealerOrders(dealer.orders || []);
   const isInactive = !dealer.isLive;
   const wallet = dealer.wallet_name || '—';
@@ -130,11 +141,22 @@ function DealerCard({ dealer, onSelect, selected, managerOffline = false }) {
         {isInactive && <span className="dealer-card-inactive-hint"> · sem sync ao vivo</span>}
       </div>
       <div className="dealer-card-balances">
+        {dealerHasReserve(dealer) && (
+          <DealerReserveSummary
+            reserveBalance={dealer.reserve_balance}
+            className="dealer-card-reserve-summary"
+            prefix="Reserva mín."
+          />
+        )}
         {assets.length > 0 ? (
-          assets.map(({ asset, value }) => (
-            <span key={asset} className="dealer-balance-chip">
-              {asset}: <strong>{formatAssetBalance(asset, value)}</strong>
-            </span>
+          assets.map(({ asset, value, reserve }) => (
+            <DealerBalanceChip
+              key={asset}
+              asset={asset}
+              value={value}
+              reserve={reserve}
+              compact
+            />
           ))
         ) : (
           <span className="dealer-balance-pending">
@@ -180,7 +202,6 @@ function DealerCard({ dealer, onSelect, selected, managerOffline = false }) {
 function DealerRailChip({ dealer, selected, onSelect, managerOffline = false }) {
   const wallet = dealer.wallet_name || '—';
   const status = dealer.dealerStatus || 'morto';
-  const walletColor = getWalletColor(wallet);
 
   return (
     <button
@@ -265,6 +286,7 @@ const CommandPanel = React.memo(function CommandPanel({
   marketBookStatus = 'idle',
   marketBookError = null,
   onReconnectMarketBook,
+  onPendingApproval,
 }) {
   const [mnemonicIndex, setMnemonicIndex] = useState('1');
   const [walletName, setWalletName] = useState('');
@@ -298,6 +320,14 @@ const CommandPanel = React.memo(function CommandPanel({
   const [savingDefault, setSavingDefault] = useState(false);
   const [reserveInputs, setReserveInputs] = useState({});
   const [reserveSaving, setReserveSaving] = useState(false);
+  const [clearTomlArmed, setClearTomlArmed] = useState(false);
+  const [keepToml, setKeepToml] = useState(false);
+  const [removeTomlArmedKey, setRemoveTomlArmedKey] = useState(null);
+  const [updateRestartArmed, setUpdateRestartArmed] = useState(false);
+
+  useEffect(() => {
+    setClearTomlArmed(false);
+  }, [selectedPid]);
 
   useEffect(() => {
     setHistDest(defaultHistoryDestination);
@@ -408,6 +438,25 @@ const CommandPanel = React.memo(function CommandPanel({
     }
   };
 
+  // Reset bruto: apaga as ordens gravadas no config.toml deste PID (não cancela
+  // o que já está ao vivo na API) — usado pra zerar config "contaminada" por
+  // reaproveitamento de outra pasta dealer_work_* sem precisar de SSH.
+  const handleClearTomlOrders = async () => {
+    if (!selectedPid) return;
+    if (!clearTomlArmed) { setClearTomlArmed(true); return; }
+    setClearTomlArmed(false);
+    await run('clear_toml_orders', { pid: selectedPid });
+  };
+
+  // Roda git pull + reinício do manager_dealer.py em produção. Ação acionada
+  // pelo usuário (não pela IA) — a conexão WS cai e reconecta sozinha em
+  // seguida, o cliente relay/bridge já trata isso.
+  const handleUpdateAndRestart = async () => {
+    if (!updateRestartArmed) { setUpdateRestartArmed(true); return; }
+    setUpdateRestartArmed(false);
+    await run('update_and_restart', { confirm: true });
+  };
+
   const activeDealer = activeDealers.find((d) => d.pid === selectedPid);
   const { combinations } = marketData;
 
@@ -433,7 +482,18 @@ const CommandPanel = React.memo(function CommandPanel({
       if (!prev || !selectedPid || prev.pid === selectedPid) return prev;
       return null;
     });
+    setKeepToml(false);
+    setRemoveTomlArmedKey(null);
   }, [selectedPid]);
+
+  // keep_toml só faz sentido cancelando ordem(ns) AO VIVO — ordens pendentes só
+  // existem via config.toml, então "cancelar" uma pendente já É removê-la.
+  // Expressão dividida em duas consts: um && encadeado com 3+ termos aqui
+  // disparava falso-positivo de "hook chamado condicionalmente" no eslint
+  // (eslint-plugin-react-hooks 4.3.0) nos hooks declarados depois — bug do
+  // analisador, não um problema real de control-flow.
+  const cancelPickNotAll = !!cancelPick && !cancelPick.all;
+  const isPendingPick = cancelPickNotAll && !!cancelPick.pending;
 
   const handleCancelOrder = async () => {
     const pid = cancelTargetPid;
@@ -451,7 +511,25 @@ const CommandPanel = React.memo(function CommandPanel({
       }
     }
     if (!cancelPick?.all && !params.order_id && !params.pending) return;
+    if (!isPendingPick && keepToml) params.keep_toml = true;
     await run('cancel_order', params);
+  };
+
+  // Apaga só a entrada do config.toml (base/quote/trade_dir) — não cancela nada
+  // ao vivo. Útil pra impedir que uma ordem antiga volte num restart sem mexer
+  // no que já está no livro agora. Confirmação em 2 cliques (irreversível).
+  const handleRemoveTomlOrder = async (item) => {
+    if (removeTomlArmedKey !== item.cancelKey) {
+      setRemoveTomlArmedKey(item.cancelKey);
+      return;
+    }
+    setRemoveTomlArmedKey(null);
+    await run('remove_toml_order', {
+      pid: item.pid,
+      base: item.order.base,
+      quote: item.order.quote,
+      trade_dir: item.order.trade_dir,
+    });
   };
 
   const selectCancelOrder = (item) => {
@@ -604,7 +682,7 @@ const CommandPanel = React.memo(function CommandPanel({
       price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
     }),
     amount: parseFloat(String(amount).replace(',', '.')) || 999999,
-  }), [orderTargetPid, base, quote, tradeDir, price, pricePorc, priceMin, followTarget, followTargetOrderId, amount, amountAsset]);
+  }), [orderTargetPid, base, quote, tradeDir, price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition, amount]);
 
   useEffect(() => {
     if (lossSendConfirm.signature !== sendFormSignature) {
@@ -615,6 +693,21 @@ const CommandPanel = React.memo(function CommandPanel({
   const pendingLossStep = lossSendConfirm.signature === sendFormSignature
     ? lossSendConfirm.step
     : 0;
+
+  // Espelha order_approval.py::is_dubious() no backend: ordem que adquire DePix
+  // (quote=DePix, trade_dir=Sell) com margem abaixo de 3% (ou indefinida) fica
+  // bloqueada até aprovação manual — avisamos aqui antes do envio.
+  const dubiousOrderWarning = useMemo(() => {
+    const acquiresDepix = quote === 'DePix' && tradeDir === 'Sell';
+    if (!acquiresDepix) return null;
+    const porc = parseFloat(String(pricePorc).replace(',', '.'));
+    const min = parseFloat(String(priceMin).replace(',', '.'));
+    const margin = Number.isFinite(porc) ? porc : Number.isFinite(min) ? min : null;
+    if (margin != null && margin >= DEPIX_LOW_MARGIN_THRESHOLD) return null;
+    return margin == null
+      ? 'Ordem adquire DePix sem margem (spread) configurada — vai ficar pendente de aprovação manual (aba Aprovações, Telegram ou terminal).'
+      : `Ordem adquire DePix com margem de ${(margin * 100).toFixed(2)}% (abaixo de ${DEPIX_LOW_MARGIN_THRESHOLD * 100}%) — vai ficar pendente de aprovação manual (aba Aprovações, Telegram ou terminal).`;
+  }, [quote, tradeDir, pricePorc, priceMin]);
 
   useEffect(() => {
     setOrderPick((prev) => {
@@ -743,6 +836,9 @@ const CommandPanel = React.memo(function CommandPanel({
         data: { ...result.data, summary },
       });
     }
+    if (result?.data?.send_result?.text === 'pending_approval') {
+      onPendingApproval?.();
+    }
   };
 
   const handleSaveReserve = async (asset) => {
@@ -814,9 +910,10 @@ const CommandPanel = React.memo(function CommandPanel({
   return (
     <div className="dealer-command-panel">
     <CommandFeedback feedback={feedback} onDismiss={() => setFeedback(null)} />
-    <Tabs defaultActiveKey="run" className="dealer-tabs">
-      <Tab eventKey="run" title={<><TbPlayerPlay /> Run</>}>
+    <Tabs defaultActiveKey="dealer" className="dealer-tabs">
+      <Tab eventKey="dealer" title={<><TbPlayerPlay /> Dealer</>}>
         <div className="dealer-form-block">
+          <div className="dealer-reserve-title">Iniciar</div>
           <div className="d-flex gap-2 flex-wrap align-items-center mb-2">
             <Button size="sm" variant="outline-secondary" onClick={loadWallets} disabled={busy || vaultLoading}>
               {vaultLoading ? 'Carregando…' : 'Atualizar catálogo Vault'}
@@ -871,22 +968,6 @@ const CommandPanel = React.memo(function CommandPanel({
             </div>
           )}
 
-          <Row className="g-2 mt-1">
-            <Col xs={4}>
-              <Form.Control
-                size="sm" placeholder="index"
-                value={mnemonicIndex} onChange={(e) => setMnemonicIndex(e.target.value)}
-                readOnly
-              />
-            </Col>
-            <Col xs={8}>
-              <Form.Control
-                size="sm" placeholder="wallet (Vault)"
-                value={walletName} onChange={(e) => setWalletName(e.target.value)}
-                readOnly={wallets.length > 0}
-              />
-            </Col>
-          </Row>
           <Button
             className="dealer-btn-primary mt-2"
             disabled={busy || !canStartDealer}
@@ -899,39 +980,31 @@ const CommandPanel = React.memo(function CommandPanel({
                   : 'Iniciar dealer'
             }
           >
-            start_dealer
+            <TbPlayerPlay /> Iniciar dealer{selectedWallet ? ` — ${selectedWallet.name}` : ''}
           </Button>
         </div>
-      </Tab>
 
-      <Tab eventKey="list" title={<><TbList /> List</>}>
-        <Button
-          className="dealer-btn-primary"
-          disabled={busy}
-          onClick={() => run('list_detailed', {})}
-        >
-          list_detailed
-        </Button>
-      </Tab>
+        <hr className="dealer-tab-divider" />
 
-      <Tab eventKey="stop" title={<><TbPlayerStop /> Stop</>}>
-        {activeDealers.length > 0 ? (
-          <Form.Select
-            size="sm"
-            className="mb-2"
-            value={selectedPid || ''}
-            onChange={(e) => onSelectPid(parseInt(e.target.value, 10))}
-          >
-            <option value="">Selecione o dealer ({dealersSummaryLabel(activeDealers)})</option>
-            {activeDealers.map((d) => (
-              <option key={d.pid} value={d.pid}>
-                PID {d.pid} — {d.wallet_name} [{d.statusLabel}]
-              </option>
-            ))}
-          </Form.Select>
-        ) : (
-          <p className="dealer-empty mb-2">Nenhum dealer conhecido. Inicie um na aba Run.</p>
-        )}
+        <div className="dealer-form-block">
+          <div className="dealer-reserve-title">Selecionado</div>
+          {activeDealers.length > 0 ? (
+            <Form.Select
+              size="sm"
+              className="mb-2"
+              value={selectedPid || ''}
+              onChange={(e) => onSelectPid(parseInt(e.target.value, 10))}
+            >
+              <option value="">Selecione o dealer ({dealersSummaryLabel(activeDealers)})</option>
+              {activeDealers.map((d) => (
+                <option key={d.pid} value={d.pid}>
+                  PID {d.pid} — {d.wallet_name} [{d.statusLabel}]
+                </option>
+              ))}
+            </Form.Select>
+          ) : (
+            <p className="dealer-empty mb-2">Nenhum dealer conhecido — inicie um acima.</p>
+          )}
         {activeDealer && (
           <div className="dealer-stop-info">
             <div><span>Status</span><strong><DealerStatusBadge dealer={activeDealer} /></strong></div>
@@ -947,6 +1020,18 @@ const CommandPanel = React.memo(function CommandPanel({
             )}
             {agentMeta?.hostname && activeDealer.port_ws && (
               <div><span>URL WS</span><strong><code className="dealer-cmd-url">ws://{agentMeta.hostname}:{activeDealer.port_ws}</code></strong></div>
+            )}
+            {dealerHasReserve(activeDealer) && (
+              <div className="dealer-stop-reserve">
+                <span>Reserva</span>
+                <strong>
+                  <DealerReserveSummary
+                    reserveBalance={activeDealer.reserve_balance}
+                    prefix=""
+                    className="dealer-stop-reserve-items"
+                  />
+                </strong>
+              </div>
             )}
           </div>
         )}
@@ -989,11 +1074,53 @@ const CommandPanel = React.memo(function CommandPanel({
           disabled={busy || !selectedPid}
           onClick={handleStopDealer}
         >
-          stop_dealer
+          <TbPlayerStop /> Parar dealer
         </Button>
         {activeDealer?.dealerStatus === 'zombie' && (
           <p className="dealer-empty mt-2 mb-0">Zumbi: ainda no backend — tente stop para limpar.</p>
         )}
+
+        {activeDealer && (
+          <div className="dealer-clear-toml mt-3">
+            <div className="dealer-reserve-title">Reset de config.toml</div>
+            <p className="dealer-clear-toml-hint">
+              Apaga todas as ordens gravadas no <code>config.toml</code> deste dealer (PID{' '}
+              {selectedPid}). Não cancela o que já está ao vivo na API — só evita que ordens
+              antigas (de outra pasta <code>dealer_work_*</code> reaproveitada) voltem no
+              próximo restart.
+            </p>
+            <Button
+              size="sm"
+              variant={clearTomlArmed ? 'danger' : 'outline-danger'}
+              disabled={busy || !selectedPid}
+              onClick={handleClearTomlOrders}
+            >
+              <TbTrash /> {clearTomlArmed ? 'Confirmar — apaga todas as ordens do config' : 'Resetar config.toml'}
+            </Button>
+            {clearTomlArmed && (
+              <Button
+                size="sm"
+                variant="outline-secondary"
+                className="ms-2"
+                disabled={busy}
+                onClick={() => setClearTomlArmed(false)}
+              >
+                Cancelar
+              </Button>
+            )}
+          </div>
+        )}
+        </div>
+
+        <Button
+          size="sm"
+          variant="outline-secondary"
+          className="mt-3"
+          disabled={busy}
+          onClick={() => run('list_detailed', {})}
+        >
+          <TbList /> list_detailed
+        </Button>
       </Tab>
 
       <Tab eventKey="order" title={<><TbSend /> Order</>}>
@@ -1139,6 +1266,11 @@ const CommandPanel = React.memo(function CommandPanel({
             onAmountChange={setAmount}
             onAmountAssetChange={setAmountAsset}
           />
+          {dubiousOrderWarning && (
+            <div className="dealer-dubious-order-warning mt-2">
+              <TbAlertTriangle size={14} /> {dubiousOrderWarning}
+            </div>
+          )}
           <Button
             className={`dealer-btn-primary mt-3${pendingLossStep > 0 ? ' dealer-btn-loss-confirm' : ''}`}
             disabled={busy || !orderTargetPid}
@@ -1178,40 +1310,54 @@ const CommandPanel = React.memo(function CommandPanel({
           {selectedPid
             ? `Ordens do PID ${selectedPid}${activeDealer?.wallet_name ? ` (${activeDealer.wallet_name})` : ''}`
             : 'Todas as ordens — escolha PID, wallet e ordem'}
-          {' '}· pendentes removem do config (sem order_id no SideSwap)
+          {' '}· <strong>Cancelar</strong> tira do livro agora · <strong>apagar config</strong> só impede
+          de voltar num restart, sem mexer no livro
         </p>
 
         {cancelChoices.length > 0 ? (
           <div className="dealer-cancel-list">
-            {cancelChoices.map((item) => (
-              <button
-                key={`${item.pid}-${item.cancelKey}`}
-                type="button"
-                className={`dealer-cancel-item ${isCancelItemSelected(item) ? 'selected' : ''} ${item.isPending ? 'dealer-cancel-pending' : ''}`}
-                onClick={() => selectCancelOrder(item)}
-                disabled={busy}
-              >
-                {!selectedPid && (
-                  <span className="dealer-cancel-dealer">
-                    PID {item.pid} · {item.wallet_name || '—'}
-                  </span>
-                )}
-                <span className="dealer-cancel-pair">
-                  {cleanPairName(item.order.base, item.order.quote)} {item.order.trade_dir}
-                  {item.isPending && (
-                    <Badge bg="secondary" className="ms-1">pendente</Badge>
+            {cancelChoices.map((item) => {
+              const tomlArmed = removeTomlArmedKey === item.cancelKey;
+              return (
+              <div key={`${item.pid}-${item.cancelKey}`} className="dealer-cancel-row">
+                <button
+                  type="button"
+                  className={`dealer-cancel-item ${isCancelItemSelected(item) ? 'selected' : ''} ${item.isPending ? 'dealer-cancel-pending' : ''}`}
+                  onClick={() => selectCancelOrder(item)}
+                  disabled={busy}
+                >
+                  {!selectedPid && (
+                    <span className="dealer-cancel-dealer">
+                      PID {item.pid} · {item.wallet_name || '—'}
+                    </span>
                   )}
-                </span>
-                <span className="dealer-cancel-price">
-                  {formatOrderSpreadSummary(item.order)}
-                </span>
-                {item.isPending ? (
-                  <span className="dealer-cancel-id dealer-cancel-id-pending">sem ID — remove local</span>
-                ) : (
-                  <code className="dealer-cancel-id">{item.order.order_id}</code>
-                )}
-              </button>
-            ))}
+                  <span className="dealer-cancel-pair">
+                    {cleanPairName(item.order.base, item.order.quote)} {item.order.trade_dir}
+                    {item.isPending && (
+                      <Badge bg="secondary" className="ms-1">pendente</Badge>
+                    )}
+                  </span>
+                  <span className="dealer-cancel-price">
+                    {formatOrderSpreadSummary(item.order)}
+                  </span>
+                  {item.isPending ? (
+                    <span className="dealer-cancel-id dealer-cancel-id-pending">sem ID — remove local</span>
+                  ) : (
+                    <code className="dealer-cancel-id">{item.order.order_id}</code>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className={`dealer-cancel-toml-btn${tomlArmed ? ' armed' : ''}`}
+                  disabled={busy}
+                  title="Remove só a entrada do config.toml — não cancela a ordem ao vivo"
+                  onClick={() => handleRemoveTomlOrder(item)}
+                >
+                  <TbTrash size={13} /> {tomlArmed ? 'confirmar' : 'apagar config'}
+                </button>
+              </div>
+              );
+            })}
           </div>
         ) : (
           <p className="dealer-empty mb-2">
@@ -1248,12 +1394,24 @@ const CommandPanel = React.memo(function CommandPanel({
           }}
         />
 
+        {!isPendingPick && (
+          <Form.Check
+            type="checkbox"
+            id="dealer-cancel-keep-toml"
+            className="dealer-cancel-keep-toml"
+            label="Manter no config.toml (volta a montar num restart)"
+            checked={keepToml}
+            onChange={(e) => setKeepToml(e.target.checked)}
+            disabled={busy}
+          />
+        )}
+
         <Button
           className="dealer-btn-danger"
           disabled={busy || !cancelTargetPid || (!cancelPick?.all && !cancelPick?.orderId && !cancelPick?.pending && !orderId.trim())}
           onClick={handleCancelOrder}
         >
-          cancel_order
+          {keepToml && !isPendingPick ? 'cancelar sem apagar config' : 'cancel_order'}
           {cancelPick?.all && ' (todas)'}
           {cancelPick?.pending && ` (${cleanPairName(cancelPick.base, cancelPick.quote)} ${cancelPick.trade_dir})`}
           {!cancelPick?.all && !cancelPick?.pending && (cancelPick?.orderId || orderId) && ` (${cancelPick?.orderId || orderId})`}
@@ -1476,6 +1634,34 @@ const CommandPanel = React.memo(function CommandPanel({
             get_own_orders
           </Button>
         </div>
+
+        <div className="dealer-clear-toml mt-3">
+          <div className="dealer-reserve-title">Atualizar e reiniciar manager</div>
+          <p className="dealer-clear-toml-hint">
+            Roda <code>git pull</code> em produção e reinicia o <code>manager_dealer.py</code>{' '}
+            (mantém o mesmo PID via <code>os.execv</code> — dealers já rodando não são
+            derrubados). A conexão cai e reconecta sozinha em alguns segundos.
+          </p>
+          <Button
+            size="sm"
+            variant={updateRestartArmed ? 'danger' : 'outline-danger'}
+            disabled={busy}
+            onClick={handleUpdateAndRestart}
+          >
+            <TbRefresh /> {updateRestartArmed ? 'Confirmar — atualizar e reiniciar agora' : 'Atualizar e reiniciar manager'}
+          </Button>
+          {updateRestartArmed && (
+            <Button
+              size="sm"
+              variant="outline-secondary"
+              className="ms-2"
+              disabled={busy}
+              onClick={() => setUpdateRestartArmed(false)}
+            >
+              Cancelar
+            </Button>
+          )}
+        </div>
       </Tab>
     </Tabs>
     </div>
@@ -1504,6 +1690,9 @@ export default function DealerConsole() {
   const [consolePrefs, setConsolePrefs] = useState(() => loadDealerPreferences());
   const [telegramStatus, setTelegramStatus] = useState(null);
   const [belowMarketThresholdPct, setBelowMarketThresholdPct] = useState(0.5);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [pendingApprovalsLoading, setPendingApprovalsLoading] = useState(false);
+  const [pendingApprovalsError, setPendingApprovalsError] = useState(null);
   const isMobileLayout = useMobileLayout();
   const dealersCollapsed = !isMobileLayout && !!selectedPid && !dealersExpanded;
   const colDealers = dealersCollapsed ? 1 : 4;
@@ -1522,6 +1711,43 @@ export default function DealerConsole() {
     status, agentConnected, agentMeta, state, messages, events, sendCommand, disconnect, lastError,
   } = useDealerWs(session?.wsUrl, session?.token, !!session?.authenticated);
 
+  // Ordens duvidosas (DePix com margem baixa) bloqueadas no backend até aprovação
+  // manual — não vêm no state_update periódico, precisa polling explícito.
+  const loadPendingApprovals = useCallback(async () => {
+    if (status !== 'connected') return;
+    setPendingApprovalsLoading(true);
+    try {
+      const r = await sendCommand('list_pending_approvals', {});
+      if (r?.ok !== false && Array.isArray(r?.data?.pending)) {
+        setPendingApprovals(r.data.pending);
+        setPendingApprovalsError(null);
+      } else if (r?.data?.error) {
+        setPendingApprovalsError(r.data.error);
+      }
+    } catch (err) {
+      setPendingApprovalsError(err.message);
+    } finally {
+      setPendingApprovalsLoading(false);
+    }
+  }, [status, sendCommand]);
+
+  useEffect(() => {
+    if (status !== 'connected') { setPendingApprovals([]); return undefined; }
+    loadPendingApprovals();
+    const id = setInterval(loadPendingApprovals, 20000);
+    return () => clearInterval(id);
+  }, [status, loadPendingApprovals]);
+
+  const handleApproveOrder = useCallback(async (signature) => {
+    const r = await sendCommand('approve_order', { signature, approved_by: 'website' });
+    if (r?.ok !== false) {
+      setPendingApprovals((prev) => prev.filter((p) => p.signature !== signature));
+    } else {
+      setPendingApprovalsError(r?.data?.error || `Falha ao aprovar ${signature}`);
+    }
+    return r;
+  }, [sendCommand]);
+
   // Registra push_log no logger global assim que o WS estiver disponível
   useEffect(() => {
     registerPushLog((entry) => {
@@ -1539,12 +1765,18 @@ export default function DealerConsole() {
   const savedOrders = useMemo(() => {
     touchOrderRegistryFromDealers(dealers);
     return loadOrderRegistry();
+    // orderRegistryTick é um invalidador manual (bumpOrderRegistry) — não é lido
+    // dentro do callback, mas precisa forçar o recalculo do localStorage.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealers, orderRegistryTick]);
   const marketData = useMemo(
     () => getMarketFromState(state, marketFromApi),
+    // getMarketFromState só lê state.assets/state.combinations; deps granulares
+    // evitam recalcular a cada tick de state vindo do WS.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [state?.assets, state?.combinations, marketFromApi],
   );
-  const stateMessages = state?.messages || [];
+  const stateMessages = useMemo(() => state?.messages || [], [state?.messages]);
   const messageCount = useMemo(
     () => buildMessageFeed(stateMessages, messages, 200).length,
     [stateMessages, messages],
@@ -1799,10 +2031,27 @@ export default function DealerConsole() {
               <Nav.Item>
                 <Nav.Link
                   active={mainView === 'estrategia'}
-                  onClick={() => setMainView('estrategia')}
-                  className="dealer-main-nav-link"
+                  onClick={() => STRATEGY_PANEL_ENABLED && setMainView('estrategia')}
+                  className={`dealer-main-nav-link${!STRATEGY_PANEL_ENABLED ? ' dealer-main-nav-link-disabled' : ''}`}
+                  disabled={!STRATEGY_PANEL_ENABLED}
+                  title={!STRATEGY_PANEL_ENABLED ? 'Estratégia temporariamente desativada' : undefined}
                 >
                   <TbRocket /> Estratégia
+                  {!STRATEGY_PANEL_ENABLED && <Badge bg="secondary" className="ms-1">desativado</Badge>}
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  active={mainView === 'aprovacoes'}
+                  onClick={() => setMainView('aprovacoes')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbShieldCheck /> Aprovações
+                  {pendingApprovals.length > 0 && (
+                    <Badge bg="danger" className="ms-1 dealer-nav-log-badge">
+                      {pendingApprovals.length}
+                    </Badge>
+                  )}
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
@@ -2038,7 +2287,7 @@ export default function DealerConsole() {
               </div>
             </Col>
           </Row>
-        ) : mainView === 'estrategia' ? (
+        ) : mainView === 'estrategia' && STRATEGY_PANEL_ENABLED ? (
           <Row className="g-3">
             <Col xs={12}>
               <div className="dealer-panel dealer-panel-scroll">
@@ -2053,6 +2302,20 @@ export default function DealerConsole() {
                   scanIndPrices={scanIndPrices}
                   scanBooks={scanBooks}
                   bookPlacements={bookPlacements}
+                />
+              </div>
+            </Col>
+          </Row>
+        ) : mainView === 'aprovacoes' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <PendingApprovalsPanel
+                  pending={pendingApprovals}
+                  loading={pendingApprovalsLoading}
+                  error={pendingApprovalsError}
+                  onRefresh={loadPendingApprovals}
+                  onApprove={handleApproveOrder}
                 />
               </div>
             </Col>
@@ -2194,7 +2457,23 @@ export default function DealerConsole() {
 
               {midTab === 'operacional' ? (
                 <>
-                  <div className="dealer-op-tabs" role="tablist" aria-label="Operacional">
+                  <div className="dealer-live-book-section">
+                    <OrderPlacementPanel
+                      dealer={selectedDealer}
+                      combinations={marketData.combinations}
+                      ownOrders={selectedDealerSentOrders}
+                      status={bookStatus}
+                      error={bookError}
+                      lastUpdate={bookLastUpdate}
+                      pairs={bookPairs}
+                      books={bookData}
+                      indPrices={bookIndPrices}
+                      placements={bookPlacements}
+                      reconnect={reconnectBook}
+                    />
+                  </div>
+
+                  <div className="dealer-op-tabs" role="tablist" aria-label="Detalhes operacionais">
                     <button
                       type="button"
                       role="tab"
@@ -2212,16 +2491,6 @@ export default function DealerConsole() {
                       onClick={() => setOperacionalTab('ordens')}
                     >
                       Ordens
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={operacionalTab === 'livro'}
-                      className={`dealer-op-tab${operacionalTab === 'livro' ? ' active' : ''}`}
-                      onClick={() => setOperacionalTab('livro')}
-                      title="Livro SideSwap (público)"
-                    >
-                      Livro SideSwap
                     </button>
                   </div>
 
@@ -2246,21 +2515,6 @@ export default function DealerConsole() {
                         confirmedOrderIds={confirmedOrderIds}
                         placementByOrderId={placementByOrderId}
                         combinations={marketData.combinations}
-                      />
-                    )}
-                    {operacionalTab === 'livro' && (
-                      <OrderPlacementPanel
-                        dealer={selectedDealer}
-                        combinations={marketData.combinations}
-                        ownOrders={selectedDealerSentOrders}
-                        status={bookStatus}
-                        error={bookError}
-                        lastUpdate={bookLastUpdate}
-                        pairs={bookPairs}
-                        books={bookData}
-                        indPrices={bookIndPrices}
-                        placements={bookPlacements}
-                        reconnect={reconnectBook}
                       />
                     )}
                   </div>
@@ -2320,6 +2574,7 @@ export default function DealerConsole() {
                 marketBookStatus={scanStatus}
                 marketBookError={scanError}
                 onReconnectMarketBook={reconnectScan}
+                onPendingApproval={loadPendingApprovals}
               />
             </div>
           </Col>

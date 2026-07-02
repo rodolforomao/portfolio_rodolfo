@@ -65,6 +65,64 @@ export function normalizeBalances(balances) {
     .sort((a, b) => a.asset.localeCompare(b.asset));
 }
 
+/** Reservas mínimas configuradas por ativo (set_reserve_balance). */
+export function normalizeReserveBalance(reserveBalance) {
+  if (!reserveBalance || typeof reserveBalance !== 'object' || Array.isArray(reserveBalance)) {
+    return [];
+  }
+  const merged = {};
+  Object.entries(reserveBalance).forEach(([asset, value]) => {
+    const n = typeof value === 'number' ? value : parseFloat(value);
+    if (!Number.isFinite(n) || n <= 0) return;
+    const canon = canonicalAssetName(asset);
+    merged[canon] = (merged[canon] || 0) + n;
+  });
+  return Object.entries(merged)
+    .map(([asset, value]) => ({ asset, value }))
+    .sort((a, b) => a.asset.localeCompare(b.asset));
+}
+
+export function getAssetReserve(reserveBalance, asset) {
+  const canon = canonicalAssetName(asset);
+  const row = normalizeReserveBalance(reserveBalance).find((r) => r.asset === canon);
+  return row?.value ?? 0;
+}
+
+export function computeAvailableBalance(total, reserve) {
+  const t = typeof total === 'number' ? total : parseFloat(total);
+  const r = typeof reserve === 'number' ? reserve : parseFloat(reserve);
+  if (!Number.isFinite(t)) return 0;
+  if (!Number.isFinite(r) || r <= 0) return Math.max(0, t);
+  return Math.max(0, t - r);
+}
+
+export function hasReserveConfigured(reserveBalance) {
+  return normalizeReserveBalance(reserveBalance).length > 0;
+}
+
+export function enrichBalancesWithReserve(balances, reserveBalance) {
+  return normalizeBalances(balances).map(({ asset, value }) => {
+    const reserve = getAssetReserve(reserveBalance, asset);
+    return {
+      asset,
+      value,
+      reserve,
+      available: computeAvailableBalance(value, reserve),
+    };
+  });
+}
+
+/** Soma reservas de vários dealers (visão consolidada). */
+export function sumReserveBalances(dealers = []) {
+  const totals = {};
+  dealers.forEach((dealer) => {
+    normalizeReserveBalance(dealer?.reserve_balance).forEach(({ asset, value }) => {
+      totals[asset] = (totals[asset] || 0) + value;
+    });
+  });
+  return totals;
+}
+
 /** Une catálogo do backend (state.assets / get_assets) com saldos do dealer. */
 export function mergeBalancesWithCatalog(balances, catalogAssets = []) {
   const byAsset = {};
@@ -96,6 +154,7 @@ export function mergeDealers(wsDealers = [], fetched = []) {
       ...d,
       ...fresh,
       balances: freshBal.length >= wsBal.length ? fresh.balances : d.balances,
+      reserve_balance: fresh.reserve_balance ?? d.reserve_balance,
       orders: (fresh.orders?.length ? fresh.orders : d.orders) || [],
     };
   });

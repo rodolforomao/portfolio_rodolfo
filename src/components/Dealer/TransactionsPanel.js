@@ -686,7 +686,7 @@ export default function TransactionsPanel({
       .flatMap(([, page]) => page.rows);
   }, [pages]);
 
-  const assetSummary = reportMeta?.asset_summary || {};
+  const assetSummary = useMemo(() => reportMeta?.asset_summary || {}, [reportMeta?.asset_summary]);
   const pl = reportMeta?.profit_loss || {};
   const categorySummary = reportMeta?.category_summary?.by_category || {};
 

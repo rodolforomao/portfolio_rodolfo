@@ -5,7 +5,6 @@ import {
 } from 'recharts';
 import { fetchMultipleFredSeries } from '../api/fredApi';
 import { calculateMA, calculateZScore } from '../utils/statistics';
-import { formatNumber } from '../utils/formatters';
 import MetricCard from '../components/MetricCard';
 import ChartCard from '../components/ChartCard';
 

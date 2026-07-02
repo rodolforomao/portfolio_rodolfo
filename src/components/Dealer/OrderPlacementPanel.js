@@ -4,7 +4,6 @@ import Badge from 'react-bootstrap/Badge';
 import { TbExternalLink, TbRefresh, TbCircleCheck, TbCircleX, TbAlertTriangle } from 'react-icons/tb';
 import { SideswapBadge, ManagerBadge } from './SourceBadge';
 import OrderMarginBadge from './OrderMarginBadge';
-import OrderBookPresenceBadge from './OrderBookPresenceBadge';
 import { FollowRefLink, bookOrderAnchorId } from './utils/followTarget';
 import {
   computeExternalMargin,
@@ -222,7 +221,7 @@ export default function OrderPlacementPanel({
     <section className="dealer-order-placement">
       <div className="dealer-placement-header">
         <h3>
-          Livro SideSwap (público)
+          Livro ao vivo
           <SideswapBadge title="Posições do livro via WebSocket público SideSwap" />
           <ManagerBadge title="Suas ordens via manager_dealer" />
         </h3>

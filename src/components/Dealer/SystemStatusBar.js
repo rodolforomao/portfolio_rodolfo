@@ -135,7 +135,6 @@ export default function SystemStatusBar({
   const orderDetail = orderParts.length ? orderParts.join(' · ') : 'sem ordens';
 
   const totalDealers = dealers.length;
-  const liveDealers = (dealerCounts.online || 0) + (dealerCounts.unused || 0);
   const dealerDetailParts = [];
   if (dealerCounts.online) dealerDetailParts.push(`${dealerCounts.online} online`);
   if (dealerCounts.unused) dealerDetailParts.push(`${dealerCounts.unused} ocioso`);

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  LineChart, Line, ComposedChart, Area, BarChart, Bar,
+  Line, ComposedChart, Area, BarChart, Bar,
   CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import { fetchBitcoinPrice, fetchBitcoinInfo, fetchGlobalData } from '../api/coinGeckoApi';
-import { calculateMA, calculateZScore, calculateBollingerBands } from '../utils/statistics';
-import { formatNumber, formatPercent, formatCurrency, getChangeColor } from '../utils/formatters';
+import { calculateMA, calculateBollingerBands } from '../utils/statistics';
+import { formatNumber, formatPercent, formatCurrency } from '../utils/formatters';
 import MetricCard from '../components/MetricCard';
 import ChartCard from '../components/ChartCard';
 

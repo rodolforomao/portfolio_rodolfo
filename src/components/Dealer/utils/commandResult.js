@@ -29,7 +29,47 @@ export function describeSendOrderResult(result) {
       : '';
     return `Ordem registrada — aguardando cálculo de preço (price monitor).${followNote}`;
   }
+  if (sr.text === 'pending_approval') {
+    return sr.data?.message || 'Ordem duvidosa bloqueada — aguardando aprovação manual.';
+  }
+  if (sr.text === 'reserve_block') {
+    return sr.data?.message || 'Ordem bloqueada — abaixo da reserva mínima configurada.';
+  }
   return sr.text || `Falha HTTP ${sr.status_code}`;
+}
+
+/** Extrai dados de aprovação pendente de uma resposta de send_order, ou null. */
+export function sendOrderApprovalInfo(result) {
+  const sr = result?.data?.send_result;
+  if (sr?.text !== 'pending_approval') return null;
+  return {
+    signature: sr.data?.signature || null,
+    margin: sr.data?.margin ?? null,
+    message: sr.data?.message || null,
+  };
+}
+
+/** Resume cancelamento de ordem — inclui limpeza do config.toml (toml_removed/removed_toml/toml_kept). */
+export function describeCancelOrderResult(result) {
+  const d = result?.data || {};
+  if (d.all) {
+    const parts = [`Canceladas: ${d.removed_live ?? 0} ao vivo, ${d.removed_pending ?? 0} pendente(s).`];
+    if (d.toml_kept) parts.push('Config.toml mantido — voltam num restart.');
+    else if (d.removed_toml) parts.push(`${d.removed_toml} removida(s) do config.toml.`);
+    if (d.remaining) parts.push(`${d.remaining} permaneceram (falha ao cancelar).`);
+    return parts.join(' ');
+  }
+  if (d.pending) {
+    return d.message || (d.cancelled ? 'Ordem pendente removida do config.toml.' : 'Ordem pendente não encontrada (já removida?).');
+  }
+  if (d.order_id != null) {
+    if (!d.cancelled) return `Falha ao cancelar (HTTP ${d.status_code ?? '?'}).`;
+    if (d.toml_kept) return 'Ordem cancelada — mantida no config.toml, volta num restart.';
+    return d.toml_removed
+      ? 'Ordem cancelada e removida do config.toml.'
+      : 'Ordem cancelada (não estava gravada no config.toml).';
+  }
+  return d.cancelled ? 'Ordem cancelada.' : 'Falha ao cancelar ordem.';
 }
 
 export function normalizeCommandResult(action, result) {
@@ -54,10 +94,17 @@ export function normalizeCommandResult(action, result) {
       },
     };
   }
-  if (result.ok == null) {
-    return { ...result, ok: !result?.data?.error };
+  if (action === 'cancel_order') {
+    return {
+      ...result,
+      data: { ...result.data, summary: describeCancelOrderResult(result) },
+    };
   }
-  return result;
+  const withOk = result.ok == null ? { ...result, ok: !result?.data?.error } : result;
+  if (withOk.data?.message && withOk.data?.summary == null) {
+    return { ...withOk, data: { ...withOk.data, summary: withOk.data.message } };
+  }
+  return withOk;
 }
 
 export function findLiveDealer(dealers, pid) {

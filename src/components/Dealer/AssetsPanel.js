@@ -3,7 +3,8 @@ import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
 import { TbRefresh, TbCoins, TbLayersLinked } from 'react-icons/tb';
 import { ManagerBadge } from './SourceBadge';
-import { formatAssetBalance, normalizeBalances } from './utils/dealerFormat';
+import { normalizeBalances, getAssetReserve, sumReserveBalances } from './utils/dealerFormat';
+import { BalanceSaldoCell, DealerReserveSummary, dealerHasReserve } from './DealerBalanceDisplay';
 
 const SATS_PER_LBTC = 1e8;
 
@@ -75,7 +76,7 @@ function ConvHead({ label, rate }) {
   );
 }
 
-function BalanceTable({ balances, convMap, hasConv, consolidated = false }) {
+function BalanceTable({ balances, convMap, hasConv, consolidated = false, reserveBalance = null }) {
   const rateUsdtPerLbtc = convMap['L-BTC→USDt'];      // quanto 1 BTC vale em USD
   const rateDepixPerUsdt = convMap['USDt→DePix'];     // quanto 1 USD vale em BRL
   const rateDepixPerLbtc = convMap['L-BTC→DePix'];   // quanto 1 BTC vale em BRL
@@ -141,12 +142,19 @@ function BalanceTable({ balances, convMap, hasConv, consolidated = false }) {
           const inUsdt = hasConv ? convertAsset(value, asset, 'USDt', convMap) : null;
           const inLbtc = hasConv ? convertAsset(value, asset, 'L-BTC', convMap) : null;
           const inDepix = hasConv ? convertAsset(value, asset, 'DePix', convMap) : null;
+          const reserve = getAssetReserve(reserveBalance, asset);
           return (
             <tr key={asset}>
               <td>
                 <span className={`dealer-asset-badge ${assetClass(asset)}`}>{asset}</span>
               </td>
-              <td className="dealer-asset-value">{formatAssetBalance(asset, value)}</td>
+              <td className="dealer-asset-value">
+                <BalanceSaldoCell
+                  asset={asset}
+                  value={value}
+                  reserve={reserve}
+                />
+              </td>
               {hasConv && <ConvCell value={inUsdt} fmt={fmtUsdt} />}
               {hasConv && <ConvCell value={inLbtc} fmt={fmtLbtc} />}
               {hasConv && <ConvCell value={inDepix} fmt={fmtDepix} />}
@@ -190,6 +198,8 @@ function SummaryView({ dealers, convMap, hasConv, conversionStatus, conversionLa
       .map(([asset, value]) => ({ asset, value }))
       .sort((a, b) => a.asset.localeCompare(b.asset));
   }, [dealers]);
+
+  const consolidatedReserve = useMemo(() => sumReserveBalances(dealers), [dealers]);
 
   const dealersWithBalances = dealers.filter(
     (d) => normalizeBalances(d.balances).length > 0,
@@ -242,6 +252,7 @@ function SummaryView({ dealers, convMap, hasConv, conversionStatus, conversionLa
             convMap={convMap}
             hasConv={hasConv}
             consolidated
+            reserveBalance={consolidatedReserve}
           />
         </section>
       )}
@@ -257,8 +268,20 @@ function SummaryView({ dealers, convMap, hasConv, conversionStatus, conversionLa
           <div key={d.pid} className="dealer-assets-wallet-section">
             <div className="dealer-assets-wallet-label">
               PID {d.pid} · {d.wallet_name || '—'}
+              {dealerHasReserve(d) && (
+                <DealerReserveSummary
+                  reserveBalance={d.reserve_balance}
+                  className="dealer-assets-wallet-reserve"
+                  prefix="reserva"
+                />
+              )}
             </div>
-            <BalanceTable balances={balances} convMap={convMap} hasConv={hasConv} />
+            <BalanceTable
+              balances={balances}
+              convMap={convMap}
+              hasConv={hasConv}
+              reserveBalance={d.reserve_balance}
+            />
           </div>
         );
       })}
@@ -373,7 +396,20 @@ export default function AssetsPanel({
           <p className="dealer-hint">Aguarde o sync ou clique em Atualizar.</p>
         </div>
       ) : (
-        <BalanceTable balances={balances} convMap={convMap} hasConv={hasConv} />
+        <>
+          {dealerHasReserve(dealer) && (
+            <DealerReserveSummary
+              reserveBalance={dealer.reserve_balance}
+              className="dealer-assets-panel-reserve"
+            />
+          )}
+          <BalanceTable
+            balances={balances}
+            convMap={convMap}
+            hasConv={hasConv}
+            reserveBalance={dealer.reserve_balance}
+          />
+        </>
       )}
 
       {dealer && lastRefresh && (

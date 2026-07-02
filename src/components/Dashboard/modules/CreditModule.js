@@ -5,7 +5,6 @@ import {
 } from 'recharts';
 import { fetchMultipleFredSeries } from '../api/fredApi';
 import { calculateMA } from '../utils/statistics';
-import { formatNumber, formatPercent } from '../utils/formatters';
 import MetricCard from '../components/MetricCard';
 import ChartCard from '../components/ChartCard';
 
@@ -80,9 +79,6 @@ export default function CreditModule() {
   const igLatest = getLatest(data?.ig);
   const nfciLatest = getLatest(data?.nfci);
   const tedLatest = getLatest(data?.ted);
-
-  const hyRiskColor = hyLatest != null ? (hyLatest > 500 ? '#f85149' : hyLatest > 300 ? '#d29922' : '#3fb950') : '#8b949e';
-  const nfciRiskColor = nfciLatest != null ? (nfciLatest > 0.5 ? '#f85149' : nfciLatest > 0 ? '#d29922' : '#3fb950') : '#8b949e';
 
   return (
     <div>

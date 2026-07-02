@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchMultipleFredSeries } from '../api/fredApi';
 import { fetchBitcoinInfo, fetchGlobalData } from '../api/coinGeckoApi';
-import { calculateZScore, calculatePercentile } from '../utils/statistics';
-import { formatNumber, formatPercent } from '../utils/formatters';
+import { calculateZScore } from '../utils/statistics';
+import { formatPercent } from '../utils/formatters';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 function calcNetLiq(walcl, wtregen, rrpon) {
@@ -26,12 +26,11 @@ function checkAlerts(data) {
 
   if (!data) return alerts;
 
-  const { netLiq, vix, t10y2y, hySpread, btcInfo, globalData } = data;
+  const { netLiq, vix, t10y2y, hySpread, btcInfo } = data;
 
   // Liquidity alerts
   if (netLiq && netLiq.length > 4) {
     const liq30d = pctChange(netLiq, 4);
-    const liq4 = netLiq.slice(-4);
     const liqZscore = calculateZScore(netLiq, 52);
     const currentZ = liqZscore.length ? liqZscore[liqZscore.length - 1].value : null;
 

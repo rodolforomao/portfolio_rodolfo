@@ -650,6 +650,127 @@ body.dealer-route-active .App.app-ready {
   padding: 3px 8px;
   border-radius: 6px;
   color: #8b949e;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.dealer-balance-chip-main {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.dealer-balance-chip-has-reserve {
+  border-color: rgba(210, 153, 34, 0.35);
+  background: rgba(210, 153, 34, 0.06);
+}
+
+.dealer-balance-chip-reserve {
+  font-size: 0.62rem;
+  color: #d29922;
+  line-height: 1.25;
+  font-weight: 500;
+}
+
+.dealer-balance-saldo-total {
+  color: #e6edf3;
+}
+
+.dealer-balance-saldo-reserve {
+  margin-top: 2px;
+  font-size: 0.68rem;
+  color: #d29922;
+  line-height: 1.25;
+  font-weight: 500;
+}
+
+.dealer-reserve-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(210, 153, 34, 0.08);
+  border: 1px solid rgba(210, 153, 34, 0.25);
+}
+
+.dealer-reserve-summary-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #d29922;
+}
+
+.dealer-reserve-summary-item {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #e3b341;
+}
+
+.dealer-balances-bar-reserve {
+  margin-bottom: 8px;
+}
+
+.dealer-card-reserve-summary {
+  width: 100%;
+  margin-bottom: 2px;
+}
+
+.dealer-stop-reserve {
+  grid-column: 1 / -1;
+}
+
+.dealer-stop-reserve-items {
+  margin-bottom: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.dealer-assets-panel-reserve,
+.dealer-assets-wallet-reserve {
+  margin-bottom: 8px;
+}
+
+.dealer-assets-wallet-label .dealer-assets-wallet-reserve {
+  display: inline-flex;
+  margin-left: 8px;
+  margin-bottom: 0;
+  padding: 2px 6px;
+  vertical-align: middle;
+}
+
+.strategy-dealer-card-reserve {
+  margin-top: 6px;
+  margin-bottom: 0;
+  padding: 3px 6px;
+}
+
+.strategy-inv-reserve {
+  margin: 4px 0 6px;
+}
+
+.strategy-inv-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.strategy-inv-chip.has-reserve {
+  border-color: rgba(210, 153, 34, 0.45) !important;
+}
+
+.strategy-inv-chip-reserve {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: #d29922;
+  line-height: 1.2;
 }
 
 .dealer-balance-chip strong {
@@ -797,6 +918,12 @@ body.dealer-route-active .App.app-ready {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 4px;
+}
+
+.dealer-clear-toml-hint {
+  font-size: 0.78rem;
+  color: #8b949e;
+  margin: 4px 0 8px;
 }
 .dealer-reserve-hint {
   font-size: 0.72rem;
@@ -1546,6 +1673,18 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-op-tab-panel {
   min-height: 0;
+}
+
+.dealer-live-book-section {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #21262d;
+}
+
+.dealer-live-book-section .dealer-order-placement {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-top: 0;
 }
 
 .dealer-op-tab-panel .dealer-assets-panel,
@@ -2987,6 +3126,55 @@ body.dealer-route-active .App.app-ready {
   font-weight: 600;
 }
 
+.dealer-cancel-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.dealer-cancel-row .dealer-cancel-item {
+  flex: 1;
+}
+
+.dealer-cancel-toml-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  align-self: center;
+  background: transparent;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.68rem;
+  color: #8b949e;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.dealer-cancel-toml-btn:hover:not(:disabled) {
+  border-color: #f85149;
+  color: #f85149;
+}
+
+.dealer-cancel-toml-btn.armed {
+  border-color: #f85149;
+  background: rgba(248, 81, 73, 0.12);
+  color: #f85149;
+  font-weight: 600;
+}
+
+.dealer-cancel-toml-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dealer-cancel-keep-toml {
+  font-size: 0.78rem;
+  color: #8b949e;
+}
+
 .dealer-cancel-pair {
   font-weight: 600;
 }
@@ -3777,6 +3965,12 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-form-block {
   padding-top: 8px;
+}
+
+.dealer-tab-divider {
+  border: none;
+  border-top: 1px solid #21262d;
+  margin: 14px 0;
 }
 
 .dealer-extra-btns {
@@ -4814,6 +5008,24 @@ body.dealer-route-active .App.app-ready {
   font-size: 0.75rem;
   color: #6e7681;
   margin-bottom: 0;
+}
+
+.dealer-dubious-order-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #d29922;
+  background: rgba(210, 153, 34, 0.1);
+  border: 1px solid rgba(210, 153, 34, 0.35);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.dealer-dubious-order-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .dealer-vault-warning code {
@@ -6793,4 +7005,83 @@ body.dealer-route-active .App.app-ready {
 .dealer-pair-default-save-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* ── Pending Approvals Panel ── */
+
+.dealer-approvals-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dealer-approvals-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dealer-approvals-hint {
+  color: #8b949e;
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.dealer-approvals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dealer-approval-row {
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(248, 81, 73, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dealer-approval-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dealer-approval-dir {
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid;
+}
+
+.dealer-approval-dir.buy  { color: #56d364; border-color: #238636; background: rgba(63,185,80,0.1); }
+.dealer-approval-dir.sell { color: #ff7b72; border-color: #da3633; background: rgba(248,81,73,0.1); }
+
+.dealer-approval-meta {
+  color: #8b949e;
+  font-size: 0.78rem;
+  margin-left: auto;
+}
+
+.dealer-approval-row-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.74rem;
+  color: #6e7681;
+}
+
+.dealer-approval-row-sub code {
+  background: rgba(110, 118, 129, 0.12);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.dealer-approval-row-actions {
+  display: flex;
+  gap: 8px;
 }

@@ -287,7 +287,7 @@ export default function OrdersPanel({
         <p className="dealer-hint">
           Ordens pendentes ainda não estão no SideSwap — aguardam price monitor ou envio pelo manager.
           {statusCounts.calculating > 0 && ` ${statusCounts.calculating} calculando preço.`}
-          {' '}O livro público abaixo mostra só as {sentCount} enviada{sentCount !== 1 ? 's' : ''}.
+          {' '}O livro ao vivo acima mostra só as {sentCount} enviada{sentCount !== 1 ? 's' : ''}.
         </p>
       )}
     </section>

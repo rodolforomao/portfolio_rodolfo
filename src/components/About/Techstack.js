@@ -5,7 +5,6 @@ import {
   DiJavascript1,
   DiReact,
   DiNodejs,
-  DiMongodb,
   DiPython,
   DiGit,
   DiJava,
@@ -14,14 +13,7 @@ import {
   DiCss3,
   DiJqueryLogo,
 } from "react-icons/di";
-import {
-  SiRedis,
-  SiFirebase,
-  SiNextdotjs,
-  SiSolidity,
-  SiPostgresql,
-} from "react-icons/si";
-import { TbBrandCSharp, TbBrandFlutter, TbBrandGolang } from "react-icons/tb";
+import { TbBrandCSharp, TbBrandFlutter } from "react-icons/tb";
 
 function Techstack() {
   return (

@@ -5,10 +5,11 @@ import Badge from 'react-bootstrap/Badge';
 import {
   TbPlayerPlay, TbPlayerStop, TbTarget, TbCheck, TbAlertTriangle,
   TbRocket, TbSettings, TbLock, TbCalculator, TbArrowRight, TbWallet,
-  TbListDetails, TbActivity, TbChartLine, TbFlask,
+  TbListDetails, TbActivity, TbFlask,
 } from 'react-icons/tb';
 import { parsePercentInput } from './PriceFields';
-import { normalizeBalances, formatAssetBalance, canonicalAssetName } from './utils/dealerFormat';
+import { formatAssetBalance, normalizeBalances, getAssetReserve, computeAvailableBalance, hasReserveConfigured, canonicalAssetName } from './utils/dealerFormat';
+import { DealerReserveSummary, dealerHasReserve } from './DealerBalanceDisplay';
 import { prepareDealerOrders } from './utils/orderMarketNormalize';
 import DealerStatusBadge from './DealerStatusBadge';
 import { sortBookSide, formatBookPrice } from './utils/sideswapBook';
@@ -199,6 +200,13 @@ function DealerStrategyChip({ dealer, selected, activatedHere, onClick }) {
         </div>
         <DealerStatusBadge dealer={dealer} />
       </div>
+      {dealerHasReserve(dealer) && (
+        <DealerReserveSummary
+          reserveBalance={dealer.reserve_balance}
+          className="strategy-dealer-card-reserve"
+          prefix="reserva"
+        />
+      )}
       {activatedHere && (
         <div className="strategy-dealer-card-selected-label">ativado nesta sessão</div>
       )}
@@ -209,21 +217,43 @@ function DealerStrategyChip({ dealer, selected, activatedHere, onClick }) {
   );
 }
 
-function InventoryRow({ lbtc, usdt, depix }) {
+function InventoryAssetChip({ asset, value, reserve = 0, skinClass }) {
+  const hasReserve = reserve > 0;
+  const available = computeAvailableBalance(value, reserve);
+
+  return (
+    <span className={`strategy-inv-chip ${skinClass}${hasReserve ? ' has-reserve' : ''}`}>
+      <span className="strategy-inv-chip-total">{formatAssetBalance(asset, value)}</span>
+      {hasReserve && (
+        <span className="strategy-inv-chip-reserve">
+          reserva {formatAssetBalance(asset, reserve)} · livre {formatAssetBalance(asset, available)}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function InventoryRow({ lbtc, usdt, depix, reserveBalance }) {
+  const usdtReserve = getAssetReserve(reserveBalance, 'USDt');
+  const lbtcReserve = getAssetReserve(reserveBalance, 'L-BTC');
+  const depixReserve = getAssetReserve(reserveBalance, 'DePix');
+  const showReserve = hasReserveConfigured(reserveBalance);
+
   return (
     <div className="strategy-inventory">
       <span className="strategy-inv-label"><TbWallet size={12} /> Inventário</span>
+      {showReserve && (
+        <DealerReserveSummary
+          reserveBalance={reserveBalance}
+          className="strategy-inv-reserve"
+          prefix="Reserva mín."
+        />
+      )}
       <div className="strategy-inv-chips">
-        <span className="strategy-inv-chip lbtc">
-          {formatAssetBalance('L-BTC', lbtc)}
-        </span>
-        <span className="strategy-inv-chip usdt">
-          {usdt.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDt
-        </span>
+        <InventoryAssetChip asset="L-BTC" value={lbtc} reserve={lbtcReserve} skinClass="lbtc" />
+        <InventoryAssetChip asset="USDt" value={usdt} reserve={usdtReserve} skinClass="usdt" />
         {depix > 0 && (
-          <span className="strategy-inv-chip depix">
-            {depix.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DePix
-          </span>
+          <InventoryAssetChip asset="DePix" value={depix} reserve={depixReserve} skinClass="depix" />
         )}
       </div>
     </div>
@@ -1160,7 +1190,12 @@ export default function StrategyPanel({
 
           {/* Inventário */}
           {dealerSelected && selectedDealer && (
-            <InventoryRow lbtc={lbtcBalance} usdt={usdtBalance} depix={depixBalance} />
+            <InventoryRow
+              lbtc={lbtcBalance}
+              usdt={usdtBalance}
+              depix={depixBalance}
+              reserveBalance={selectedDealer?.reserve_balance}
+            />
           )}
 
           {/* Motores — locked sem dealer */}

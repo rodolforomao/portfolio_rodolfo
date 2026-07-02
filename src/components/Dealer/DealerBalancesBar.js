@@ -1,14 +1,8 @@
 import React from 'react';
 import DealerStatusBadge from './DealerStatusBadge';
-import { formatAssetBalance, normalizeBalances } from './utils/dealerFormat';
+import { DealerBalanceChip, DealerReserveSummary, dealerHasReserve } from './DealerBalanceDisplay';
+import { enrichBalancesWithReserve } from './utils/dealerFormat';
 import { getWalletColor, walletColorStyle } from './utils/walletColors';
-
-function assetChipClass(asset) {
-  const a = String(asset || '').toLowerCase();
-  if (a.includes('btc')) return 'btc';
-  if (a.includes('usd') || a.includes('depix')) return 'stable';
-  return 'other';
-}
 
 function balancePendingLabel(dealer) {
   if (dealer.dealerStatus === 'morto') return 'Saldos indisponíveis (dealer morto)';
@@ -26,7 +20,8 @@ export default function DealerBalancesBar({
 
   const wallet = dealer.wallet_name || '—';
   const walletColor = getWalletColor(wallet);
-  const balances = normalizeBalances(dealer.balances);
+  const balances = enrichBalancesWithReserve(dealer.balances, dealer?.reserve_balance);
+  const showReserveSummary = dealerHasReserve(dealer) && !compact;
 
   return (
     <div
@@ -55,16 +50,20 @@ export default function DealerBalancesBar({
         )}
       </div>
 
+      {showReserveSummary && (
+        <DealerReserveSummary reserveBalance={dealer.reserve_balance} className="dealer-balances-bar-reserve" />
+      )}
+
       <div className="dealer-balances-bar-assets">
         {balances.length > 0 ? (
-          balances.map(({ asset, value }) => (
-            <span
+          balances.map(({ asset, value, reserve }) => (
+            <DealerBalanceChip
               key={asset}
-              className={`dealer-balance-chip dealer-balance-chip-${assetChipClass(asset)}`}
-            >
-              <span className="dealer-balance-chip-asset">{asset}</span>
-              <strong>{formatAssetBalance(asset, value)}</strong>
-            </span>
+              asset={asset}
+              value={value}
+              reserve={reserve}
+              compact={compact}
+            />
           ))
         ) : (
           <span className="dealer-balance-pending">{balancePendingLabel(dealer)}</span>
