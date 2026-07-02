@@ -76,6 +76,8 @@ def _agent_status_payload(connected: bool) -> dict:
         payload["session_id"] = agent_meta.get("session_id")
         payload["hostname"] = agent_meta.get("hostname")
         payload["agent_session_id"] = agent_meta.get("agent_session_id")
+        payload["git_tag"] = agent_meta.get("git_tag")
+        payload["pid"] = agent_meta.get("pid")
     return payload
 
 
@@ -127,6 +129,8 @@ async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
 
     hostname = (auth.get("hostname") or "unknown").strip()
     client_session = auth.get("session_id") or auth.get("agent_session_id")
+    git_tag = auth.get("git_tag")
+    pid = auth.get("pid")
 
     async with _lock:
         await _disconnect_previous_agent(hostname)
@@ -137,10 +141,12 @@ async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
             "session_id": agent_session_id,
             "agent_session_id": client_session,
             "hostname": hostname,
+            "git_tag": git_tag,
+            "pid": pid,
             "connected_at": _utc_now_iso(),
         }
 
-    log(f"Dealer agent conectado: {hostname} (relay session #{agent_session_id})")
+    log(f"Dealer agent conectado: {hostname} (relay session #{agent_session_id}, tag {git_tag or '?'}, pid {pid or '?'})")
 
     await broadcast_state_reset("agent_connected")
     await broadcast(json.dumps(_agent_status_payload(True)))

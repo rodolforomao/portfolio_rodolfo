@@ -148,6 +148,27 @@ export function computePlacement(bookOrders, ownOrder) {
   };
 }
 
+/** Procura no livro público uma ordem com o mesmo preço (mesma direção) mas
+ * order_id diferente da nossa — indício de outro dealer rodando com a mesma
+ * carteira (comum ao debugar em paralelo com produção): os dois processos
+ * publicam a mesma ordem (mesmo preço) só que com IDs distintos, e a nossa
+ * (a que o site conhece) acaba sumindo do livro por trás da outra.
+ */
+export function findLikelyDuplicateOrder(bookOrders, ownOrder) {
+  const tradeDir = ownOrder?.trade_dir;
+  const ownId = ownOrder?.order_id != null ? String(ownOrder.order_id) : null;
+  const ownPrice = Number(ownOrder?.price ?? ownOrder?.original_price);
+  if (!tradeDir || !Number.isFinite(ownPrice) || ownPrice <= 0) return null;
+
+  const match = (bookOrders || []).find((o) => (
+    o.trade_dir === tradeDir
+    && String(o.order_id) !== ownId
+    && Number.isFinite(Number(o.price))
+    && Math.abs(Number(o.price) - ownPrice) / ownPrice < 0.0005
+  ));
+  return match || null;
+}
+
 /** Ordens no livro público primeiro; entre elas, melhor posição no topo. */
 export function sortPlacementsByBook(placements = []) {
   return [...placements].sort((a, b) => {

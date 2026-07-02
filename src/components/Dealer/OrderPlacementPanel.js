@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
-import { TbExternalLink, TbRefresh, TbCircleCheck, TbCircleX, TbAlertTriangle } from 'react-icons/tb';
+import { TbExternalLink, TbRefresh, TbCircleCheck, TbCircleX, TbAlertTriangle, TbChartLine } from 'react-icons/tb';
 import { SideswapBadge, ManagerBadge } from './SourceBadge';
 import OrderMarginBadge from './OrderMarginBadge';
+import CompetitorMapModal from './CompetitorMapModal';
 import { FollowRefLink, bookOrderAnchorId } from './utils/followTarget';
 import {
   computeExternalMargin,
@@ -19,6 +20,7 @@ import {
   bookNotional,
   sortBookSide,
   sortPlacementsByBook,
+  findLikelyDuplicateOrder,
 } from './utils/sideswapBook';
 import { prepareDealerOrders } from './utils/orderMarketNormalize';
 import { assessOrderBookPresence } from './utils/orderPlacementStatus';
@@ -168,7 +170,9 @@ export default function OrderPlacementPanel({
   indPrices = {},
   placements = [],
   reconnect = () => {},
+  getCompetitorMap = () => null,
 }) {
+  const [competitorModalKey, setCompetitorModalKey] = useState(null);
   const { orders: prepared } = prepareDealerOrders(dealer?.orders || []);
 
   const dealerAmountById = useMemo(() => {
@@ -281,11 +285,16 @@ export default function OrderPlacementPanel({
           invertedPair,
           bookLabel: found ? label : null,
         });
-        const badgeLabel = presence.badgeLabel;
+        const duplicateCandidate = presence.key === 'erro'
+          ? findLikelyDuplicateOrder(book, order)
+          : null;
+        const badgeLabel = duplicateCandidate ? 'suspected duplicate' : presence.badgeLabel;
+        const badgeVariant = duplicateCandidate ? 'warning' : presence.variant;
         const publicLabel = presence.key === 'found' ? label : presence.publicLabel;
         const cardClass = [
           'dealer-placement-card',
-          presence.key === 'erro' ? 'dealer-placement-card-erro' : '',
+          presence.key === 'erro' && !duplicateCandidate ? 'dealer-placement-card-erro' : '',
+          presence.key === 'erro' && duplicateCandidate ? 'dealer-placement-card-dup' : '',
           presence.key === 'sem_ativo' ? 'dealer-placement-card-sem-ativo' : '',
         ].filter(Boolean).join(' ');
 
@@ -321,8 +330,10 @@ export default function OrderPlacementPanel({
               <PlacementBadge
                 found={found}
                 label={badgeLabel}
-                variant={presence.variant}
-                hint={presence.hint}
+                variant={badgeVariant}
+                hint={duplicateCandidate
+                  ? `Suspeita de outro dealer com a mesma carteira — ordem ${duplicateCandidate.order_id} tem o mesmo preço no livro público.`
+                  : presence.hint}
               />
             </div>
 
@@ -339,7 +350,17 @@ export default function OrderPlacementPanel({
               </p>
             )}
 
-            {presence.key === 'erro' && (
+            {presence.key === 'erro' && duplicateCandidate && (
+              <p className="dealer-placement-erro dealer-placement-erro-note dealer-placement-dup-note" role="alert">
+                <TbAlertTriangle />
+                {' '}<strong>Suspeita de dealer duplicado:</strong> nossa ordem{' '}
+                <code>{order.order_id}</code> sumiu do livro público, mas achamos outra com o
+                mesmo preço (ID <code>{duplicateCandidate.order_id}</code>) — provavelmente outro
+                processo dealer com a mesma carteira.
+              </p>
+            )}
+
+            {presence.key === 'erro' && !duplicateCandidate && (
               <p className="dealer-placement-erro dealer-placement-erro-note" role="alert">
                 <TbAlertTriangle />
                 {' '}<strong>Erro:</strong> ordem <code>{order.order_id}</code> publicada no dealer
@@ -435,6 +456,15 @@ export default function OrderPlacementPanel({
                         {' '}· ind {formatBookPrice(marketRef.indPrice)}
                       </span>
                     )}
+                    <Button
+                      variant="outline-secondary"
+                      size="sm"
+                      className="dealer-competitor-map-trigger"
+                      onClick={() => setCompetitorModalKey(cardKey)}
+                      title="Ver mapeamento de comportamento do concorrente"
+                    >
+                      <TbChartLine /> Concorrente
+                    </Button>
                   </div>
                   <MiniBook
                     orders={book.length ? book : sideOrders}
@@ -452,6 +482,29 @@ export default function OrderPlacementPanel({
           </div>
         );
       })}
+
+      {competitorModalKey && (() => {
+        const active = sortedPlacements.find((it) => {
+          const k = it.order.order_id
+            ? `${it.order.order_id}-${it.order.trade_dir}`
+            : `${it.order.base}-${it.order.quote}-${it.order.trade_dir}`;
+          return k === competitorModalKey;
+        });
+        if (!active) return null;
+        const activeTradeDir = active.market?.marketTradeDir || active.order.trade_dir;
+        const competitorMap = active.pairKey ? getCompetitorMap(active.pairKey, activeTradeDir) : null;
+        return (
+          <CompetitorMapModal
+            show
+            onHide={() => setCompetitorModalKey(null)}
+            order={active.order}
+            tradeDir={activeTradeDir}
+            baseAsset={active.market?.marketBase || active.order.base}
+            quoteAsset={active.market?.marketQuote || active.order.quote}
+            competitorMap={competitorMap}
+          />
+        );
+      })()}
 
       {pairs.map((pair) => {
         const count = (books[pair.key] || []).length;

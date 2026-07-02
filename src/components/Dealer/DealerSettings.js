@@ -19,8 +19,11 @@ export default function DealerSettings({
   sendCommand,
   wsStatus,
   agentConnected,
+  agentMeta,
   wsUrl,
   onPreferencesChange,
+  updateRestartResult,
+  onDismissUpdateRestartResult,
 }) {
   const [section, setSection] = useState('vault');
   const [backendSettings, setBackendSettings] = useState(null);
@@ -90,10 +93,14 @@ export default function DealerSettings({
           )}
           {section === 'connection' && (
             <ConnectionSettings
+              sendCommand={sendCommand}
               wsStatus={wsStatus}
               agentConnected={agentConnected}
+              agentMeta={agentMeta}
               wsUrl={wsUrl}
               settings={backendSettings}
+              updateRestartResult={updateRestartResult}
+              onDismissUpdateRestartResult={onDismissUpdateRestartResult}
             />
           )}
           {section === 'preferences' && (

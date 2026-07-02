@@ -609,6 +609,23 @@ body.dealer-route-active .App.app-ready {
   opacity: 0.75;
 }
 
+.dealer-card-error {
+  border-left: 3px solid #f85149;
+  background: #1a0f0f;
+}
+
+.dealer-card-crash-error {
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  color: #ffb4ab;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
 .dealer-card-inactive-hint {
   color: #d29922;
 }
@@ -929,6 +946,9 @@ body.dealer-route-active .App.app-ready {
   font-size: 0.72rem;
   color: #6e7681;
   margin-bottom: 8px;
+}
+.dealer-manager-pid-label code {
+  color: #79c0ff;
 }
 .dealer-reserve-row {
   display: flex;
@@ -1634,47 +1654,6 @@ body.dealer-route-active .App.app-ready {
   font-weight: 700;
 }
 
-/* ── Sub-abas Operacional: Saldos / Ordens / Livro ── */
-.dealer-op-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #21262d;
-}
-
-.dealer-op-tab {
-  background: #21262d;
-  border: 1px solid #30363d;
-  border-radius: 6px;
-  padding: 5px 12px;
-  color: #8b949e;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.dealer-op-tab:hover {
-  color: #c9d1d9;
-  border-color: #484f58;
-}
-
-.dealer-op-tab.active {
-  color: #e6edf3;
-  background: rgba(199, 112, 240, 0.12);
-  border-color: #c770f0;
-  font-weight: 600;
-}
-
-.dealer-op-tab-panel {
-  min-height: 0;
-}
-
 .dealer-live-book-section {
   margin-bottom: 14px;
   padding-bottom: 14px;
@@ -1685,14 +1664,6 @@ body.dealer-route-active .App.app-ready {
   margin-bottom: 0;
   border-bottom: none;
   padding-top: 0;
-}
-
-.dealer-op-tab-panel .dealer-assets-panel,
-.dealer-op-tab-panel .dealer-orders-panel,
-.dealer-op-tab-panel .dealer-order-placement {
-  border-top: none;
-  padding-top: 0;
-  margin-top: 0;
 }
 
 .dealer-assets-panel {
@@ -3893,11 +3864,20 @@ body.dealer-route-active .App.app-ready {
   background: rgba(248, 81, 73, 0.06);
 }
 
+.dealer-placement-card-dup {
+  border-color: rgba(210, 153, 34, 0.55);
+  background: rgba(210, 153, 34, 0.06);
+}
+
 .dealer-placement-erro-note {
   margin: 0.5rem 0 0;
   font-size: 0.82rem;
   line-height: 1.45;
   color: #f85149;
+}
+
+.dealer-placement-dup-note {
+  color: #d29922;
 }
 
 .dealer-placement-erro-text {
@@ -3965,6 +3945,13 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-form-block {
   padding-top: 8px;
+}
+
+.dealer-general-commands {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  padding: 10px 12px 4px;
 }
 
 .dealer-tab-divider {
@@ -4677,8 +4664,30 @@ body.dealer-route-active .App.app-ready {
     overflow: hidden;
   }
 
+  /* .dealer-panel-commands trava a altura (max-height + overflow:hidden)
+     acima; sem isto, o bloco "Iniciar novo dealer"/"Comandos gerais" (que
+     fica ANTES das abas, fora de .tab-content) mais qualquer banner de
+     status/erro injetado ali eram só cortados pelo overflow:hidden do pai,
+     sem nenhuma barra de rolagem — a rolagem só existia dentro da aba ativa.
+     Agora o painel inteiro (feedback + comandos gerais + abas) rola como uma
+     coisa só; .tab-content deixa de ter seu próprio scroll aninhado. */
   .dealer-panel-commands > .dealer-command-panel {
     min-height: 180px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* seletor com 1 nível a mais de especificidade que a regra base
+     (.dealer-command-panel > .tab-content) para vencer com segurança,
+     independente da ordem de injeção do CSS pelo dev server. Precisa
+     zerar overflow-x também: overflow-y:visible sozinho com overflow-x
+     ainda hidden vira "auto" no valor computado (regra da spec para eixos
+     misturados), o que recriava um scroll aninhado indesejado aqui. */
+  .dealer-panel-commands > .dealer-command-panel > .tab-content {
+    overflow: visible;
+    flex: 0 0 auto;
+    min-height: 0;
   }
 }
 
@@ -4730,6 +4739,141 @@ body.dealer-route-active .App.app-ready {
   flex-direction: column;
   flex: 1;
   max-height: none;
+}
+
+/* Mapeamento de comportamento do concorrente */
+
+.dealer-competitor-modal .modal-content {
+  background: #161b22;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+}
+
+.dealer-competitor-modal .modal-header,
+.dealer-competitor-modal .modal-footer {
+  background: #0d1117;
+  border-color: #30363d;
+}
+
+.dealer-competitor-modal .modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  color: #e6edf3;
+}
+
+.dealer-competitor-modal .dealer-modal-body {
+  padding: 16px;
+  max-height: min(75vh, 700px);
+  overflow-y: auto;
+}
+
+.dealer-competitor-subtitle {
+  color: #8b949e;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.dealer-competitor-banner {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.dealer-competitor-banner-neutral {
+  background: rgba(139, 148, 158, 0.12);
+  color: #8b949e;
+}
+
+.dealer-competitor-floor-row {
+  margin-bottom: 12px;
+}
+
+.dealer-competitor-floor-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: rgba(139, 148, 158, 0.1);
+}
+
+.dealer-competitor-confidence-alta {
+  color: #3fb950;
+}
+
+.dealer-competitor-confidence-media {
+  color: #d29922;
+}
+
+.dealer-competitor-confidence-baixa {
+  color: #8b949e;
+}
+
+.dealer-competitor-chart {
+  margin: 8px 0 16px;
+  background: #0d1117;
+  border: 1px solid #1a2744;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.dealer-competitor-events {
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.78rem;
+}
+
+.dealer-competitor-events-head,
+.dealer-competitor-events-row {
+  display: grid;
+  grid-template-columns: 84px 1fr 1fr 1fr 72px;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.dealer-competitor-events-head {
+  background: #0d1117;
+  color: #8b949e;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}
+
+.dealer-competitor-events-row {
+  border-top: 1px solid #21262d;
+  color: #c9d1d9;
+}
+
+.dealer-competitor-event-reaction_drop {
+  color: #d29922;
+}
+
+.dealer-competitor-event-reaction_hold {
+  color: #3fb950;
+}
+
+.dealer-competitor-event-competitor_lost {
+  color: #f85149;
+}
+
+.dealer-competitor-footnote {
+  color: #8b949e;
+  font-size: 0.78rem;
+  margin-right: auto;
+}
+
+.dealer-competitor-map-trigger {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
 @media (max-width: 991px) {
@@ -5041,6 +5185,81 @@ body.dealer-route-active .App.app-ready {
 .dealer-spin {
   animation: dealer-spin 1s linear infinite;
   display: inline-block;
+}
+
+.dealer-update-restart-result {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  border: 1px solid;
+}
+
+.dealer-update-restart-result strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.dealer-update-restart-error {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.1);
+  border-color: rgba(248, 81, 73, 0.35);
+}
+
+.dealer-update-restart-up_to_date {
+  color: #8b949e;
+  background: rgba(139, 148, 158, 0.1);
+  border-color: rgba(139, 148, 158, 0.3);
+}
+
+.dealer-update-restart-restarting {
+  color: #3fb950;
+  background: rgba(63, 185, 80, 0.1);
+  border-color: rgba(63, 185, 80, 0.35);
+}
+
+.dealer-update-restart-stderr {
+  margin: 6px 0 0;
+  font-size: 0.7rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #8b949e;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.dealer-update-restart-stderr:empty {
+  display: none;
+}
+
+.dealer-gitpass-form {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+  background: #161b22;
+}
+
+.dealer-gitpass-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dealer-gitpass-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 5px 10px;
+  color: #e6edf3;
+  font-size: 0.8rem;
+}
+
+.dealer-gitpass-input:focus {
+  outline: none;
+  border-color: #c770f0;
 }
 
 /* ── Architecture panel ── */

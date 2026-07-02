@@ -16,6 +16,20 @@ export const EMPTY_DEALER_STATE = {
   services: null,
 };
 
+// Campos que nunca devem aparecer em claro no log de mensagens (visível na
+// UI) — mesmo sendo enviados via wss:// criptografado, não faz sentido
+// deixá-los em texto puro no painel de logs do navegador.
+const SENSITIVE_PARAM_KEYS = ['token', 'password', 'mnemonic', 'passphrase'];
+
+function redactSensitiveParams(params) {
+  if (!params || typeof params !== 'object') return params;
+  const redacted = { ...params };
+  for (const key of SENSITIVE_PARAM_KEYS) {
+    if (key in redacted) redacted[key] = '[redacted]';
+  }
+  return redacted;
+}
+
 export default function useDealerWs(wsUrl, token, enabled) {
   const wsRef = useRef(null);
   const reqIdRef = useRef(1);
@@ -52,12 +66,14 @@ export default function useDealerWs(wsUrl, token, enabled) {
     if (sid != null && sid !== agentSessionRef.current) {
       agentSessionRef.current = sid;
       setState({ ...EMPTY_DEALER_STATE, ts: msg.ts || new Date().toISOString() });
-      addLog(`[system] Nova sessão do manager (#${sid}${msg.hostname ? ` · ${msg.hostname}` : ''})`);
+      addLog(`[system] Nova sessão do manager (#${sid}${msg.hostname ? ` · ${msg.hostname}` : ''}${msg.git_tag ? ` · tag ${msg.git_tag}` : ''}${msg.pid ? ` · PID ${msg.pid}` : ''})`);
     }
     if (msg.hostname || sid != null) {
       setAgentMeta({
         sessionId: sid,
         hostname: msg.hostname || null,
+        gitTag: msg.git_tag || null,
+        pid: msg.pid || null,
         connectedAt: msg.ts || null,
       });
     }
@@ -357,7 +373,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
       });
 
       wsRef.current.send(JSON.stringify(payload));
-      addLog(`[cmd] ${action} ${JSON.stringify(params)}`);
+      addLog(`[cmd] ${action} ${JSON.stringify(redactSensitiveParams(params))}`);
     });
   }, [addLog]);
 

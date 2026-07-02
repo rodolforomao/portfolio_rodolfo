@@ -118,13 +118,26 @@ export default function SystemStatusBar({
   const wsLabel = wsOk ? 'Relay OK' : wsConnecting ? 'Relay…' : wsStatus === 'error' ? 'Relay erro' : 'Relay off';
 
   const managerLabel = agentConnected ? 'Manager OK' : 'Manager off';
-  const managerDetail = agentConnected
-    ? (agentMeta?.hostname ? agentMeta.hostname : 'no relay')
-    : 'ausente';
+  // Rótulo "PID manager" (não só "PID") pra não confundir com o PID de um
+  // dealer individual — cada DealerCard já mostra "PID {pid}" pro processo
+  // filho sideswap_dealer_lwk, que é um número totalmente diferente.
+  const managerDetailParts = [
+    agentMeta?.hostname || 'no relay',
+    agentMeta?.gitTag || null,
+    agentMeta?.pid ? `PID manager ${agentMeta.pid}` : null,
+  ].filter(Boolean);
+  const managerDetail = agentConnected ? managerDetailParts.join(' · ') : 'ausente';
+  const managerTitleParts = [
+    agentMeta?.hostname || 'relay',
+    agentMeta?.sessionId != null ? `sessão #${agentMeta.sessionId}` : null,
+    agentMeta?.gitTag ? `tag ${agentMeta.gitTag}` : 'tag desconhecida (git tag vazio ou repo sem tags)',
+    agentMeta?.pid
+      ? `PID do manager_dealer.py: ${agentMeta.pid} (processo que roda update_and_restart — `
+        + `não muda depois do restart de propósito, quem confirma é a sessão acima)`
+      : null,
+  ].filter(Boolean);
   const managerTitle = agentConnected
-    ? `manager_dealer conectado (${agentMeta?.hostname || 'relay'}${
-        agentMeta?.sessionId != null ? ` · sessão #${agentMeta.sessionId}` : ''
-      })`
+    ? `manager_dealer conectado (${managerTitleParts.join(' · ')})`
     : 'manager_dealer não está no relay — aguardando novo agente ou reconexão';
 
   const orderParts = [];

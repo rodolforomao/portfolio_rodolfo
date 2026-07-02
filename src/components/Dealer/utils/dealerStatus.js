@@ -5,6 +5,7 @@ export const DEALER_STATUS_META = {
   unused: { label: 'não usado', short: 'IDLE', description: 'Online sem ordens nem saldos' },
   zombie: { label: 'zumbi', short: 'ZMB', description: 'Listado no backend, sem sync WS recente' },
   morto: { label: 'morto', short: 'OFF', description: 'Só no histórico local — processo encerrado' },
+  error: { label: 'erro', short: 'ERR', description: 'Processo não consegue iniciar — ver motivo abaixo' },
 };
 
 function hasActivity(dealer) {
@@ -43,18 +44,28 @@ export function buildDealerList(wsDealers = [], fetchedDealers = []) {
         dealerStatus = hasActivity(merged) ? 'online' : 'unused';
       }
 
+      // crash_error vem do manager_dealer (dealer_service.py::_crash_reasons)
+      // quando o processo do dealer crasha logo na inicialização (ex: panic
+      // do binário por mnemonic inválido) — sobrevive a troca de PID porque é
+      // chaveado por work_dir no backend. Se está presente, o dealer nunca
+      // chegou a abrir a porta de verdade nesse ciclo, então não é "online"
+      // de fato — sobrepõe qualquer outro status calculado acima.
+      if (merged.crash_error) {
+        dealerStatus = 'error';
+      }
+
       const meta = DEALER_STATUS_META[dealerStatus];
       return {
         ...merged,
         dealerStatus,
         statusLabel: meta.label,
         statusShort: meta.short,
-        statusHint: meta.description,
+        statusHint: dealerStatus === 'error' ? merged.crash_error.message : meta.description,
         isLive: dealerStatus === 'online' || dealerStatus === 'unused',
       };
     })
     .sort((a, b) => {
-      const order = { online: 0, unused: 1, zombie: 2, morto: 3 };
+      const order = { error: 0, online: 1, unused: 2, zombie: 3, morto: 4 };
       const diff = (order[a.dealerStatus] ?? 9) - (order[b.dealerStatus] ?? 9);
       return diff || (a.pid - b.pid);
     });
@@ -70,6 +81,7 @@ export function countDealersByStatus(dealers) {
 export function dealersSummaryLabel(dealers) {
   const c = countDealersByStatus(dealers);
   const parts = [];
+  if (c.error) parts.push(`${c.error} com erro`);
   if (c.online) parts.push(`${c.online} online`);
   if (c.unused) parts.push(`${c.unused} não usado`);
   if (c.zombie) parts.push(`${c.zombie} zumbi`);
