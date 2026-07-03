@@ -71,6 +71,46 @@
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ds-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dealer-version-tag {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ds-text-muted);
+  background: var(--ds-bg-overlay);
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-r-sm);
+  padding: 2px 6px;
+}
+
+/* ── Alerta de concorrência entre agentes ──────────────────────── */
+.dealer-agent-conflict-alert {
+  margin: 6px 0 0;
+  font-size: var(--ds-text-sm);
+}
+
+.dealer-agent-conflict-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin-top: 6px;
+}
+
+.dealer-agent-conflict-detail > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dealer-agent-conflict-detail span {
+  font-size: 0.75rem;
+  opacity: 0.75;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 /* ── Status bar (sys pills) ─────────────────────────────────── */
@@ -656,6 +696,102 @@
 
 .dealer-mini-book-row.selected {
   background: var(--ds-blue-dim) !important;
+}
+
+/* ── Order books panel (menu "Livros") ───────────────────── */
+.dealer-book-pair-card {
+  margin-bottom: 16px;
+}
+
+.dealer-book-pair-header h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ds-text-md, 1rem);
+  margin-bottom: 4px;
+}
+
+.dealer-book-inverted-hint {
+  font-size: var(--ds-text-xs);
+  font-weight: 400;
+  color: var(--ds-text-muted);
+}
+
+.dealer-book-pair-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.dealer-book-pair-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--ds-text-xs);
+  color: var(--ds-blue);
+}
+
+.dealer-book-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dealer-book-col-header {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  border-radius: var(--ds-r-sm) var(--ds-r-sm) 0 0;
+  background: var(--ds-bg-elevated);
+}
+
+.dealer-book-col-header-sell { color: var(--ds-red, #f85149); }
+.dealer-book-col-header-buy { color: var(--ds-green); }
+
+.dealer-book-table-scroll {
+  max-height: 320px;
+}
+
+.dealer-book-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dealer-book-table th {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ds-text-muted);
+  background: var(--ds-bg-overlay);
+  border-bottom: 1px solid var(--ds-border-default);
+  padding: 5px 8px;
+  position: sticky;
+  top: 0;
+}
+
+.dealer-book-table td {
+  padding: 5px 8px;
+  font-size: var(--ds-text-xs);
+  border-bottom: 1px solid var(--ds-border-subtle);
+}
+
+.dealer-book-row-mine td {
+  background: var(--ds-green-dim);
+  font-weight: 700;
+}
+
+.dealer-book-mine-tag {
+  white-space: nowrap;
+}
+
+.dealer-book-empty {
+  padding: 10px;
+  margin: 0;
 }
 
 /* ── Tabs ─────────────────────────────────────────────────── */

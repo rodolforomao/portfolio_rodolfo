@@ -34,6 +34,15 @@ agent_session_id: int = 0
 agent_meta: dict = {}
 _lock = asyncio.Lock()
 
+# Janela pra detectar duas fontes brigando pela mesma vaga de agente (ex: um
+# manager_dealer de dev esquecido rodando e apontando pra produção, disputando
+# com o Termux real) — cada substituição registra um timestamp aqui; se
+# várias acontecerem em pouco tempo, é sinal de concorrência, não de uma
+# troca única esperada (dev → produção).
+CONFLICT_WINDOW_SECONDS = 600   # 10 min
+CONFLICT_THRESHOLD = 3          # a partir de quantas trocas nessa janela avisa
+_replacement_events: list[float] = []
+
 
 def ts() -> str:
     return datetime.utcnow().strftime("%H:%M:%S")
@@ -75,6 +84,11 @@ def _agent_status_payload(connected: bool) -> dict:
     if connected and agent_meta:
         payload["session_id"] = agent_meta.get("session_id")
         payload["hostname"] = agent_meta.get("hostname")
+        # IP observado pelo próprio relay (via X-Forwarded-For/X-Real-IP, não
+        # dado enviado pelo agente) — junto com hostname/tag forma o
+        # "fingerprint" que o frontend usa pra deixar o operador nomear a
+        # fonte manualmente (ver localStorage em useDealerWs.js).
+        payload["ip"] = agent_meta.get("ip")
         payload["agent_session_id"] = agent_meta.get("agent_session_id")
         payload["git_tag"] = agent_meta.get("git_tag")
         payload["pid"] = agent_meta.get("pid")
@@ -101,8 +115,48 @@ async def broadcast_state_reset(reason: str):
     await broadcast(json.dumps(_state_reset_payload(reason)))
 
 
-async def _disconnect_previous_agent(new_hostname: str) -> None:
-    """Encerra agente anterior para permitir troca local → produção."""
+def _record_replacement() -> int:
+    """Registra uma substituição de agente e retorna quantas aconteceram
+    dentro de CONFLICT_WINDOW_SECONDS (incluindo esta)."""
+    now = time.time()
+    _replacement_events.append(now)
+    cutoff = now - CONFLICT_WINDOW_SECONDS
+    while _replacement_events and _replacement_events[0] < cutoff:
+        _replacement_events.pop(0)
+    return len(_replacement_events)
+
+
+def _agent_conflict_payload(prev_meta: dict, new_meta: dict, recent_count: int) -> dict:
+    return {
+        "type": "agent_conflict",
+        "ts": _utc_now_iso(),
+        "recent_replacements": recent_count,
+        "window_seconds": CONFLICT_WINDOW_SECONDS,
+        "likely_ongoing": recent_count >= CONFLICT_THRESHOLD,
+        "previous": {
+            "hostname": prev_meta.get("hostname"),
+            "ip": prev_meta.get("ip"),
+            "git_tag": prev_meta.get("git_tag"),
+            "pid": prev_meta.get("pid"),
+        },
+        "new": {
+            "hostname": new_meta.get("hostname"),
+            "ip": new_meta.get("ip"),
+            "git_tag": new_meta.get("git_tag"),
+            "pid": new_meta.get("pid"),
+        },
+    }
+
+
+async def _disconnect_previous_agent(new_meta: dict) -> None:
+    """Encerra agente anterior para permitir troca local → produção.
+
+    Também detecta concorrência entre duas fontes (ex: um manager_dealer de
+    dev esquecido rodando e disputando com o Termux real pela mesma vaga) —
+    ver CONFLICT_WINDOW_SECONDS acima. O site usa isso pra avisar o operador
+    a procurar/derrubar o manager excedente, em vez de só piscar "Manager OK"
+    de forma intermitente sem explicar o motivo.
+    """
     global dealer_agent, last_state, agent_meta
 
     prev = dealer_agent
@@ -112,8 +166,10 @@ async def _disconnect_previous_agent(new_hostname: str) -> None:
         agent_meta = {}
         return
 
-    prev_host = agent_meta.get("hostname", "?")
-    log(f"Substituindo agente '{prev_host}' por '{new_hostname}'")
+    prev_meta = dict(agent_meta)
+    prev_label = f"{prev_meta.get('hostname', '?')} ({prev_meta.get('ip', '?')})"
+    new_label = f"{new_meta.get('hostname', '?')} ({new_meta.get('ip', '?')})"
+    log(f"Substituindo agente '{prev_label}' por '{new_label}'")
     dealer_agent = None
     last_state = None
     agent_meta = {}
@@ -121,6 +177,9 @@ async def _disconnect_previous_agent(new_hostname: str) -> None:
         await prev.close(4010, "Substituído por novo agente")
     except Exception:
         pass
+
+    recent_count = _record_replacement()
+    await broadcast(json.dumps(_agent_conflict_payload(prev_meta, new_meta, recent_count)))
     await broadcast_state_reset("agent_replaced")
 
 
@@ -128,12 +187,13 @@ async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
     global dealer_agent, last_state, agent_connected_at, agent_session_id, agent_meta
 
     hostname = (auth.get("hostname") or "unknown").strip()
+    ip = _extract_client_ip(ws)
     client_session = auth.get("session_id") or auth.get("agent_session_id")
     git_tag = auth.get("git_tag")
     pid = auth.get("pid")
 
     async with _lock:
-        await _disconnect_previous_agent(hostname)
+        await _disconnect_previous_agent({"hostname": hostname, "ip": ip, "git_tag": git_tag, "pid": pid})
         agent_session_id += 1
         dealer_agent = ws
         agent_connected_at = time.time()
@@ -141,12 +201,13 @@ async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
             "session_id": agent_session_id,
             "agent_session_id": client_session,
             "hostname": hostname,
+            "ip": ip,
             "git_tag": git_tag,
             "pid": pid,
             "connected_at": _utc_now_iso(),
         }
 
-    log(f"Dealer agent conectado: {hostname} (relay session #{agent_session_id}, tag {git_tag or '?'}, pid {pid or '?'})")
+    log(f"Dealer agent conectado: {hostname} (ip {ip or '?'}, relay session #{agent_session_id}, tag {git_tag or '?'}, pid {pid or '?'})")
 
     await broadcast_state_reset("agent_connected")
     await broadcast(json.dumps(_agent_status_payload(True)))
@@ -171,7 +232,7 @@ async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
         pass
     finally:
         should_reset = False
-        hostname_out = hostname
+        name_out = agent_name
         async with _lock:
             if dealer_agent is ws:
                 dealer_agent = None
@@ -179,7 +240,7 @@ async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
                 last_state = None
                 agent_meta = {}
                 should_reset = True
-                log(f"Dealer agent desconectado: {hostname_out}")
+                log(f"Dealer agent desconectado: {name_out}")
         if should_reset:
             await broadcast_state_reset("agent_disconnected")
             await broadcast(json.dumps(_agent_status_payload(False)))

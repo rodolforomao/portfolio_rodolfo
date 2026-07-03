@@ -49,6 +49,11 @@ export default function useDealerWs(wsUrl, token, enabled) {
   const [messages, setMessages] = useState([]);
   const [events, setEvents] = useState([]);
   const [lastError, setLastError] = useState(null);
+  // Aviso de concorrência: duas fontes disputando a mesma vaga de agente no
+  // relay (ex: manager_dealer de dev esquecido rodando, apontando pra
+  // produção). Fica setado até o operador dispensar ou até um tempo sem
+  // recorrência — ver SystemStatusBar.
+  const [agentConflict, setAgentConflict] = useState(null);
 
   const clearAgentState = useCallback((reason) => {
     agentSessionRef.current = null;
@@ -63,14 +68,16 @@ export default function useDealerWs(wsUrl, token, enabled) {
 
   const applyAgentMeta = useCallback((msg) => {
     const sid = msg.session_id ?? msg.agent_session_id ?? null;
+    const name = msg.agent_name || msg.hostname;
     if (sid != null && sid !== agentSessionRef.current) {
       agentSessionRef.current = sid;
       setState({ ...EMPTY_DEALER_STATE, ts: msg.ts || new Date().toISOString() });
-      addLog(`[system] Nova sessão do manager (#${sid}${msg.hostname ? ` · ${msg.hostname}` : ''}${msg.git_tag ? ` · tag ${msg.git_tag}` : ''}${msg.pid ? ` · PID ${msg.pid}` : ''})`);
+      addLog(`[system] Nova sessão do manager (#${sid}${name ? ` · ${name}` : ''}${msg.git_tag ? ` · tag ${msg.git_tag}` : ''}${msg.pid ? ` · PID ${msg.pid}` : ''})`);
     }
     if (msg.hostname || sid != null) {
       setAgentMeta({
         sessionId: sid,
+        name: name || null,
         hostname: msg.hostname || null,
         gitTag: msg.git_tag || null,
         pid: msg.pid || null,
@@ -141,10 +148,29 @@ export default function useDealerWs(wsUrl, token, enabled) {
       if (data.agent_hostname || sid != null) {
         setAgentMeta({
           sessionId: sid ?? agentSessionRef.current,
+          name: data.agent_name || data.agent_hostname || null,
           hostname: data.agent_hostname || null,
           connectedAt: data.ts || null,
         });
       }
+      return;
+    }
+
+    if (type === 'agent_conflict') {
+      setAgentConflict({
+        ts: msg.ts,
+        recentReplacements: msg.recent_replacements,
+        windowSeconds: msg.window_seconds,
+        likelyOngoing: !!msg.likely_ongoing,
+        previous: msg.previous || null,
+        new: msg.new || null,
+      });
+      addLog(
+        `[system] ⚠ Substituição de agente: '${msg.previous?.agent_name || msg.previous?.hostname || '?'}'`
+        + ` (tag ${msg.previous?.git_tag || '?'}, PID ${msg.previous?.pid || '?'})`
+        + ` → '${msg.new?.agent_name || msg.new?.hostname || '?'}' (tag ${msg.new?.git_tag || '?'}, PID ${msg.new?.pid || '?'})`
+        + (msg.likely_ongoing ? ` — ${msg.recent_replacements}x nos últimos ${Math.round((msg.window_seconds || 0) / 60)}min, parece concorrência ativa` : ''),
+      );
       return;
     }
 
@@ -377,6 +403,8 @@ export default function useDealerWs(wsUrl, token, enabled) {
     });
   }, [addLog]);
 
+  const dismissAgentConflict = useCallback(() => setAgentConflict(null), []);
+
   return {
     status,
     agentConnected,
@@ -385,6 +413,8 @@ export default function useDealerWs(wsUrl, token, enabled) {
     messages,
     events,
     lastError,
+    agentConflict,
+    dismissAgentConflict,
     sendCommand,
     disconnect,
     reconnect: connect,

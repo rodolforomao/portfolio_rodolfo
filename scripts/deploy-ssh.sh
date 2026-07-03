@@ -54,7 +54,8 @@ if [[ -n "${DEPLOY_SSH_PASSWORD}" ]]; then
   SSH_CMD="sshpass -e ssh -p $PORT ${SSH_OPTS[*]}"
 fi
 
-echo "Buildando o projeto..."
+export REACT_APP_VERSION="$(git tag | tail -1)"
+echo "Buildando o projeto... (versão: ${REACT_APP_VERSION:-sem tag})"
 npm run build
 
 if [[ ! -d "build" ]]; then

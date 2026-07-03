@@ -122,13 +122,15 @@ export default function SystemStatusBar({
   // dealer individual — cada DealerCard já mostra "PID {pid}" pro processo
   // filho sideswap_dealer_lwk, que é um número totalmente diferente.
   const managerDetailParts = [
-    agentMeta?.hostname || 'no relay',
+    agentMeta?.name || agentMeta?.hostname || 'no relay',
     agentMeta?.gitTag || null,
     agentMeta?.pid ? `PID manager ${agentMeta.pid}` : null,
   ].filter(Boolean);
   const managerDetail = agentConnected ? managerDetailParts.join(' · ') : 'ausente';
   const managerTitleParts = [
-    agentMeta?.hostname || 'relay',
+    agentMeta?.name || agentMeta?.hostname || 'relay',
+    agentMeta?.hostname && agentMeta?.name && agentMeta.name !== agentMeta.hostname
+      ? `host ${agentMeta.hostname}` : null,
     agentMeta?.sessionId != null ? `sessão #${agentMeta.sessionId}` : null,
     agentMeta?.gitTag ? `tag ${agentMeta.gitTag}` : 'tag desconhecida (git tag vazio ou repo sem tags)',
     agentMeta?.pid

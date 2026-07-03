@@ -1,17 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Nav from 'react-bootstrap/Nav';
 import {
-  TbLock, TbBrandTelegram, TbPlug, TbAdjustments,
+  TbLock, TbBrandTelegram, TbPlug, TbAdjustments, TbTool,
 } from 'react-icons/tb';
 import VaultSetup from './VaultSetup';
 import ConnectionSettings from './settings/ConnectionSettings';
 import TelegramSettings from './settings/TelegramSettings';
 import PreferencesSettings from './settings/PreferencesSettings';
+import MaintenanceSettings from './settings/MaintenanceSettings';
 
 const SECTIONS = [
   { key: 'vault', label: 'Vault', icon: TbLock },
   { key: 'telegram', label: 'Telegram', icon: TbBrandTelegram },
   { key: 'connection', label: 'Conexão', icon: TbPlug },
+  { key: 'maintenance', label: 'Manutenção', icon: TbTool },
   { key: 'preferences', label: 'Preferências', icon: TbAdjustments },
 ];
 
@@ -51,7 +53,7 @@ export default function DealerSettings({
       <div className="dealer-settings-header">
         <h3><ActiveIcon /> Configurações</h3>
         <p className="dealer-settings-desc mb-0">
-          Vault, Telegram, conexão com o manager e preferências do console.
+          Vault, Telegram, conexão com o manager, manutenção e preferências do console.
         </p>
       </div>
 
@@ -93,12 +95,17 @@ export default function DealerSettings({
           )}
           {section === 'connection' && (
             <ConnectionSettings
-              sendCommand={sendCommand}
               wsStatus={wsStatus}
               agentConnected={agentConnected}
-              agentMeta={agentMeta}
               wsUrl={wsUrl}
               settings={backendSettings}
+            />
+          )}
+          {section === 'maintenance' && (
+            <MaintenanceSettings
+              sendCommand={sendCommand}
+              wsStatus={wsStatus}
+              agentMeta={agentMeta}
               updateRestartResult={updateRestartResult}
               onDismissUpdateRestartResult={onDismissUpdateRestartResult}
             />

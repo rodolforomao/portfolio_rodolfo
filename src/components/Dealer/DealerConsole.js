@@ -6,13 +6,14 @@ import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Badge from 'react-bootstrap/Badge';
+import Alert from 'react-bootstrap/Alert';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Nav from 'react-bootstrap/Nav';
 import {
   TbPlayerPlay, TbList, TbPlayerStop, TbSend, TbX,
   TbArrowsExchange, TbRefresh, TbHistory, TbMessage,
-  TbBug, TbLogout, TbWallet, TbBook, TbHeartbeat, TbCoins,
+  TbBug, TbLogout, TbWallet, TbBook, TbBook2, TbHeartbeat, TbCoins,
   TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight, TbRocket,
   TbBookmark, TbBookmarkFilled, TbBookmarkOff, TbShieldCheck, TbTrash,
   TbAlertTriangle,
@@ -37,6 +38,7 @@ import OrdersPanel from './OrdersPanel';
 import OrderPlacementPanel from './OrderPlacementPanel';
 import TransactionsPanel from './TransactionsPanel';
 import OrderBookPresenceBadge from './OrderBookPresenceBadge';
+import OrderBooksPanel from './OrderBooksPanel';
 import { formatBookAmount, marketPairKeyFromNames } from './utils/sideswapBook';
 import {
   resolveOrderBookPresence,
@@ -1682,6 +1684,7 @@ export default function DealerConsole() {
 
   const {
     status, agentConnected, agentMeta, state, messages, events, sendCommand, disconnect, lastError,
+    agentConflict, dismissAgentConflict,
   } = useDealerWs(session?.wsUrl, session?.token, !!session?.authenticated);
 
   // Resultado real do update_and_restart (git pull + reinício) — chega via
@@ -1958,7 +1961,14 @@ export default function DealerConsole() {
         <Container fluid>
           <div className="dealer-topbar-inner">
             <div className="dealer-topbar-title-row">
-              <h2>Dealer Console</h2>
+              <h2>
+                Dealer Console
+                {process.env.REACT_APP_VERSION && (
+                  <span className="dealer-version-tag" title="Versão publicada (git tag)">
+                    {process.env.REACT_APP_VERSION}
+                  </span>
+                )}
+              </h2>
               <MarketRatesBar
                 indPrices={scanIndPrices}
                 pairs={scanPairs}
@@ -2009,6 +2019,15 @@ export default function DealerConsole() {
                   className="dealer-main-nav-link"
                 >
                   <TbArrowsExchange /> Oportunidades
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
+                  active={mainView === 'livros'}
+                  onClick={() => setMainView('livros')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbBook2 /> Livros
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
@@ -2081,6 +2100,41 @@ export default function DealerConsole() {
             stateTs={state?.ts}
             telegramStatus={telegramStatus}
           />
+          {agentConflict && (
+            <Alert
+              variant={agentConflict.likelyOngoing ? 'danger' : 'warning'}
+              onClose={dismissAgentConflict}
+              dismissible
+              className="dealer-agent-conflict-alert"
+            >
+              <strong>
+                {agentConflict.likelyOngoing
+                  ? `⚠ Concorrência entre duas fontes (${agentConflict.recentReplacements}x nos últimos ${Math.round((agentConflict.windowSeconds || 0) / 60)}min)`
+                  : '⚠ Manager substituído por outra fonte'}
+              </strong>
+              {' — '}
+              duas conexões estão disputando a mesma vaga de agente no relay.
+              Verifique se sobrou um <code>manager_dealer.py</code> rodando em algum lugar (dev/simulador) além do Termux de produção e encerre o excedente.
+              <div className="dealer-agent-conflict-detail">
+                <div>
+                  <span>Anterior</span>
+                  <strong>
+                    {agentConflict.previous?.agent_name || agentConflict.previous?.hostname || '?'}
+                    {agentConflict.previous?.git_tag ? ` · tag ${agentConflict.previous.git_tag}` : ''}
+                    {agentConflict.previous?.pid ? ` · PID ${agentConflict.previous.pid}` : ''}
+                  </strong>
+                </div>
+                <div>
+                  <span>Substituído por</span>
+                  <strong>
+                    {agentConflict.new?.agent_name || agentConflict.new?.hostname || '?'}
+                    {agentConflict.new?.git_tag ? ` · tag ${agentConflict.new.git_tag}` : ''}
+                    {agentConflict.new?.pid ? ` · PID ${agentConflict.new.pid}` : ''}
+                  </strong>
+                </div>
+              </div>
+            </Alert>
+          )}
         </Container>
       </header>
 
@@ -2302,6 +2356,22 @@ export default function DealerConsole() {
                   error={pendingApprovalsError}
                   onRefresh={loadPendingApprovals}
                   onApprove={handleApproveOrder}
+                />
+              </div>
+            </Col>
+          </Row>
+        ) : mainView === 'livros' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <OrderBooksPanel
+                  pairs={bookPairs}
+                  books={bookData}
+                  placements={bookPlacements}
+                  status={bookStatus}
+                  error={bookError}
+                  lastUpdate={bookLastUpdate}
+                  reconnect={reconnectBook}
                 />
               </div>
             </Col>
