@@ -52,6 +52,31 @@ def log(msg: str):
     print(f"[{ts()}] {msg}", flush=True)
 
 
+def _extract_client_ip(ws) -> str | None:
+    """IP real do agente, observado pelo relay — não confia em nada que o
+    agente diga sobre si mesmo (evita depender de config manual tipo
+    MANAGER_AGENT_NAME no .env de cada instância). Em produção o tráfego
+    passa pelo nginx (X-Forwarded-For/X-Real-IP já configurados nas
+    locations /dealer-ws e /vault-ws); em dev local sem proxy, cai pro IP
+    de conexão TCP direta (ws.remote_address).
+    """
+    try:
+        headers = getattr(getattr(ws, "request", None), "headers", None)
+        if headers is not None:
+            xff = headers.get("X-Forwarded-For")
+            if xff:
+                return xff.split(",")[0].strip()
+            xri = headers.get("X-Real-IP")
+            if xri:
+                return xri.strip()
+    except Exception:
+        pass
+    try:
+        return ws.remote_address[0]
+    except Exception:
+        return None
+
+
 def _ws_is_open(ws) -> bool:
     if ws is None:
         return False
@@ -232,7 +257,6 @@ async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
         pass
     finally:
         should_reset = False
-        name_out = agent_name
         async with _lock:
             if dealer_agent is ws:
                 dealer_agent = None
@@ -240,7 +264,7 @@ async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
                 last_state = None
                 agent_meta = {}
                 should_reset = True
-                log(f"Dealer agent desconectado: {name_out}")
+                log(f"Dealer agent desconectado: {hostname} (ip {ip or '?'})")
         if should_reset:
             await broadcast_state_reset("agent_disconnected")
             await broadcast(json.dumps(_agent_status_payload(False)))

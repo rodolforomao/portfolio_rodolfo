@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { log } from './utils/logger';
+import { displayNameFor } from './utils/agentNames';
 
 const STATUS = {
   idle: 'idle',
@@ -68,16 +69,16 @@ export default function useDealerWs(wsUrl, token, enabled) {
 
   const applyAgentMeta = useCallback((msg) => {
     const sid = msg.session_id ?? msg.agent_session_id ?? null;
-    const name = msg.agent_name || msg.hostname;
+    const label = msg.ip || msg.hostname;
     if (sid != null && sid !== agentSessionRef.current) {
       agentSessionRef.current = sid;
       setState({ ...EMPTY_DEALER_STATE, ts: msg.ts || new Date().toISOString() });
-      addLog(`[system] Nova sessão do manager (#${sid}${name ? ` · ${name}` : ''}${msg.git_tag ? ` · tag ${msg.git_tag}` : ''}${msg.pid ? ` · PID ${msg.pid}` : ''})`);
+      addLog(`[system] Nova sessão do manager (#${sid}${label ? ` · ${label}` : ''}${msg.git_tag ? ` · tag ${msg.git_tag}` : ''}${msg.pid ? ` · PID ${msg.pid}` : ''})`);
     }
     if (msg.hostname || sid != null) {
       setAgentMeta({
         sessionId: sid,
-        name: name || null,
+        ip: msg.ip || null,
         hostname: msg.hostname || null,
         gitTag: msg.git_tag || null,
         pid: msg.pid || null,
@@ -146,12 +147,15 @@ export default function useDealerWs(wsUrl, token, enabled) {
       setState(data);
       setAgentConnected(true);
       if (data.agent_hostname || sid != null) {
-        setAgentMeta({
+        // Mescla em vez de substituir — state_update não carrega `ip`
+        // (isso vem só do relay via agent_status/agent_conflict), então um
+        // reset completo aqui apagaria o ip já resolvido a cada atualização.
+        setAgentMeta((prev) => ({
+          ...prev,
           sessionId: sid ?? agentSessionRef.current,
-          name: data.agent_name || data.agent_hostname || null,
-          hostname: data.agent_hostname || null,
-          connectedAt: data.ts || null,
-        });
+          hostname: data.agent_hostname || prev?.hostname || null,
+          connectedAt: data.ts || prev?.connectedAt || null,
+        }));
       }
       return;
     }
@@ -166,9 +170,9 @@ export default function useDealerWs(wsUrl, token, enabled) {
         new: msg.new || null,
       });
       addLog(
-        `[system] ⚠ Substituição de agente: '${msg.previous?.agent_name || msg.previous?.hostname || '?'}'`
+        `[system] ⚠ Substituição de agente: '${displayNameFor(msg.previous)}'`
         + ` (tag ${msg.previous?.git_tag || '?'}, PID ${msg.previous?.pid || '?'})`
-        + ` → '${msg.new?.agent_name || msg.new?.hostname || '?'}' (tag ${msg.new?.git_tag || '?'}, PID ${msg.new?.pid || '?'})`
+        + ` → '${displayNameFor(msg.new)}' (tag ${msg.new?.git_tag || '?'}, PID ${msg.new?.pid || '?'})`
         + (msg.likely_ongoing ? ` — ${msg.recent_replacements}x nos últimos ${Math.round((msg.window_seconds || 0) / 60)}min, parece concorrência ativa` : ''),
       );
       return;

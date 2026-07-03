@@ -87,6 +87,31 @@
   padding: 2px 6px;
 }
 
+/* ── Renomear agente (pill Manager) ────────────────────────────── */
+.dealer-sys-pill-with-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dealer-sys-pill-rename-btn {
+  border: none;
+  background: transparent;
+  color: var(--ds-text-muted);
+  cursor: pointer;
+  padding: 2px 3px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--ds-r-sm);
+  opacity: 0.6;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.dealer-sys-pill-rename-btn:hover {
+  opacity: 1;
+  background: var(--ds-bg-overlay);
+}
+
 /* ── Alerta de concorrência entre agentes ──────────────────────── */
 .dealer-agent-conflict-alert {
   margin: 6px 0 0;

@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { TbNetwork, TbCpu, TbLayoutList, TbRefresh, TbBrandTelegram } from 'react-icons/tb';
+import { TbNetwork, TbCpu, TbLayoutList, TbRefresh, TbBrandTelegram, TbPencil } from 'react-icons/tb';
 import { countDealersByStatus } from './utils/dealerStatus';
 import { countOrdersByStatus } from './utils/orderStatus';
 import { prepareDealerOrders } from './utils/orderMarketNormalize';
+import { fingerprintOf, getAgentName } from './utils/agentNames';
 
 function SecondaryPill({ ok, warn, label, detail, title, icon: Icon }) {
   const state = ok ? 'ok' : warn ? 'warn' : 'off';
@@ -92,11 +93,19 @@ export default function SystemStatusBar({
   wsStatus,
   agentConnected,
   agentMeta,
+  agentNamesVersion,
+  onRenameAgent,
   dealers = [],
   selectedDealer,
   stateTs,
   telegramStatus,
 }) {
+  // Recalcula quando agentNamesVersion muda (renomeação salva no localStorage
+  // não dispara re-render sozinha, ver useDealerWs/DealerConsole).
+  const agentFingerprint = useMemo(() => fingerprintOf(agentMeta || {}), [agentMeta]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const customAgentName = useMemo(() => getAgentName(agentFingerprint), [agentFingerprint, agentNamesVersion]);
+  const agentDisplayName = customAgentName || agentMeta?.ip || agentMeta?.hostname || null;
   const dealerCounts = useMemo(() => countDealersByStatus(dealers), [dealers]);
 
   const orderTotals = useMemo(() => {
@@ -122,15 +131,15 @@ export default function SystemStatusBar({
   // dealer individual — cada DealerCard já mostra "PID {pid}" pro processo
   // filho sideswap_dealer_lwk, que é um número totalmente diferente.
   const managerDetailParts = [
-    agentMeta?.name || agentMeta?.hostname || 'no relay',
+    agentDisplayName || 'no relay',
     agentMeta?.gitTag || null,
     agentMeta?.pid ? `PID manager ${agentMeta.pid}` : null,
   ].filter(Boolean);
   const managerDetail = agentConnected ? managerDetailParts.join(' · ') : 'ausente';
   const managerTitleParts = [
-    agentMeta?.name || agentMeta?.hostname || 'relay',
-    agentMeta?.hostname && agentMeta?.name && agentMeta.name !== agentMeta.hostname
-      ? `host ${agentMeta.hostname}` : null,
+    agentDisplayName || 'relay',
+    agentMeta?.ip ? `ip ${agentMeta.ip}` : null,
+    agentMeta?.hostname && agentMeta.hostname !== agentDisplayName ? `host ${agentMeta.hostname}` : null,
     agentMeta?.sessionId != null ? `sessão #${agentMeta.sessionId}` : null,
     agentMeta?.gitTag ? `tag ${agentMeta.gitTag}` : 'tag desconhecida (git tag vazio ou repo sem tags)',
     agentMeta?.pid
@@ -178,13 +187,25 @@ export default function SystemStatusBar({
         detail={wsOk ? 'browser ↔ relay' : wsConnecting ? 'conectando' : wsStatus}
         title="Conexão WebSocket do browser com o relay (ws_relay_server)"
       />
-      <SecondaryPill
-        ok={agentConnected}
-        icon={TbCpu}
-        label={managerLabel}
-        detail={managerDetail}
-        title={managerTitle}
-      />
+      <span className="dealer-sys-pill-with-action">
+        <SecondaryPill
+          ok={agentConnected}
+          icon={TbCpu}
+          label={managerLabel}
+          detail={managerDetail}
+          title={managerTitle}
+        />
+        {agentConnected && onRenameAgent && (
+          <button
+            type="button"
+            className="dealer-sys-pill-rename-btn"
+            title={`Dar um nome pra esta fonte (${agentMeta?.ip || agentMeta?.hostname || '?'}) — ajuda a identificar produção vs. dev/teste`}
+            onClick={() => onRenameAgent(agentFingerprint, customAgentName || '')}
+          >
+            <TbPencil size={11} />
+          </button>
+        )}
+      </span>
       <SecondaryPill
         ok={orderTotals.sent > 0}
         warn={unsent > 0 && orderTotals.sent === 0}
