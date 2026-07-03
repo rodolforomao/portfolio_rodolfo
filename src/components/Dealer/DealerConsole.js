@@ -100,6 +100,7 @@ import './Dealer.css';
 import './DealerTheme.css';
 import useMobileLayout from './useMobileLayout';
 import { getWalletColor, walletColorStyle } from './utils/walletColors';
+import { fingerprintOf, getAgentName, setAgentName, displayNameFor } from './utils/agentNames';
 
 // Motor 1/3 do StrategyPanel chamam send_order direto, sem o gate de
 // aprovação (assessOrderLoss + confirmação) que existe em handleSendOrder.
@@ -1687,6 +1688,22 @@ export default function DealerConsole() {
     agentConflict, dismissAgentConflict,
   } = useDealerWs(session?.wsUrl, session?.token, !!session?.authenticated);
 
+  // Nomeação de agentes (por IP/hostname) fica só no navegador (localStorage,
+  // ver utils/agentNames.js) — sem precisar de config em cada instância do
+  // manager_dealer. Esse contador força recálculo do nome exibido quando o
+  // operador salva um nome novo (localStorage não dispara re-render sozinho).
+  const [agentNamesVersion, setAgentNamesVersion] = useState(0);
+  const renameAgentSource = useCallback((fingerprint, currentName) => {
+    if (!fingerprint) return;
+    const input = window.prompt(
+      'Nome pra esta fonte (ex: "Produção-Termux", "Dev-PC") — fica salvo só neste navegador:',
+      currentName || '',
+    );
+    if (input === null) return; // cancelou
+    setAgentName(fingerprint, input);
+    setAgentNamesVersion((v) => v + 1);
+  }, []);
+
   // Resultado real do update_and_restart (git pull + reinício) — chega via
   // push_event porque a resposta imediata do comando só confirma que o
   // pedido foi aceito, não se algo de fato mudou (ver dealer_service.py).
@@ -2095,6 +2112,8 @@ export default function DealerConsole() {
             wsStatus={status}
             agentConnected={agentConnected}
             agentMeta={agentMeta}
+            agentNamesVersion={agentNamesVersion}
+            onRenameAgent={renameAgentSource}
             dealers={dealers}
             selectedDealer={mainView === 'geral' ? selectedDealer : null}
             stateTs={state?.ts}
@@ -2116,22 +2135,41 @@ export default function DealerConsole() {
               duas conexões estão disputando a mesma vaga de agente no relay.
               Verifique se sobrou um <code>manager_dealer.py</code> rodando em algum lugar (dev/simulador) além do Termux de produção e encerre o excedente.
               <div className="dealer-agent-conflict-detail">
-                <div>
-                  <span>Anterior</span>
-                  <strong>
-                    {agentConflict.previous?.agent_name || agentConflict.previous?.hostname || '?'}
-                    {agentConflict.previous?.git_tag ? ` · tag ${agentConflict.previous.git_tag}` : ''}
-                    {agentConflict.previous?.pid ? ` · PID ${agentConflict.previous.pid}` : ''}
-                  </strong>
-                </div>
-                <div>
-                  <span>Substituído por</span>
-                  <strong>
-                    {agentConflict.new?.agent_name || agentConflict.new?.hostname || '?'}
-                    {agentConflict.new?.git_tag ? ` · tag ${agentConflict.new.git_tag}` : ''}
-                    {agentConflict.new?.pid ? ` · PID ${agentConflict.new.pid}` : ''}
-                  </strong>
-                </div>
+                {[
+                  { key: 'previous', label: 'Anterior', data: agentConflict.previous },
+                  { key: 'new', label: 'Substituído por', data: agentConflict.new },
+                ].map(({ key, label, data }) => {
+                  const fp = fingerprintOf(data || {});
+                  const name = getAgentName(fp);
+                  return (
+                    <div key={key}>
+                      <span>{label}</span>
+                      <strong>
+                        {displayNameFor(data)}
+                        {data?.ip && data.ip !== displayNameFor(data) ? ` · ip ${data.ip}` : ''}
+                        {data?.hostname ? ` · host ${data.hostname}` : ''}
+                        {data?.git_tag ? ` · tag ${data.git_tag}` : ''}
+                        {data?.pid ? ` · PID ${data.pid}` : ''}
+                        <button
+                          type="button"
+                          className="dealer-sys-pill-rename-btn"
+                          title="Dar um nome pra esta fonte"
+                          onClick={() => {
+                            const input = window.prompt(
+                              'Nome pra esta fonte (ex: "Produção-Termux", "Dev-PC"):',
+                              name || '',
+                            );
+                            if (input === null) return;
+                            setAgentName(fp, input);
+                            setAgentNamesVersion((v) => v + 1);
+                          }}
+                        >
+                          ✎
+                        </button>
+                      </strong>
+                    </div>
+                  );
+                })}
               </div>
             </Alert>
           )}
