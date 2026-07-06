@@ -1,0 +1,1130 @@
+{
+  "_comment": "Bilíngue: campos comuns (name/contact) ficam na raiz; título/roles/skills/projects/experience/timeline ficam duplicados em pt/en. title/roles/skills/experience/timeline vêm do currículo real em src/components/Resume/ResumeNew.js (validado contra ele — programando desde 2002, cargos/empresas/períodos reais, nada inventado). projects[] foi auto-populado a partir dos repositórios públicos reais de github.com/rodolforomao. Nunca deve conter segredos, tokens ou dados do sistema Dealer/vault.",
+  "name": "Rodolfo Romão",
+  "codingSinceYear": 2002,
+  "contact": {
+    "github": "https://github.com/rodolforomao",
+    "linkedin": "https://linkedin.com/in/rodolfo-romao-oliveira",
+    "email": "engenheirorodolforomao@gmail.com"
+  },
+  "pt-br": {
+    "title": "Desenvolvedor Full Stack Sênior",
+    "roles": [
+      "Engenheiro de Computação",
+      "Engenheiro Blockchain",
+      "Engenheiro de IA",
+      "Full Stack Developer"
+    ],
+    "skills": [
+      "PHP",
+      "Python",
+      "C#",
+      "JavaScript",
+      "TypeScript",
+      "Java",
+      "Rust",
+      "C/C++",
+      "Laravel",
+      "React",
+      "Node.js",
+      "Flutter",
+      "Flask",
+      "CodeIgniter",
+      ".NET",
+      "Bitcoin",
+      "Liquid Network",
+      "Polygon",
+      "Solana",
+      "DeFi",
+      "Wallet/RPC",
+      "OpenAI API",
+      "Speech-to-Text",
+      "Prompt Engineering",
+      "Pipelines assíncronos",
+      "SQL Server",
+      "MySQL",
+      "PostgreSQL",
+      "Oracle",
+      "SQLite",
+      "Docker",
+      "Linux",
+      "Git",
+      "Apache",
+      "Nginx",
+      "CI/CD"
+    ],
+    "projects": [
+      {
+        "name": "sideswap_client",
+        "description": "Cliente Python para o DEX SideSwap na Liquid Network (blockchain Bitcoin).",
+        "tech": [
+          "Python",
+          "Blockchain",
+          "Liquid Network"
+        ],
+        "link": "https://github.com/rodolforomao/sideswap_client"
+      },
+      {
+        "name": "vault_signer_service",
+        "description": "Serviço Python para assinatura/custódia de chaves em fluxo de carteira blockchain.",
+        "tech": [
+          "Python",
+          "Blockchain",
+          "Criptografia"
+        ],
+        "link": "https://github.com/rodolforomao/vault_signer_service"
+      },
+      {
+        "name": "migration_database_etl",
+        "description": "Pipeline Python de ETL/migração de banco de dados.",
+        "tech": [
+          "Python",
+          "SQL",
+          "ETL"
+        ],
+        "link": "https://github.com/rodolforomao/migration_database_etl"
+      },
+      {
+        "name": "proxy_manager",
+        "description": "Gerenciador Python de proxies para automação/scraping.",
+        "tech": [
+          "Python",
+          "Automação"
+        ],
+        "link": "https://github.com/rodolforomao/proxy_manager"
+      },
+      {
+        "name": "crypto_converter_api",
+        "description": "API Python de conversão/cotação de criptoativos.",
+        "tech": [
+          "Python",
+          "API",
+          "Crypto"
+        ],
+        "link": "https://github.com/rodolforomao/crypto_converter_api"
+      },
+      {
+        "name": "sei-custom-app",
+        "description": "Extensão de navegador (Chrome/Firefox) que integra com o sistema SEI (governo).",
+        "tech": [
+          "JavaScript",
+          "Extensão de navegador",
+          "Governo"
+        ],
+        "link": "https://github.com/rodolforomao/sei-custom-app"
+      },
+      {
+        "name": "ai_specialist",
+        "description": "Projeto TypeScript explorando integração com IA/LLMs.",
+        "tech": [
+          "TypeScript",
+          "IA"
+        ],
+        "link": "https://github.com/rodolforomao/ai_specialist"
+      },
+      {
+        "name": "chatbot_llama2",
+        "description": "Chatbot construído sobre o modelo Llama 2.",
+        "tech": [
+          "JavaScript",
+          "IA",
+          "LLM"
+        ],
+        "link": "https://github.com/rodolforomao/chatbot_llama2"
+      }
+    ],
+    "experience": [
+      {
+        "role": "Desenvolvedor Fullstack Sênior",
+        "company": "LiquidX.pro / ispflash.space — Liquid Network AMM",
+        "period": "Nov 2023 – Presente",
+        "description": "Gateway LiquidX (DePix via PIX) e agregador DEX ispbanking com bridge entre Liquid Network, Polygon, Solana e outras blockchains."
+      },
+      {
+        "role": "Líder de Equipe & Desenvolvedor Fullstack Sênior",
+        "company": "DNIT — Departamento Nacional de Infraestrutura de Transportes",
+        "period": "Jul 2018 – Presente",
+        "description": "Liderou SUPRA, SIMA e o Portal Cidadão DNIT — plataformas de monitoramento de infraestrutura federal em tempo real, reconhecidas por CGU e TCU."
+      },
+      {
+        "role": "Desenvolvedor Fullstack Freelancer",
+        "company": "G4F Services / Defender / SCM Engenharia",
+        "period": "Dez 2011 – Presente",
+        "description": "Aplicação web DICI para a Anatel, app SCM Mobile e sistema de Automação Humana para processos regulatórios da ANATEL."
+      },
+      {
+        "role": "Fundador & Desenvolvedor Principal",
+        "company": "Produtos SaaS Próprios",
+        "period": "2018 – Presente",
+        "description": "Fundou e construiu cinco produtos SaaS independentes: Proofchain, FinancialIQ, SmartCondo, BitBooking e Atendente."
+      },
+      {
+        "role": "Desenvolvedor Fullstack",
+        "company": "AUTOTRAC",
+        "period": "Jan 2009 – Set 2012",
+        "description": "Firmware e protocolos de comunicação para hardware de rastreamento veicular (OBC 4/5) e aplicação de testes Giga."
+      },
+      {
+        "role": "Desenvolvedor de Software",
+        "company": "Fábrica de Software POLIEDRO",
+        "period": "Dez 2006 – Jan 2009",
+        "description": "RTA (Reajuste Tarifário Anual de Energia Elétrica) e Espaço do Passageiro (SEBRAE-ANAC)."
+      },
+      {
+        "role": "Consultor de TI",
+        "company": "SCM Engenharia",
+        "period": "2016 – Presente",
+        "description": "Consultoria em TI/software."
+      },
+      {
+        "role": "Desenvolvedor de TI",
+        "company": "Locar Engenharia",
+        "period": "2012 – 2018",
+        "description": "Atuação em TI/software."
+      },
+      {
+        "role": "Fundador",
+        "company": "Oec Empreendimentos",
+        "period": "2016 – Presente",
+        "description": "Empresa própria."
+      }
+    ],
+    "timeline": [
+      {
+        "year": "2002",
+        "title": "Início na programação",
+        "description": "Começou a programar.",
+        "tags": [
+          "origem"
+        ]
+      },
+      {
+        "year": "2004",
+        "title": "Engenharia de Computação (IESB)",
+        "description": "Início da graduação em Engenharia de Computação.",
+        "tags": [
+          "educação"
+        ]
+      },
+      {
+        "year": "2006",
+        "title": "Fábrica de Software POLIEDRO",
+        "description": "RTA (ANEEL) e Espaço do Passageiro (SEBRAE-ANAC).",
+        "tags": [
+          "carreira"
+        ]
+      },
+      {
+        "year": "2008",
+        "title": "Formado em Engenharia de Computação (IESB)",
+        "description": "Concluiu a graduação em Engenharia de Computação.",
+        "tags": [
+          "educação"
+        ]
+      },
+      {
+        "year": "2009",
+        "title": "AUTOTRAC",
+        "description": "Firmware para rastreamento veicular (OBC 4/5) e aplicação de testes Giga.",
+        "tags": [
+          "carreira",
+          "firmware"
+        ]
+      },
+      {
+        "year": "2011",
+        "title": "Freelance Fullstack",
+        "description": "DICI (Anatel), SCM Mobile e Automação Humana (ANATEL) via G4F/Defender/SCM Engenharia.",
+        "tags": [
+          "carreira",
+          "freelance"
+        ]
+      },
+      {
+        "year": "2018",
+        "title": "DNIT + Produtos SaaS próprios",
+        "description": "Líder de equipe no DNIT (SUPRA, SIMA, Portal Cidadão) e fundação de Proofchain, FinancialIQ, SmartCondo, BitBooking e Atendente.",
+        "tags": [
+          "carreira",
+          "liderança",
+          "saas"
+        ]
+      },
+      {
+        "year": "2023",
+        "title": "LiquidX / Liquid Network AMM",
+        "description": "Gateway LiquidX e agregador DEX ispbanking — blockchain e DeFi.",
+        "tags": [
+          "blockchain",
+          "defi"
+        ]
+      },
+      {
+        "year": "2012",
+        "title": "Locar Engenharia",
+        "description": "Atuação em TI/software.",
+        "tags": [
+          "carreira"
+        ]
+      },
+      {
+        "year": "2016",
+        "title": "SCM Engenharia",
+        "description": "Consultoria em TI/software (segue até hoje).",
+        "tags": [
+          "carreira",
+          "consultoria"
+        ]
+      },
+      {
+        "year": "2016",
+        "title": "Oec Empreendimentos",
+        "description": "Fundação da empresa própria.",
+        "tags": [
+          "carreira",
+          "empreendedorismo"
+        ]
+      }
+    ]
+  },
+  "en": {
+    "title": "Senior Full Stack Developer",
+    "roles": [
+      "Computer Engineer",
+      "Blockchain Engineer",
+      "AI Engineer",
+      "Full Stack Developer"
+    ],
+    "skills": [
+      "PHP",
+      "Python",
+      "C#",
+      "JavaScript",
+      "TypeScript",
+      "Java",
+      "Rust",
+      "C/C++",
+      "Laravel",
+      "React",
+      "Node.js",
+      "Flutter",
+      "Flask",
+      "CodeIgniter",
+      ".NET",
+      "Bitcoin",
+      "Liquid Network",
+      "Polygon",
+      "Solana",
+      "DeFi",
+      "Wallet/RPC",
+      "OpenAI API",
+      "Speech-to-Text",
+      "Prompt Engineering",
+      "Async/Queue pipelines",
+      "SQL Server",
+      "MySQL",
+      "PostgreSQL",
+      "Oracle",
+      "SQLite",
+      "Docker",
+      "Linux",
+      "Git",
+      "Apache",
+      "Nginx",
+      "CI/CD"
+    ],
+    "projects": [
+      {
+        "name": "sideswap_client",
+        "description": "Python client for the SideSwap DEX on the Liquid Network (Bitcoin blockchain).",
+        "tech": [
+          "Python",
+          "Blockchain",
+          "Liquid Network"
+        ],
+        "link": "https://github.com/rodolforomao/sideswap_client"
+      },
+      {
+        "name": "vault_signer_service",
+        "description": "Python service for key signing/custody in a blockchain wallet flow.",
+        "tech": [
+          "Python",
+          "Blockchain",
+          "Cryptography"
+        ],
+        "link": "https://github.com/rodolforomao/vault_signer_service"
+      },
+      {
+        "name": "migration_database_etl",
+        "description": "Python ETL pipeline for database migration.",
+        "tech": [
+          "Python",
+          "SQL",
+          "ETL"
+        ],
+        "link": "https://github.com/rodolforomao/migration_database_etl"
+      },
+      {
+        "name": "proxy_manager",
+        "description": "Python proxy manager for automation/scraping.",
+        "tech": [
+          "Python",
+          "Automation"
+        ],
+        "link": "https://github.com/rodolforomao/proxy_manager"
+      },
+      {
+        "name": "crypto_converter_api",
+        "description": "Python API for crypto asset conversion/quotes.",
+        "tech": [
+          "Python",
+          "API",
+          "Crypto"
+        ],
+        "link": "https://github.com/rodolforomao/crypto_converter_api"
+      },
+      {
+        "name": "sei-custom-app",
+        "description": "Browser extension (Chrome/Firefox) integrating with the SEI system (Brazilian government).",
+        "tech": [
+          "JavaScript",
+          "Browser Extension",
+          "Government"
+        ],
+        "link": "https://github.com/rodolforomao/sei-custom-app"
+      },
+      {
+        "name": "ai_specialist",
+        "description": "TypeScript project exploring AI/LLM integration.",
+        "tech": [
+          "TypeScript",
+          "AI"
+        ],
+        "link": "https://github.com/rodolforomao/ai_specialist"
+      },
+      {
+        "name": "chatbot_llama2",
+        "description": "Chatbot built on the Llama 2 model.",
+        "tech": [
+          "JavaScript",
+          "AI",
+          "LLM"
+        ],
+        "link": "https://github.com/rodolforomao/chatbot_llama2"
+      }
+    ],
+    "experience": [
+      {
+        "role": "Senior Fullstack Developer",
+        "company": "LiquidX.pro / ispflash.space — Liquid Network AMM",
+        "period": "Nov 2023 – Present",
+        "description": "Built the LiquidX gateway (DePix via PIX) and the ispbanking DEX aggregator bridging Liquid Network, Polygon, Solana, and other blockchains."
+      },
+      {
+        "role": "Team Leader & Senior Fullstack Developer",
+        "company": "DNIT — National Department of Transport Infrastructure",
+        "period": "Jul 2018 – Present",
+        "description": "Led SUPRA, SIMA, and the DNIT Citizen Portal — real-time federal infrastructure monitoring platforms, recognized by government control agencies CGU and TCU."
+      },
+      {
+        "role": "Freelance Fullstack Developer",
+        "company": "G4F Services / Defender / SCM Engenharia",
+        "period": "Dec 2011 – Present",
+        "description": "Built the DICI web app for Anatel, the SCM Mobile app, and a Human Automation system for ANATEL regulatory processes."
+      },
+      {
+        "role": "Founder & Lead Developer",
+        "company": "Independent SaaS Products",
+        "period": "2018 – Present",
+        "description": "Founded and built five independent SaaS products: Proofchain, FinancialIQ, SmartCondo, BitBooking, and Atendente."
+      },
+      {
+        "role": "Fullstack Developer",
+        "company": "AUTOTRAC",
+        "period": "Jan 2009 – Sep 2012",
+        "description": "Firmware and communication protocols for vehicle-tracking hardware (OBC 4/5) and the Giga hardware-validation testing app."
+      },
+      {
+        "role": "Software Developer",
+        "company": "POLIEDRO Software Factory",
+        "period": "Dec 2006 – Jan 2009",
+        "description": "RTA (Annual Electricity Tariff Readjustment system) and Espaço do Passageiro (SEBRAE-ANAC)."
+      },
+      {
+        "role": "IT Consultant",
+        "company": "SCM Engenharia",
+        "period": "2016 – Present",
+        "description": "IT/software consulting."
+      },
+      {
+        "role": "IT Developer",
+        "company": "Locar Engenharia",
+        "period": "2012 – 2018",
+        "description": "IT/software work."
+      },
+      {
+        "role": "Founder",
+        "company": "Oec Empreendimentos",
+        "period": "2016 – Present",
+        "description": "Own company."
+      }
+    ],
+    "timeline": [
+      {
+        "year": "2002",
+        "title": "Started programming",
+        "description": "Began writing code.",
+        "tags": [
+          "origin"
+        ]
+      },
+      {
+        "year": "2004",
+        "title": "B.Sc. Computer Engineering (IESB)",
+        "description": "Started Computer Engineering degree.",
+        "tags": [
+          "education"
+        ]
+      },
+      {
+        "year": "2006",
+        "title": "POLIEDRO Software Factory",
+        "description": "RTA (ANEEL) and Espaço do Passageiro (SEBRAE-ANAC).",
+        "tags": [
+          "career"
+        ]
+      },
+      {
+        "year": "2008",
+        "title": "Graduated in Computer Engineering (IESB)",
+        "description": "Completed the Computer Engineering degree.",
+        "tags": [
+          "education"
+        ]
+      },
+      {
+        "year": "2009",
+        "title": "AUTOTRAC",
+        "description": "Firmware for vehicle-tracking hardware (OBC 4/5) and the Giga testing app.",
+        "tags": [
+          "career",
+          "firmware"
+        ]
+      },
+      {
+        "year": "2011",
+        "title": "Freelance Fullstack",
+        "description": "DICI (Anatel), SCM Mobile, and Human Automation (ANATEL) via G4F/Defender/SCM Engenharia.",
+        "tags": [
+          "career",
+          "freelance"
+        ]
+      },
+      {
+        "year": "2018",
+        "title": "DNIT + Independent SaaS Products",
+        "description": "Team leader at DNIT (SUPRA, SIMA, Citizen Portal) and founded Proofchain, FinancialIQ, SmartCondo, BitBooking, and Atendente.",
+        "tags": [
+          "career",
+          "leadership",
+          "saas"
+        ]
+      },
+      {
+        "year": "2023",
+        "title": "LiquidX / Liquid Network AMM",
+        "description": "LiquidX gateway and ispbanking DEX aggregator — blockchain and DeFi.",
+        "tags": [
+          "blockchain",
+          "defi"
+        ]
+      },
+      {
+        "year": "2012",
+        "title": "Locar Engenharia",
+        "description": "IT/software work.",
+        "tags": [
+          "career"
+        ]
+      },
+      {
+        "year": "2016",
+        "title": "SCM Engenharia",
+        "description": "IT/software consulting (ongoing).",
+        "tags": [
+          "career",
+          "consulting"
+        ]
+      },
+      {
+        "year": "2016",
+        "title": "Oec Empreendimentos",
+        "description": "Founded own company.",
+        "tags": [
+          "career",
+          "entrepreneurship"
+        ]
+      }
+    ]
+  },
+  "es": {
+    "title": "Desarrollador Full Stack Senior",
+    "roles": [
+      "Ingeniero en Computación",
+      "Ingeniero Blockchain",
+      "Ingeniero de IA",
+      "Full Stack Developer"
+    ],
+    "skills": [
+      "PHP",
+      "Python",
+      "C#",
+      "JavaScript",
+      "TypeScript",
+      "Java",
+      "Rust",
+      "C/C++",
+      "Laravel",
+      "React",
+      "Node.js",
+      "Flutter",
+      "Flask",
+      "CodeIgniter",
+      ".NET",
+      "Bitcoin",
+      "Liquid Network",
+      "Polygon",
+      "Solana",
+      "DeFi",
+      "Wallet/RPC",
+      "OpenAI API",
+      "Speech-to-Text",
+      "Prompt Engineering",
+      "Pipelines asíncronos",
+      "SQL Server",
+      "MySQL",
+      "PostgreSQL",
+      "Oracle",
+      "SQLite",
+      "Docker",
+      "Linux",
+      "Git",
+      "Apache",
+      "Nginx",
+      "CI/CD"
+    ],
+    "projects": [
+      {
+        "name": "sideswap_client",
+        "description": "Cliente Python para el DEX SideSwap en la Liquid Network (blockchain de Bitcoin).",
+        "tech": [
+          "Python",
+          "Blockchain",
+          "Liquid Network"
+        ],
+        "link": "https://github.com/rodolforomao/sideswap_client"
+      },
+      {
+        "name": "vault_signer_service",
+        "description": "Servicio Python para firma/custodia de claves en un flujo de wallet blockchain.",
+        "tech": [
+          "Python",
+          "Blockchain",
+          "Criptografía"
+        ],
+        "link": "https://github.com/rodolforomao/vault_signer_service"
+      },
+      {
+        "name": "migration_database_etl",
+        "description": "Pipeline Python de ETL/migración de base de datos.",
+        "tech": [
+          "Python",
+          "SQL",
+          "ETL"
+        ],
+        "link": "https://github.com/rodolforomao/migration_database_etl"
+      },
+      {
+        "name": "proxy_manager",
+        "description": "Gestor Python de proxies para automatización/scraping.",
+        "tech": [
+          "Python",
+          "Automatización"
+        ],
+        "link": "https://github.com/rodolforomao/proxy_manager"
+      },
+      {
+        "name": "crypto_converter_api",
+        "description": "API Python de conversión/cotización de criptoactivos.",
+        "tech": [
+          "Python",
+          "API",
+          "Crypto"
+        ],
+        "link": "https://github.com/rodolforomao/crypto_converter_api"
+      },
+      {
+        "name": "sei-custom-app",
+        "description": "Extensión de navegador (Chrome/Firefox) que integra con el sistema SEI (gobierno brasileño).",
+        "tech": [
+          "JavaScript",
+          "Extensión de navegador",
+          "Gobierno"
+        ],
+        "link": "https://github.com/rodolforomao/sei-custom-app"
+      },
+      {
+        "name": "ai_specialist",
+        "description": "Proyecto TypeScript explorando integración con IA/LLMs.",
+        "tech": [
+          "TypeScript",
+          "IA"
+        ],
+        "link": "https://github.com/rodolforomao/ai_specialist"
+      },
+      {
+        "name": "chatbot_llama2",
+        "description": "Chatbot construido sobre el modelo Llama 2.",
+        "tech": [
+          "JavaScript",
+          "IA",
+          "LLM"
+        ],
+        "link": "https://github.com/rodolforomao/chatbot_llama2"
+      }
+    ],
+    "experience": [
+      {
+        "role": "Desarrollador Fullstack Senior",
+        "company": "LiquidX.pro / ispflash.space — Liquid Network AMM",
+        "period": "Nov 2023 – Presente",
+        "description": "Desarrolló el gateway LiquidX y el agregador DEX ispbanking con puente entre Liquid Network, Polygon, Solana y otras blockchains."
+      },
+      {
+        "role": "Líder de Equipo y Desarrollador Fullstack Senior",
+        "company": "DNIT — Departamento Nacional de Infraestructura de Transporte (Brasil)",
+        "period": "Jul 2018 – Presente",
+        "description": "Lideró SUPRA, SIMA y el Portal Ciudadano DNIT — plataformas de monitoreo en tiempo real de infraestructura federal, reconocidas por CGU y TCU."
+      },
+      {
+        "role": "Desarrollador Fullstack Freelance",
+        "company": "G4F Services / Defender / SCM Engenharia",
+        "period": "Dic 2011 – Presente",
+        "description": "Desarrolló la app web DICI para Anatel, la app SCM Mobile y un sistema de Automatización Humana para procesos regulatorios de ANATEL."
+      },
+      {
+        "role": "Fundador y Desarrollador Principal",
+        "company": "Productos SaaS Independientes",
+        "period": "2018 – Presente",
+        "description": "Fundó y construyó cinco productos SaaS independientes: Proofchain, FinancialIQ, SmartCondo, BitBooking y Atendente."
+      },
+      {
+        "role": "Desarrollador Fullstack",
+        "company": "AUTOTRAC",
+        "period": "Ene 2009 – Sep 2012",
+        "description": "Firmware y protocolos de comunicación para hardware de rastreo vehicular (OBC 4/5) y la app de pruebas Giga."
+      },
+      {
+        "role": "Desarrollador de Software",
+        "company": "Fábrica de Software POLIEDRO",
+        "period": "Dic 2006 – Ene 2009",
+        "description": "RTA (Reajuste Tarifario Anual de Energía Eléctrica) y Espaço do Passageiro (SEBRAE-ANAC)."
+      },
+      {
+        "role": "Consultor de TI",
+        "company": "SCM Engenharia",
+        "period": "2016 – Presente",
+        "description": "Consultoría en TI/software."
+      },
+      {
+        "role": "Desarrollador de TI",
+        "company": "Locar Engenharia",
+        "period": "2012 – 2018",
+        "description": "Trabajo en TI/software."
+      },
+      {
+        "role": "Fundador",
+        "company": "Oec Empreendimentos",
+        "period": "2016 – Presente",
+        "description": "Empresa propia."
+      }
+    ],
+    "timeline": [
+      {
+        "year": "2002",
+        "title": "Empezó a programar",
+        "description": "Comenzó a escribir código.",
+        "tags": [
+          "origen"
+        ]
+      },
+      {
+        "year": "2004",
+        "title": "Ingeniería en Computación (IESB)",
+        "description": "Inicio de la carrera de Ingeniería en Computación.",
+        "tags": [
+          "educación"
+        ]
+      },
+      {
+        "year": "2006",
+        "title": "Fábrica de Software POLIEDRO",
+        "description": "RTA (ANEEL) y Espaço do Passageiro (SEBRAE-ANAC).",
+        "tags": [
+          "carrera"
+        ]
+      },
+      {
+        "year": "2008",
+        "title": "Graduado en Ingeniería en Computación (IESB)",
+        "description": "Completó la carrera de Ingeniería en Computación.",
+        "tags": [
+          "educación"
+        ]
+      },
+      {
+        "year": "2009",
+        "title": "AUTOTRAC",
+        "description": "Firmware para hardware de rastreo vehicular (OBC 4/5) y la app de pruebas Giga.",
+        "tags": [
+          "carrera",
+          "firmware"
+        ]
+      },
+      {
+        "year": "2011",
+        "title": "Freelance Fullstack",
+        "description": "DICI (Anatel), SCM Mobile y Automatización Humana (ANATEL) vía G4F/Defender/SCM Engenharia.",
+        "tags": [
+          "carrera",
+          "freelance"
+        ]
+      },
+      {
+        "year": "2018",
+        "title": "DNIT + Productos SaaS propios",
+        "description": "Líder de equipo en DNIT (SUPRA, SIMA, Portal Ciudadano) y fundación de Proofchain, FinancialIQ, SmartCondo, BitBooking y Atendente.",
+        "tags": [
+          "carrera",
+          "liderazgo",
+          "saas"
+        ]
+      },
+      {
+        "year": "2023",
+        "title": "LiquidX / Liquid Network AMM",
+        "description": "Gateway LiquidX y agregador DEX ispbanking — blockchain y DeFi.",
+        "tags": [
+          "blockchain",
+          "defi"
+        ]
+      },
+      {
+        "year": "2012",
+        "title": "Locar Engenharia",
+        "description": "Trabajo en TI/software.",
+        "tags": [
+          "carrera"
+        ]
+      },
+      {
+        "year": "2016",
+        "title": "SCM Engenharia",
+        "description": "Consultoría en TI/software (continúa).",
+        "tags": [
+          "carrera",
+          "consultoría"
+        ]
+      },
+      {
+        "year": "2016",
+        "title": "Oec Empreendimentos",
+        "description": "Fundación de empresa propia.",
+        "tags": [
+          "carrera",
+          "emprendimiento"
+        ]
+      }
+    ]
+  },
+  "fr": {
+    "title": "Développeur Full Stack Senior",
+    "roles": [
+      "Ingénieur Informatique",
+      "Ingénieur Blockchain",
+      "Ingénieur IA",
+      "Développeur Full Stack"
+    ],
+    "skills": [
+      "PHP",
+      "Python",
+      "C#",
+      "JavaScript",
+      "TypeScript",
+      "Java",
+      "Rust",
+      "C/C++",
+      "Laravel",
+      "React",
+      "Node.js",
+      "Flutter",
+      "Flask",
+      "CodeIgniter",
+      ".NET",
+      "Bitcoin",
+      "Liquid Network",
+      "Polygon",
+      "Solana",
+      "DeFi",
+      "Wallet/RPC",
+      "OpenAI API",
+      "Speech-to-Text",
+      "Prompt Engineering",
+      "Pipelines asynchrones",
+      "SQL Server",
+      "MySQL",
+      "PostgreSQL",
+      "Oracle",
+      "SQLite",
+      "Docker",
+      "Linux",
+      "Git",
+      "Apache",
+      "Nginx",
+      "CI/CD"
+    ],
+    "projects": [
+      {
+        "name": "sideswap_client",
+        "description": "Client Python pour le DEX SideSwap sur la Liquid Network (blockchain Bitcoin).",
+        "tech": [
+          "Python",
+          "Blockchain",
+          "Liquid Network"
+        ],
+        "link": "https://github.com/rodolforomao/sideswap_client"
+      },
+      {
+        "name": "vault_signer_service",
+        "description": "Service Python pour la signature/garde de clés dans un flux de wallet blockchain.",
+        "tech": [
+          "Python",
+          "Blockchain",
+          "Cryptographie"
+        ],
+        "link": "https://github.com/rodolforomao/vault_signer_service"
+      },
+      {
+        "name": "migration_database_etl",
+        "description": "Pipeline Python d'ETL/migration de base de données.",
+        "tech": [
+          "Python",
+          "SQL",
+          "ETL"
+        ],
+        "link": "https://github.com/rodolforomao/migration_database_etl"
+      },
+      {
+        "name": "proxy_manager",
+        "description": "Gestionnaire Python de proxies pour l'automatisation/scraping.",
+        "tech": [
+          "Python",
+          "Automatisation"
+        ],
+        "link": "https://github.com/rodolforomao/proxy_manager"
+      },
+      {
+        "name": "crypto_converter_api",
+        "description": "API Python de conversion/cotation de crypto-actifs.",
+        "tech": [
+          "Python",
+          "API",
+          "Crypto"
+        ],
+        "link": "https://github.com/rodolforomao/crypto_converter_api"
+      },
+      {
+        "name": "sei-custom-app",
+        "description": "Extension de navigateur (Chrome/Firefox) intégrant le système SEI (gouvernement brésilien).",
+        "tech": [
+          "JavaScript",
+          "Extension de navigateur",
+          "Gouvernement"
+        ],
+        "link": "https://github.com/rodolforomao/sei-custom-app"
+      },
+      {
+        "name": "ai_specialist",
+        "description": "Projet TypeScript explorant l'intégration IA/LLM.",
+        "tech": [
+          "TypeScript",
+          "IA"
+        ],
+        "link": "https://github.com/rodolforomao/ai_specialist"
+      },
+      {
+        "name": "chatbot_llama2",
+        "description": "Chatbot construit sur le modèle Llama 2.",
+        "tech": [
+          "JavaScript",
+          "IA",
+          "LLM"
+        ],
+        "link": "https://github.com/rodolforomao/chatbot_llama2"
+      }
+    ],
+    "experience": [
+      {
+        "role": "Développeur Fullstack Senior",
+        "company": "LiquidX.pro / ispflash.space — Liquid Network AMM",
+        "period": "Nov 2023 – Présent",
+        "description": "A développé la passerelle LiquidX et l'agrégateur DEX ispbanking avec pont entre Liquid Network, Polygon, Solana et autres blockchains."
+      },
+      {
+        "role": "Chef d'Équipe & Développeur Fullstack Senior",
+        "company": "DNIT — Département National des Infrastructures de Transport (Brésil)",
+        "period": "Juil 2018 – Présent",
+        "description": "A dirigé SUPRA, SIMA et le Portail Citoyen DNIT — plateformes de suivi en temps réel des infrastructures fédérales, reconnues par CGU et TCU."
+      },
+      {
+        "role": "Développeur Fullstack Freelance",
+        "company": "G4F Services / Defender / SCM Engenharia",
+        "period": "Déc 2011 – Présent",
+        "description": "A développé l'application web DICI pour Anatel, l'app SCM Mobile et un système d'Automatisation Humaine pour les processus réglementaires ANATEL."
+      },
+      {
+        "role": "Fondateur & Développeur Principal",
+        "company": "Produits SaaS Indépendants",
+        "period": "2018 – Présent",
+        "description": "A fondé et développé cinq produits SaaS indépendants : Proofchain, FinancialIQ, SmartCondo, BitBooking et Atendente."
+      },
+      {
+        "role": "Développeur Fullstack",
+        "company": "AUTOTRAC",
+        "period": "Jan 2009 – Sep 2012",
+        "description": "Firmware et protocoles de communication pour le matériel de suivi véhiculaire (OBC 4/5) et l'app de tests Giga."
+      },
+      {
+        "role": "Développeur Logiciel",
+        "company": "Usine Logicielle POLIEDRO",
+        "period": "Déc 2006 – Jan 2009",
+        "description": "RTA (Réajustement Tarifaire Annuel de l'Électricité) et Espaço do Passageiro (SEBRAE-ANAC)."
+      },
+      {
+        "role": "Consultant IT",
+        "company": "SCM Engenharia",
+        "period": "2016 – Présent",
+        "description": "Conseil en informatique/logiciel."
+      },
+      {
+        "role": "Développeur IT",
+        "company": "Locar Engenharia",
+        "period": "2012 – 2018",
+        "description": "Travail en informatique/logiciel."
+      },
+      {
+        "role": "Fondateur",
+        "company": "Oec Empreendimentos",
+        "period": "2016 – Présent",
+        "description": "Entreprise personnelle."
+      }
+    ],
+    "timeline": [
+      {
+        "year": "2002",
+        "title": "Débuts en programmation",
+        "description": "A commencé à coder.",
+        "tags": [
+          "origine"
+        ]
+      },
+      {
+        "year": "2004",
+        "title": "Génie Informatique (IESB)",
+        "description": "Début du cursus de Génie Informatique.",
+        "tags": [
+          "éducation"
+        ]
+      },
+      {
+        "year": "2006",
+        "title": "Usine Logicielle POLIEDRO",
+        "description": "RTA (ANEEL) et Espaço do Passageiro (SEBRAE-ANAC).",
+        "tags": [
+          "carrière"
+        ]
+      },
+      {
+        "year": "2008",
+        "title": "Diplômé en Génie Informatique (IESB)",
+        "description": "A terminé le cursus de Génie Informatique.",
+        "tags": [
+          "éducation"
+        ]
+      },
+      {
+        "year": "2009",
+        "title": "AUTOTRAC",
+        "description": "Firmware pour matériel de suivi véhiculaire (OBC 4/5) et l'app de tests Giga.",
+        "tags": [
+          "carrière",
+          "firmware"
+        ]
+      },
+      {
+        "year": "2011",
+        "title": "Fullstack Freelance",
+        "description": "DICI (Anatel), SCM Mobile et Automatisation Humaine (ANATEL) via G4F/Defender/SCM Engenharia.",
+        "tags": [
+          "carrière",
+          "freelance"
+        ]
+      },
+      {
+        "year": "2018",
+        "title": "DNIT + Produits SaaS indépendants",
+        "description": "Chef d'équipe chez DNIT (SUPRA, SIMA, Portail Citoyen) et fondation de Proofchain, FinancialIQ, SmartCondo, BitBooking et Atendente.",
+        "tags": [
+          "carrière",
+          "leadership",
+          "saas"
+        ]
+      },
+      {
+        "year": "2023",
+        "title": "LiquidX / Liquid Network AMM",
+        "description": "Passerelle LiquidX et agrégateur DEX ispbanking — blockchain et DeFi.",
+        "tags": [
+          "blockchain",
+          "defi"
+        ]
+      },
+      {
+        "year": "2012",
+        "title": "Locar Engenharia",
+        "description": "Travail en informatique/logiciel.",
+        "tags": [
+          "carrière"
+        ]
+      },
+      {
+        "year": "2016",
+        "title": "SCM Engenharia",
+        "description": "Conseil en informatique/logiciel (en cours).",
+        "tags": [
+          "carrière",
+          "conseil"
+        ]
+      },
+      {
+        "year": "2016",
+        "title": "Oec Empreendimentos",
+        "description": "Création de l'entreprise personnelle.",
+        "tags": [
+          "carrière",
+          "entrepreneuriat"
+        ]
+      }
+    ]
+  }
+}

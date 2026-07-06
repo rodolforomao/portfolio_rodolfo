@@ -12,6 +12,7 @@ import {
   AiOutlineHome,
   AiOutlineFundProjectionScreen,
   AiOutlineUser,
+  AiOutlineAppstore,
 } from "react-icons/ai";
 
 import { CgFileDocument } from "react-icons/cg";
@@ -51,10 +52,16 @@ function NavBar() {
           <span></span>
         </Navbar.Toggle>
         <Navbar.Collapse id="responsive-navbar-nav">
-          <Nav className="ms-auto" defaultActiveKey="#home">
+          <Nav className="mx-auto" defaultActiveKey="#home">
             <Nav.Item>
               <Nav.Link as={Link} to="/" onClick={() => updateExpanded(false)}>
                 <AiOutlineHome style={{ marginBottom: "2px" }} /> Home
+              </Nav.Link>
+            </Nav.Item>
+
+            <Nav.Item>
+              <Nav.Link as={Link} to="/classic" onClick={() => updateExpanded(false)}>
+                <AiOutlineAppstore style={{ marginBottom: "2px" }} /> Home Classic
               </Nav.Link>
             </Nav.Item>
 

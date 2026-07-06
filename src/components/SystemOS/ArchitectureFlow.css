@@ -1,0 +1,115 @@
+/* Escopado com prefixo arch- — não deve vazar estilos fora de /system. */
+
+.arch-flow {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
+  font-family: "Fira Code", "JetBrains Mono", monospace;
+  color: #d7ffe0;
+  text-align: center;
+}
+
+.arch-flow-eyebrow {
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #3ddc84;
+  opacity: 0.7;
+  margin: 0 0 0.6rem;
+}
+
+.arch-flow-heading {
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  color: #f2fff6;
+}
+
+.arch-flow-caption {
+  max-width: 640px;
+  margin: 0 auto 2.5rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  opacity: 0.75;
+}
+
+.arch-diagram {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.35rem 0;
+}
+
+.arch-node {
+  position: relative;
+  min-width: 128px;
+  max-width: 160px;
+  padding: 1rem 0.85rem;
+  border: 1px solid rgba(120, 255, 170, 0.3);
+  border-radius: 6px;
+  background: #080a10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-align: center;
+  animation: arch-pulse 2.6s ease-in-out infinite;
+}
+
+.arch-node-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #7dffb0;
+  letter-spacing: 0.02em;
+}
+
+.arch-node-detail {
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: rgba(215, 255, 224, 0.6);
+}
+
+.arch-edge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  min-width: 34px;
+  transform-origin: left center;
+  color: rgba(125, 255, 176, 0.55);
+}
+
+.arch-edge-arrow {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+@keyframes arch-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(125, 255, 176, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(125, 255, 176, 0.35);
+  }
+}
+
+@media (max-width: 640px) {
+  .arch-node {
+    min-width: 108px;
+    padding: 0.8rem 0.6rem;
+  }
+
+  .arch-edge {
+    width: 22px;
+    min-width: 22px;
+  }
+
+  .arch-flow-caption {
+    margin-bottom: 2rem;
+  }
+}

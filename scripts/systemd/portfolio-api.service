@@ -1,0 +1,16 @@
+[Unit]
+Description=Portfolio API Server (portfolio_api_server.py) — seção /system
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/web/rodolforomao.com.br/portfolio-api
+EnvironmentFile=/home/admin/web/rodolforomao.com.br/portfolio-api/.env.portfolio
+ExecStart=/home/admin/web/rodolforomao.com.br/portfolio-api/venv/bin/python3 /home/admin/web/rodolforomao.com.br/portfolio-api/portfolio_api_server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

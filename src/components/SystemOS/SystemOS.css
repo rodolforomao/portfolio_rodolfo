@@ -1,0 +1,18 @@
+/* Escopado a .system-os — não deve vazar estilos pro resto do site. */
+.system-os {
+  min-height: 100vh;
+  background: #05060a;
+  color: #d7ffe0;
+  font-family: "Fira Code", "JetBrains Mono", monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.system-os-section {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+  box-sizing: border-box;
+}

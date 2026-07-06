@@ -1,0 +1,178 @@
+/* Escopado a .devmode-overlay — todas as classes usam o prefixo devmode-.
+   Overlay fixo, HUD técnico dark/monospace. Não afeta o layout do resto da página
+   quando fechado (o componente retorna null e nada é renderizado no DOM). */
+
+.devmode-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(4, 6, 8, 0.72);
+  backdrop-filter: blur(3px);
+  font-family: "Fira Code", "JetBrains Mono", monospace;
+}
+
+.devmode-panel {
+  width: 100%;
+  max-width: 560px;
+  max-height: 82vh;
+  overflow-y: auto;
+  background: #0a0d10;
+  border: 1px solid rgba(61, 220, 132, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(61, 220, 132, 0.08), 0 30px 80px rgba(0, 0, 0, 0.55);
+  color: #d7ffe0;
+}
+
+.devmode-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1rem;
+  background: #10151a;
+  border-bottom: 1px solid rgba(61, 220, 132, 0.18);
+}
+
+.devmode-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: #3ddc84;
+}
+
+.devmode-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #3ddc84;
+  box-shadow: 0 0 6px rgba(61, 220, 132, 0.8);
+  animation: devmode-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes devmode-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.devmode-close {
+  background: transparent;
+  border: 1px solid rgba(255, 139, 139, 0.4);
+  color: #ff8b8b;
+  font-family: inherit;
+  font-size: 0.78rem;
+  border-radius: 5px;
+  padding: 0.15rem 0.5rem;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.devmode-close:hover {
+  background: rgba(255, 139, 139, 0.12);
+}
+
+.devmode-body {
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.devmode-section {
+  margin-bottom: 1.1rem;
+}
+
+.devmode-section:last-of-type {
+  margin-bottom: 0.4rem;
+}
+
+.devmode-section-title {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #f0b840;
+  opacity: 0.85;
+}
+
+.devmode-kv {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  row-gap: 0.35rem;
+  column-gap: 0.75rem;
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.devmode-kv dt {
+  color: #7fb894;
+  opacity: 0.8;
+}
+
+.devmode-kv dd {
+  margin: 0;
+  color: #a9f5c3;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.devmode-kv-wrap {
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.devmode-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #7fb894;
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.devmode-note-error {
+  color: #ff8b8b;
+  opacity: 0.9;
+}
+
+.devmode-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.7rem;
+  color: #d7ffe0;
+  opacity: 0.4;
+  text-align: center;
+}
+
+.devmode-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.devmode-panel::-webkit-scrollbar-thumb {
+  background: rgba(61, 220, 132, 0.25);
+  border-radius: 4px;
+}
+
+@media (max-width: 576px) {
+  .devmode-overlay {
+    padding: 0.75rem;
+  }
+
+  .devmode-panel {
+    max-height: 90vh;
+  }
+
+  .devmode-kv {
+    grid-template-columns: 1fr;
+    row-gap: 0.15rem;
+  }
+
+  .devmode-kv dd {
+    text-align: left;
+    margin-bottom: 0.35rem;
+  }
+}
