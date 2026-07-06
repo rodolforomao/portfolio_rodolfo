@@ -56,6 +56,7 @@ echo "Verificando portfolio-api em: $BASE"
 echo
 
 check_json "GET /api/portfolio/stats" "$BASE/api/portfolio/stats"
+check_json "GET /api/portfolio/btc-tip" "$BASE/api/portfolio/btc-tip"
 
 # ai-chat exige POST; 503 gracioso (sem chave) ou 200 ambos indicam que o proxy chegou no backend
 chat_body="$(curl -sS -m 10 -X POST -H 'Content-Type: application/json' -d '{"message":"health check"}' "$BASE/api/portfolio/ai-chat" 2>/dev/null || true)"

@@ -13,6 +13,9 @@ Endpoints:
                                      rate limit por IP, sem tool-calling/execução de código
   GET  /api/portfolio/dev-metrics — telemetria segura deste processo isolado (uptime, contagem
                                      de requests, GitHub stats) — nada do Dealer/vault
+  GET  /api/portfolio/btc-tip     — hash/altura do bloco mais recente da mainnet do Bitcoin
+                                     (proxy read-only pra mempool.space, cache de 10min), usado
+                                     pelo card "minere contra a mainnet" do Challenge Arena
 
 Instalar dependências:
   pip install -r requirements-portfolio.txt
@@ -124,6 +127,74 @@ async def portfolio_stats(_request: web.Request) -> web.Response:
         "uptime_seconds": int(time.time() - PROCESS_START_TIME),
     }
     return web.json_response(payload)
+
+
+# ---------------------------------------------------------------------------
+# /api/portfolio/btc-tip
+# ---------------------------------------------------------------------------
+# Proxy read-only pra API pública do mempool.space — só leitura de dados públicos da mainnet
+# (hash/altura do bloco mais recente), sem chave, sem carteira, sem transação. Usado pelo card
+# "minere contra a mainnet" no Challenge Arena, pra comparar a dificuldade real da rede com o
+# que o navegador do visitante consegue achar localmente em alguns segundos.
+
+BTC_TIP_CACHE_TTL_SECONDS = 10 * 60  # ~10 minutos, mesmo TTL do cache do GitHub
+_btc_tip_cache = {"data": None, "ts": 0.0}
+
+
+def _leading_zero_bits_hex(hex_str: str) -> int:
+    """Conta zeros à esquerda (em bits) de uma string hex — usado pra medir o quão 'raro'
+    (baixo) é um hash de bloco real, na mesma unidade que o mini-mineração client-side."""
+    bits = 0
+    for ch in hex_str:
+        nibble = int(ch, 16)
+        if nibble == 0:
+            bits += 4
+            continue
+        for shift in (3, 2, 1, 0):
+            if (nibble >> shift) & 1:
+                break
+            bits += 1
+        break
+    return bits
+
+
+async def _fetch_btc_tip() -> dict:
+    """Busca o bloco mais recente da mainnet via mempool.space, com cache em memória.
+
+    Nunca lança exceção: qualquer falha/timeout resulta em valores None.
+    """
+    now = time.time()
+    cached = _btc_tip_cache["data"]
+    if cached is not None and (now - _btc_tip_cache["ts"]) < BTC_TIP_CACHE_TTL_SECONDS:
+        return cached
+
+    result = {"tip_height": None, "tip_hash": None, "leading_zero_bits": None}
+    try:
+        timeout = aiohttp.ClientTimeout(total=6)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get("https://mempool.space/api/blocks") as resp:
+                if resp.status == 200:
+                    blocks = await resp.json()
+                    if isinstance(blocks, list) and blocks:
+                        tip = blocks[0]
+                        tip_hash = tip.get("id")
+                        result["tip_height"] = tip.get("height")
+                        result["tip_hash"] = tip_hash
+                        if isinstance(tip_hash, str) and tip_hash:
+                            result["leading_zero_bits"] = _leading_zero_bits_hex(tip_hash)
+                else:
+                    log.warning("mempool.space respondeu status %s", resp.status)
+    except Exception as exc:  # noqa: BLE001 — nunca deve derrubar o endpoint
+        log.warning("Falha ao consultar mempool.space: %s", exc)
+
+    _btc_tip_cache["data"] = result
+    _btc_tip_cache["ts"] = now
+    return result
+
+
+async def btc_tip(_request: web.Request) -> web.Response:
+    data = await _fetch_btc_tip()
+    return web.json_response(data)
 
 
 # ---------------------------------------------------------------------------
@@ -342,6 +413,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/portfolio/stats", portfolio_stats)
     app.router.add_post("/api/portfolio/ai-chat", ai_chat)
     app.router.add_get("/api/portfolio/dev-metrics", dev_metrics)
+    app.router.add_get("/api/portfolio/btc-tip", btc_tip)
     return app
 
 

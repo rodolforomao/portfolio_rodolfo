@@ -56,7 +56,7 @@ fi
 
 echo "Deploy portfolio-api → $SSH_TARGET:$PORTFOLIO_DIR"
 
-"${SSH_BASE[@]}" "$SSH_TARGET" "mkdir -p '$PORTFOLIO_DIR'"
+"${SSH_BASE[@]}" "$SSH_TARGET" "mkdir -p '$PORTFOLIO_DIR/public'"
 
 RSYNC_FILES=(
   portfolio_api_server.py
@@ -66,6 +66,7 @@ RSYNC_FILES=(
 )
 
 rsync -avz -e "$RSYNC_SSH" "${RSYNC_FILES[@]}" "$SSH_TARGET:$PORTFOLIO_DIR/"
+rsync -avz -e "$RSYNC_SSH" public/portfolio_context.json "$SSH_TARGET:$PORTFOLIO_DIR/public/"
 
 "${SSH_BASE[@]}" "$SSH_TARGET" bash -s <<REMOTE
 set -euo pipefail

@@ -91,6 +91,8 @@
 .challenge-input {
   flex: 1;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   background: #0a0d10;
   border: 1px solid rgba(61, 220, 132, 0.25);
   border-radius: 6px;
@@ -152,6 +154,10 @@
   color: #ff8b8b;
 }
 
+.challenge-feedback-neutral {
+  color: #ffd76d;
+}
+
 .challenge-clear-btn {
   background: transparent;
   border: none;
@@ -182,6 +188,120 @@
   font-weight: 600;
 }
 
+.challenge-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.challenge-rps-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.challenge-rps-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(61, 220, 132, 0.1);
+  border: 1px solid rgba(61, 220, 132, 0.3);
+  border-radius: 8px;
+  padding: 0.6rem 0.4rem;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.challenge-rps-btn:hover {
+  background: rgba(61, 220, 132, 0.22);
+  border-color: rgba(61, 220, 132, 0.6);
+  transform: translateY(-1px);
+}
+
+.challenge-rps-btn:active {
+  transform: translateY(0);
+}
+
+.challenge-rps-btn-label {
+  font-size: 0.68rem;
+  color: rgba(215, 255, 224, 0.7);
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+}
+
+.challenge-rps-round {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.challenge-rps-round-moves {
+  font-size: 1.1rem;
+}
+
+.challenge-rps-vs {
+  color: rgba(215, 255, 224, 0.4);
+  font-size: 0.8rem;
+}
+
+.challenge-hash-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.challenge-hash-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.challenge-hash-value {
+  font-size: 0.72rem;
+  color: rgba(215, 255, 224, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+
+.challenge-btc-tip {
+  font-size: 0.78rem;
+  color: rgba(215, 255, 224, 0.6);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.challenge-btc-mine-btn {
+  align-self: flex-start;
+}
+
+.challenge-btc-mine-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.challenge-btc-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  color: rgba(215, 255, 224, 0.75);
+  font-variant-numeric: tabular-nums;
+}
+
+.challenge-btc-stats p {
+  margin: 0;
+}
+
+.challenge-btc-highlight {
+  color: #7dffb0;
+  font-weight: 600;
+}
+
 @media (max-width: 576px) {
   .challenge-form-row {
     flex-direction: column;
@@ -189,5 +309,9 @@
 
   .challenge-submit-btn {
     width: 100%;
+  }
+
+  .challenge-hash-inputs {
+    grid-template-columns: 1fr;
   }
 }
