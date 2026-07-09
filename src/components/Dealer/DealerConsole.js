@@ -16,7 +16,7 @@ import {
   TbBug, TbLogout, TbWallet, TbBook, TbBook2, TbHeartbeat, TbCoins,
   TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight, TbRocket,
   TbBookmark, TbBookmarkFilled, TbBookmarkOff, TbShieldCheck, TbTrash,
-  TbAlertTriangle,
+  TbAlertTriangle, TbGauge,
 } from 'react-icons/tb';
 import ArchitecturePanel from './ArchitecturePanel';
 import StrategyPanel from './StrategyPanel';
@@ -95,6 +95,7 @@ import OrderStatusSignal from './OrderStatusSignal';
 import { loadDealerPreferences } from './utils/dealerPreferences';
 import { log, registerPushLog } from './utils/logger';
 import LogsPanel from './LogsPanel';
+import OracleStatusPanel from './OracleStatusPanel';
 import { FollowRefLink } from './utils/followTarget';
 import './Dealer.css';
 import './DealerTheme.css';
@@ -2093,6 +2094,15 @@ export default function DealerConsole() {
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link
+                  active={mainView === 'oracle'}
+                  onClick={() => setMainView('oracle')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbGauge /> Oracle
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
                   active={mainView === 'logs'}
                   onClick={() => setMainView('logs')}
                   className="dealer-main-nav-link dealer-main-nav-link-logs"
@@ -2239,6 +2249,14 @@ export default function DealerConsole() {
                   wsEvents={events}
                   logSummary={state?.log_summary || null}
                 />
+              </div>
+            </Col>
+          </Row>
+        ) : mainView === 'oracle' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <OracleStatusPanel sendCommand={sendCommand} wsStatus={status} />
               </div>
             </Col>
           </Row>

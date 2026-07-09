@@ -13,11 +13,39 @@ const LEVEL_VARIANT = {
 };
 const SOURCE_OPTIONS = [
   { value: '', label: 'Todos' },
-  { value: 'bridge', label: 'Bridge' },
+  { value: 'bridge', label: 'Bridge (manager↔relay)' },
   { value: 'bridge.command', label: 'Comando' },
+  { value: 'dealer.online', label: 'Dealer online' },
+  { value: 'dealer.offline', label: 'Dealer offline' },
+  { value: 'dealer.crash', label: 'Dealer crash' },
+  { value: 'journal.heartbeat_gap', label: 'Heartbeat gap' },
+  { value: 'journal.logcat', label: 'Logcat' },
+  { value: 'main.uncaught', label: 'Exceção (main)' },
+  { value: 'thread.uncaught', label: 'Exceção (thread)' },
   { value: 'frontend', label: 'Frontend' },
   { value: 'startup.vault', label: 'Vault startup' },
 ];
+
+// Categoriza a origem do log pra dar destaque visual distinto — sobretudo pra
+// não confundir "dealer sem internet" (dealer.online/offline, por wallet) com
+// "manager desconectado do relay" (bridge), que são problemas diferentes.
+function sourceCategory(source) {
+  if (!source) return 'other';
+  if (source === 'bridge' || source.startsWith('bridge.')) return 'bridge';
+  if (source.startsWith('dealer.')) return source === 'dealer.crash' ? 'dealer-crash' : 'dealer-conn';
+  if (source.startsWith('journal.')) return 'journal';
+  if (source.endsWith('.uncaught')) return 'uncaught';
+  return 'other';
+}
+
+const CATEGORY_LABEL = {
+  bridge: 'manager ↔ relay',
+  'dealer-conn': 'conectividade do dealer com a SideSwap',
+  'dealer-crash': 'crash do processo dealer',
+  journal: 'journal de sistema (Termux/Android)',
+  uncaught: 'exceção fatal não tratada',
+  other: null,
+};
 
 function levelIndex(level) {
   const i = LEVEL_ORDER.indexOf(level);
@@ -41,7 +69,16 @@ function LogRow({ entry }) {
         <td>
           <Badge bg={variant} className="dealer-log-level-badge">{entry.level}</Badge>
         </td>
-        <td className="dealer-log-source">{entry.source || '—'}</td>
+        <td className="dealer-log-source">
+          {entry.source ? (
+            <span
+              className={`dealer-log-source-badge dealer-log-source-${sourceCategory(entry.source)}`}
+              title={CATEGORY_LABEL[sourceCategory(entry.source)] || undefined}
+            >
+              {entry.source}
+            </span>
+          ) : '—'}
+        </td>
         <td className="dealer-log-message">{entry.message}</td>
         <td className="dealer-log-expand-col">
           {hasDetail && (open ? <TbChevronUp /> : <TbChevronDown />)}

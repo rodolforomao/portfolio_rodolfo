@@ -7075,8 +7075,22 @@ body.dealer-route-active .App.app-ready {
 .dealer-log-row-warning td { background: #1e180a; }
 
 .dealer-log-ts        { white-space: nowrap; color: #6e7681; }
-.dealer-log-source    { font-family: monospace; font-size: 0.68rem; color: #8b949e; white-space: nowrap; }
+.dealer-log-source    { font-family: monospace; font-size: 0.68rem; white-space: nowrap; }
 .dealer-log-message   { word-break: break-word; color: #e6edf3; }
+
+.dealer-log-source-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  background: #161b22;
+}
+.dealer-log-source-bridge       { color: #79c0ff; border-color: #1f6feb; background: #0d2340; }
+.dealer-log-source-dealer-conn  { color: #d2a8ff; border-color: #8957e5; background: #241a35; }
+.dealer-log-source-dealer-crash { color: #ff7b72; border-color: #f85149; background: #3a1414; }
+.dealer-log-source-journal      { color: #e3b341; border-color: #d29922; background: #2f2405; }
+.dealer-log-source-uncaught     { color: #ff7b72; border-color: #f85149; background: #3a1414; }
 .dealer-log-expand-col { width: 20px; text-align: center; color: #6e7681; }
 .dealer-log-level-badge { font-size: 0.65rem; }
 
@@ -7092,6 +7106,78 @@ body.dealer-route-active .App.app-ready {
   overflow-y: auto;
   border-top: 1px solid #21262d;
 }
+
+/* Oracle & Flash Crash */
+
+.dealer-oracle-panel { padding: 4px 0; }
+
+.dealer-oracle-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.dealer-oracle-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dealer-oracle-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.dealer-oracle-active-alert { font-size: 0.82rem; }
+.dealer-oracle-active-alert ul { padding-left: 18px; }
+
+.dealer-oracle-subtitle {
+  font-size: 0.78rem;
+  color: #6e7681;
+  margin: 10px 0 6px;
+}
+
+.dealer-oracle-table-wrap {
+  overflow: auto;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.dealer-oracle-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.dealer-oracle-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: #6e7681;
+  border-bottom: 1px solid #30363d;
+  white-space: nowrap;
+}
+
+.dealer-oracle-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #161b22;
+}
+
+.dealer-oracle-deviation-high { color: #ff7b72; font-weight: 600; }
+
+.dealer-oracle-thresholds {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #8b949e;
+}
+.dealer-oracle-thresholds summary { cursor: pointer; color: #79c0ff; margin-bottom: 6px; }
 
 /* Banner de erros do manager no header */
 
