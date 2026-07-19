@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Container, Row, Col } from "react-bootstrap";
 import myImg from "../../Assets/avatar.svg";
 import Tilt from "react-parallax-tilt";
@@ -41,6 +42,13 @@ function Home2() {
               <i>
                 <b className="purple">Blockchain and new technologies.</b>
               </i>
+              <br />
+              Programming since 2002, I currently lead development at{" "}
+              <b className="purple">DNIT</b> (Brazil&apos;s National Department of
+              Transport Infrastructure) and build a Liquid Network/PIX payment
+              gateway at LiquidX.pro. See the{" "}
+              <Link to="/project" style={{ color: "#b385f7" }}>full project list</Link>{" "}
+              or the <Link to="/resume" style={{ color: "#b385f7" }}>complete résumé</Link>.
             </p>
           </Col>
           <Col xs={12} md={4} className="myAvtar">
@@ -77,6 +85,13 @@ function Home2() {
               <i>
                 <b className="purple">Blockchain e novas tecnologias.</b>
               </i>
+              <br />
+              Programando desde 2002, hoje lidero o desenvolvimento no{" "}
+              <b className="purple">DNIT</b> (Departamento Nacional de
+              Infraestrutura de Transportes) e construo um gateway de pagamentos
+              Liquid Network/PIX na LiquidX.pro. Veja a{" "}
+              <Link to="/project" style={{ color: "#b385f7" }}>lista completa de projetos</Link>{" "}
+              ou o <Link to="/resume" style={{ color: "#b385f7" }}>currículo completo</Link>.
             </p>
           </Col>
         </Row>

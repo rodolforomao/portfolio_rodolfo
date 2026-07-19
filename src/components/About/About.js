@@ -1,10 +1,12 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Container, Row, Col } from "react-bootstrap";
 import Particle from "../Particle";
 import Techstack from "./Techstack";
 import Aboutcard from "./AboutCard";
 import laptopImg from "../../Assets/about.png";
 import Toolstack from "./Toolstack";
+import Github from "./Github";
 
 function About() {
   return (
@@ -44,7 +46,22 @@ function About() {
         </h1>
         <Toolstack />
 
-        {/* <Github /> */}
+        <Github />
+
+        <p style={{ color: "white", textAlign: "center", paddingTop: "10px" }}>
+          See the <Link to="/project" style={{ color: "#b385f7" }}>full list of projects</Link>{" "}
+          or the <Link to="/resume" style={{ color: "#b385f7" }}>complete résumé</Link> with
+          dates and companies. You can also ask an AI about my background directly — type{" "}
+          <code>ask &lt;your question&gt;</code> in the Terminal on the{" "}
+          <Link to="/" style={{ color: "#b385f7" }}>home page</Link>.
+        </p>
+        <p style={{ color: "white", textAlign: "center" }}>
+          Veja a <Link to="/project" style={{ color: "#b385f7" }}>lista completa de projetos</Link>{" "}
+          ou o <Link to="/resume" style={{ color: "#b385f7" }}>currículo completo</Link> com datas
+          e empresas. Você também pode perguntar a uma IA sobre minha trajetória — digite{" "}
+          <code>ask &lt;sua pergunta&gt;</code> no Terminal da{" "}
+          <Link to="/" style={{ color: "#b385f7" }}>página inicial</Link>.
+        </p>
       </Container>
     </Container>
   );

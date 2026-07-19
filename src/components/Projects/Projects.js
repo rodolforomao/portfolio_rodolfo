@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Container, Row, Col } from "react-bootstrap";
 import ProjectCard from "./ProjectCards";
 import Particle from "../Particle";
@@ -52,8 +53,8 @@ function Projects() {
               imgPath={logoFinancialiq}
               isBlog={false}
               title="FinancialIQ"
-              description="Enterprise financial intelligence SaaS: cash flow, bank reconciliation, semantic AI categorization, OCR for receipts, smart alerts, and multi-tenant workspaces. Modular Laravel architecture with Telegram/WhatsApp notifications and CFO-grade dashboards."
-              subdescription="SaaS financeiro enterprise: fluxo de caixa, conciliação bancária, categorização semântica com IA, OCR de comprovantes, alertas inteligentes e workspaces multi-tenant. Arquitetura modular em Laravel com notificações Telegram/WhatsApp e painéis para decisão financeira."
+              description="Enterprise financial intelligence SaaS: cash flow, bank reconciliation, semantic AI categorization, OCR (optical character recognition) for receipts, smart alerts, and multi-tenant workspaces. Modular Laravel architecture with Telegram/WhatsApp notifications and CFO-grade dashboards."
+              subdescription="SaaS financeiro enterprise: fluxo de caixa, conciliação bancária, categorização semântica com IA, OCR (reconhecimento óptico de caracteres) de comprovantes, alertas inteligentes e workspaces multi-tenant. Arquitetura modular em Laravel com notificações Telegram/WhatsApp e painéis para decisão financeira."
               website="https://financialiq.rodolforomao.com.br"
             />
           </Col>
@@ -74,8 +75,8 @@ function Projects() {
               imgPath={logoBitbooking}
               isBlog={false}
               title="BitBooking"
-              description="Short-term rental marketplace with instant PIX checkout, automatic reservation confirmation, host property management, guest bookings, and map-based discovery — built for the Brazilian market with Liquid/Depix settlement for hosts."
-              subdescription="Marketplace de aluguel por temporada com checkout PIX instantâneo, confirmação automática de reservas, gestão de imóveis para anfitriões, reservas de hóspedes e busca no mapa — focado no Brasil, com liquidação Liquid/Depix para anfitriões."
+              description="Short-term rental marketplace with instant PIX (Brazil's instant payment system) checkout, automatic reservation confirmation, host property management, guest bookings, and map-based discovery — built for the Brazilian market with Liquid Network/DePix settlement for hosts."
+              subdescription="Marketplace de aluguel por temporada com checkout PIX instantâneo, confirmação automática de reservas, gestão de imóveis para anfitriões, reservas de hóspedes e busca no mapa — focado no Brasil, com liquidação em Liquid Network/DePix (stablecoin brasileira sobre a rede Liquid) para anfitriões."
               website="https://bitbooking.rodolforomao.com.br"
             />
           </Col>
@@ -195,9 +196,9 @@ function Projects() {
             <ProjectCard
               imgPath={imgCodeEditor}
               isBlog={false}
-              title="Smart Condo"
-              description="Complete condominium management system built with Laravel 11, centralizing the entire condominium routine in a single digital platform. PHP 8+, MySQL, optional Redis."
-              subdescription="Sistema de gestão condominial em Laravel 11: rotinas centralizadas, backend PHP 8+, MySQL (XAMPP), cache e storage configuráveis."
+              title="Smart Condo (Open Source Codebase)"
+              description="Open-source Laravel 11 codebase underlying the Smart Condo SaaS product above, centralizing the entire condominium routine in a single digital platform. PHP 8+, MySQL, optional Redis."
+              subdescription="Código-fonte aberto em Laravel 11 que serve de base para o produto SaaS Smart Condo listado acima: rotinas centralizadas, backend PHP 8+, MySQL (XAMPP), cache e storage configuráveis."
               ghLink="https://github.com/rodolforomao/smart_condo"
             />
           </Col>
@@ -207,12 +208,23 @@ function Projects() {
               imgPath={imgCodeEditor}
               isBlog={false}
               title="DICI Simples (Anatel/SCM)"
-              description="Simplified DICI (Data, Information, Knowledge and Intelligence) interface for Anatel's sector data. Built with React, TypeScript, Vite and modern UI (e.g. Radix/shadcn)."
-              subdescription="Interface simplificada do sistema DICI da Anatel. Stack: React, TypeScript, Vite, formulários e UI moderna."
+              description="Simplified DICI (Data, Information, Knowledge and Intelligence) interface for Anatel's sector data — a team project built at SCM Engenharia. Built with React, TypeScript, Vite and modern UI (e.g. Radix/shadcn)."
+              subdescription="Interface simplificada do sistema DICI da Anatel — projeto em equipe na SCM Engenharia. Stack: React, TypeScript, Vite, formulários e UI moderna."
               ghLink="https://github.com/RodrigoSCM1/dici-simples-anatel-scm-engenharia"
             />
           </Col>
         </Row>
+
+        <p style={{ color: "white", marginTop: "1.5rem" }}>
+          Want the full career timeline behind these projects — companies, roles, and dates? See the{" "}
+          <Link to="/resume" style={{ color: "#b385f7" }}>complete résumé</Link>, or read more{" "}
+          <Link to="/about" style={{ color: "#b385f7" }}>about me</Link>.
+        </p>
+        <p style={{ color: "white" }}>
+          Quer a trajetória completa por trás desses projetos — empresas, cargos e datas? Veja o{" "}
+          <Link to="/resume" style={{ color: "#b385f7" }}>currículo completo</Link>, ou saiba mais{" "}
+          <Link to="/about" style={{ color: "#b385f7" }}>sobre mim</Link>.
+        </p>
       </Container>
     </Container>
   );

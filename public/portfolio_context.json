@@ -7,6 +7,12 @@
     "linkedin": "https://linkedin.com/in/rodolfo-romao-oliveira",
     "email": "engenheirorodolforomao@gmail.com"
   },
+  "aiChatEndpoint": {
+    "path": "/api/portfolio/ai-chat",
+    "method": "POST",
+    "description": "Endpoint público que responde perguntas em linguagem natural sobre este currículo, grounded neste mesmo arquivo. Hoje acessível via comando 'ask <pergunta>' no Terminal da página inicial (rota /).",
+    "usage": "curl -X POST https://rodolforomao.com.br/api/portfolio/ai-chat -H 'Content-Type: application/json' -d '{\"message\":\"sua pergunta aqui\"}'"
+  },
   "pt-br": {
     "title": "Desenvolvedor Full Stack Sênior",
     "roles": [
@@ -131,6 +137,36 @@
           "LLM"
         ],
         "link": "https://github.com/rodolforomao/chatbot_llama2"
+      },
+      {
+        "name": "Proofchain",
+        "description": "Plataforma SaaS de investigação blockchain e rastreamento de ativos, com análise multi-chain, grafos de entidades e cadeia de evidências auditável para times jurídicos e de compliance.",
+        "tech": ["Laravel", "React", "Python", "Blockchain"],
+        "link": "https://proofchain.rodolforomao.com.br"
+      },
+      {
+        "name": "FinancialIQ",
+        "description": "SaaS financeiro enterprise com fluxo de caixa, conciliação bancária, categorização por IA, OCR de comprovantes e workspaces multi-tenant.",
+        "tech": ["Laravel", "Inteligência Artificial", "OCR"],
+        "link": "https://financialiq.rodolforomao.com.br"
+      },
+      {
+        "name": "SmartCondo",
+        "description": "Plataforma SaaS de gestão condominial completa: financeiro, avisos, ocorrências, unidades e permissões granulares.",
+        "tech": ["Laravel", "PHP", "MySQL"],
+        "link": "https://smartcondo.rodolforomao.com.br"
+      },
+      {
+        "name": "BitBooking",
+        "description": "Marketplace de aluguel por temporada com checkout PIX instantâneo e liquidação em Liquid Network/DePix para anfitriões.",
+        "tech": ["Laravel", "PIX", "Liquid Network", "DePix"],
+        "link": "https://bitbooking.rodolforomao.com.br"
+      },
+      {
+        "name": "Atendente",
+        "description": "SaaS de atendimento via WhatsApp com agentes de IA configuráveis, cobrança PIX e repasse humano.",
+        "tech": ["Inteligência Artificial", "WhatsApp", "PIX"],
+        "link": "https://atendente.rodolforomao.com.br"
       }
     ],
     "experience": [
@@ -411,6 +447,36 @@
           "LLM"
         ],
         "link": "https://github.com/rodolforomao/chatbot_llama2"
+      },
+      {
+        "name": "Proofchain",
+        "description": "SaaS platform for blockchain investigation and asset tracing, with cross-chain analysis, entity graphs, and auditable evidence chains for legal and compliance teams.",
+        "tech": ["Laravel", "React", "Python", "Blockchain"],
+        "link": "https://proofchain.rodolforomao.com.br"
+      },
+      {
+        "name": "FinancialIQ",
+        "description": "Enterprise financial SaaS with cash flow, bank reconciliation, AI categorization, OCR for receipts, and multi-tenant workspaces.",
+        "tech": ["Laravel", "Artificial Intelligence", "OCR"],
+        "link": "https://financialiq.rodolforomao.com.br"
+      },
+      {
+        "name": "SmartCondo",
+        "description": "SaaS platform for full condominium management: finance, notices, service tickets, units, and granular role permissions.",
+        "tech": ["Laravel", "PHP", "MySQL"],
+        "link": "https://smartcondo.rodolforomao.com.br"
+      },
+      {
+        "name": "BitBooking",
+        "description": "Short-term rental marketplace with instant PIX checkout and Liquid Network/DePix settlement for hosts.",
+        "tech": ["Laravel", "PIX", "Liquid Network", "DePix"],
+        "link": "https://bitbooking.rodolforomao.com.br"
+      },
+      {
+        "name": "Atendente",
+        "description": "WhatsApp customer service SaaS with configurable AI agents, PIX billing, and human handoff.",
+        "tech": ["Artificial Intelligence", "WhatsApp", "PIX"],
+        "link": "https://atendente.rodolforomao.com.br"
       }
     ],
     "experience": [
@@ -691,6 +757,36 @@
           "LLM"
         ],
         "link": "https://github.com/rodolforomao/chatbot_llama2"
+      },
+      {
+        "name": "Proofchain",
+        "description": "Plataforma SaaS de investigación blockchain y rastreo de activos, con análisis multi-chain, grafos de entidades y cadena de evidencia auditable para equipos legales y de compliance.",
+        "tech": ["Laravel", "React", "Python", "Blockchain"],
+        "link": "https://proofchain.rodolforomao.com.br"
+      },
+      {
+        "name": "FinancialIQ",
+        "description": "SaaS financiero enterprise con flujo de caja, conciliación bancaria, categorización por IA, OCR de comprobantes y espacios multi-tenant.",
+        "tech": ["Laravel", "Inteligencia Artificial", "OCR"],
+        "link": "https://financialiq.rodolforomao.com.br"
+      },
+      {
+        "name": "SmartCondo",
+        "description": "Plataforma SaaS de gestión de condominios: financiero, avisos, incidencias, unidades y permisos granulares.",
+        "tech": ["Laravel", "PHP", "MySQL"],
+        "link": "https://smartcondo.rodolforomao.com.br"
+      },
+      {
+        "name": "BitBooking",
+        "description": "Marketplace de alquiler de temporada con checkout PIX instantáneo y liquidación en Liquid Network/DePix para anfitriones.",
+        "tech": ["Laravel", "PIX", "Liquid Network", "DePix"],
+        "link": "https://bitbooking.rodolforomao.com.br"
+      },
+      {
+        "name": "Atendente",
+        "description": "SaaS de atención por WhatsApp con agentes de IA configurables, cobro PIX y traspaso humano.",
+        "tech": ["Inteligencia Artificial", "WhatsApp", "PIX"],
+        "link": "https://atendente.rodolforomao.com.br"
       }
     ],
     "experience": [
@@ -971,6 +1067,36 @@
           "LLM"
         ],
         "link": "https://github.com/rodolforomao/chatbot_llama2"
+      },
+      {
+        "name": "Proofchain",
+        "description": "Plateforme SaaS d'investigation blockchain et de traçage d'actifs, avec analyse multi-chaînes, graphes d'entités et chaîne de preuves auditable pour les équipes juridiques et de conformité.",
+        "tech": ["Laravel", "React", "Python", "Blockchain"],
+        "link": "https://proofchain.rodolforomao.com.br"
+      },
+      {
+        "name": "FinancialIQ",
+        "description": "SaaS financier d'entreprise avec flux de trésorerie, rapprochement bancaire, catégorisation par IA, OCR pour les reçus et espaces multi-tenant.",
+        "tech": ["Laravel", "Intelligence Artificielle", "OCR"],
+        "link": "https://financialiq.rodolforomao.com.br"
+      },
+      {
+        "name": "SmartCondo",
+        "description": "Plateforme SaaS de gestion de copropriété : finances, avis, tickets de service, unités et permissions granulaires.",
+        "tech": ["Laravel", "PHP", "MySQL"],
+        "link": "https://smartcondo.rodolforomao.com.br"
+      },
+      {
+        "name": "BitBooking",
+        "description": "Marketplace de location saisonnière avec paiement PIX instantané et règlement en Liquid Network/DePix pour les hôtes.",
+        "tech": ["Laravel", "PIX", "Liquid Network", "DePix"],
+        "link": "https://bitbooking.rodolforomao.com.br"
+      },
+      {
+        "name": "Atendente",
+        "description": "SaaS de service client WhatsApp avec agents IA configurables, facturation PIX et transfert humain.",
+        "tech": ["Intelligence Artificielle", "WhatsApp", "PIX"],
+        "link": "https://atendente.rodolforomao.com.br"
       }
     ],
     "experience": [

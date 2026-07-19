@@ -15,47 +15,62 @@ import {
 } from "react-icons/di";
 import { TbBrandCSharp, TbBrandFlutter } from "react-icons/tb";
 
+const labelStyle = { fontSize: "13px", textAlign: "center", marginTop: "6px", opacity: 0.85 };
+
 function Techstack() {
   return (
     <Row style={{ justifyContent: "center", paddingBottom: "50px" }}>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiPhp />
+        <DiPhp aria-label="PHP" />
+        <p style={labelStyle}>PHP</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiPython />
+        <DiPython aria-label="Python" />
+        <p style={labelStyle}>Python</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <TbBrandCSharp />
+        <TbBrandCSharp aria-label="C#" />
+        <p style={labelStyle}>C#</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiJava />
+        <DiJava aria-label="Java" />
+        <p style={labelStyle}>Java</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <TbBrandFlutter />
+        <TbBrandFlutter aria-label="Flutter" />
+        <p style={labelStyle}>Flutter</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <CgCPlusPlus />
+        <CgCPlusPlus aria-label="C/C++" />
+        <p style={labelStyle}>C/C++</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiJavascript1 />
+        <DiJavascript1 aria-label="JavaScript" />
+        <p style={labelStyle}>JavaScript</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiHtml5 />
+        <DiHtml5 aria-label="HTML5" />
+        <p style={labelStyle}>HTML5</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiCss3 />
+        <DiCss3 aria-label="CSS3" />
+        <p style={labelStyle}>CSS3</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiJqueryLogo />
+        <DiJqueryLogo aria-label="jQuery" />
+        <p style={labelStyle}>jQuery</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiGit />
+        <DiGit aria-label="Git" />
+        <p style={labelStyle}>Git</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiReact />
+        <DiReact aria-label="React" />
+        <p style={labelStyle}>React</p>
       </Col>
       <Col xs={4} sm={3} md={2} className="tech-icons">
-        <DiNodejs />
+        <DiNodejs aria-label="Node.js" />
+        <p style={labelStyle}>Node.js</p>
       </Col>
     </Row>
   );

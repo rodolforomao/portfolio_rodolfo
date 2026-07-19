@@ -21,17 +21,24 @@ export function formatPriceDisplay(value) {
   return String(n).replace('.', ',');
 }
 
+/** Ordem enviada localmente, ainda sem order_id — preço no livro ainda não calculado. */
+export function isOrderPricePending(order) {
+  return !!(order?.pending && !order?.order_id);
+}
+
 /**
  * Modo de precificação CONFIGURADO (o que foi enviado ao manager).
  * `price` em ordens ao vivo é o preço calculado no book — não implica preço fixo.
+ * Verifica o parâmetro configurado antes de "pending" para que uma ordem
+ * ainda aguardando preço continue mostrando seu spread/pm/follow real.
  */
 export function getOrderPricingMode(order) {
   if (!order) return 'none';
   if (order.follow_target) return 'follow';
-  if (order.pending && !order.order_id) return 'pending';
   if (isSet(order.price_porc)) return 'spread';
   if (isSet(order.price_min)) return 'pm';
   if (isSet(order.price)) return 'fixed';
+  if (isOrderPricePending(order)) return 'pending';
   return 'none';
 }
 
@@ -78,17 +85,14 @@ export function formatOrderConfigSummary(order) {
     return `preço fixo ${formatBookPrice(order.price)}`;
   }
 
-  if (mode === 'pending') {
-    return 'aguardando preço';
-  }
-
   return '—';
 }
 
 /** Preço atual no livro (quando diferente do parâmetro configurado). */
 export function formatOrderLivePrice(order) {
+  if (isOrderPricePending(order)) return 'aguardando preço';
   const mode = getOrderPricingMode(order);
-  if (mode === 'fixed' || mode === 'none' || mode === 'pending') return null;
+  if (mode === 'fixed' || mode === 'none') return null;
   const live = order?.price;
   if (!isSet(live)) return null;
   return formatBookPrice(live);

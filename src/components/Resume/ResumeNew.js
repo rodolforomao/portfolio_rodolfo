@@ -27,6 +27,7 @@ const CONTENT = {
     },
     role: "Computer Engineer · Senior Full Stack Developer · Blockchain & AI",
     ageStr: `${AGE} years old`,
+    lastUpdated: "Last updated: July 2026",
     summary: `Computer Engineer and Senior Full Stack Developer with ${EXPERIENCE_YEARS} years of experience, programming since 2002. Builds enterprise systems, government platforms, and SaaS products. Specialized in web technologies, blockchain/DeFi, and AI-powered applications. MBA in IT Process Governance.`,
     experience: [
       {
@@ -148,6 +149,7 @@ const CONTENT = {
     },
     role: "Engenheiro de Computação · Desenvolvedor Full Stack Sênior · Blockchain & IA",
     ageStr: `${AGE} anos`,
+    lastUpdated: "Última atualização: julho de 2026",
     summary: `Engenheiro de Computação e Desenvolvedor Full Stack Sênior com ${EXPERIENCE_YEARS} anos de experiência, programando desde 2002. Constrói sistemas corporativos, plataformas governamentais e produtos SaaS. Especializado em tecnologias web, blockchain/DeFi e aplicações com inteligência artificial. MBA em Governança de Processos de TI.`,
     experience: [
       {
@@ -269,6 +271,7 @@ const CONTENT = {
     },
     role: "Ingeniero en Computación · Desarrollador Full Stack Senior · Blockchain & IA",
     ageStr: `${AGE} años`,
+    lastUpdated: "Última actualización: julio de 2026",
     summary: `Ingeniero en Computación y Desarrollador Full Stack Senior con ${EXPERIENCE_YEARS} años de experiencia, programando desde 2002. Construye sistemas empresariales, plataformas gubernamentales y productos SaaS. Especializado en tecnologías web, blockchain/DeFi y aplicaciones con inteligencia artificial. MBA en Gobernanza de Procesos de TI.`,
     experience: [
       {
@@ -390,6 +393,7 @@ const CONTENT = {
     },
     role: "Ingénieur Informatique · Développeur Full Stack Senior · Blockchain & IA",
     ageStr: `${AGE} ans`,
+    lastUpdated: "Dernière mise à jour : juillet 2026",
     summary: `Ingénieur Informatique et Développeur Full Stack Senior avec ${EXPERIENCE_YEARS} ans d'expérience, programmant depuis 2002. Crée des systèmes d'entreprise, plateformes gouvernementales et produits SaaS. Spécialisé dans les technologies web, la blockchain/DeFi et les applications d'intelligence artificielle. MBA en Gouvernance des Processus IT.`,
     experience: [
       {
@@ -642,9 +646,18 @@ function ResumeNew() {
                   Brasília, DF, Brazil &nbsp;·&nbsp; {c.ageStr}
                 </p>
                 <p style={{ fontSize: "clamp(10px, 2vw, 12px)", color: "#666", margin: "4px 0", wordBreak: "break-word" }}>
-                  engenheirorodolforomao@gmail.com &nbsp;·&nbsp; +55 61 98111-9944
+                  <a href="mailto:engenheirorodolforomao@gmail.com" style={{ color: "#666" }}>engenheirorodolforomao@gmail.com</a>
+                  &nbsp;·&nbsp;
+                  <a href="tel:+5561981119944" style={{ color: "#666" }}>+55 61 98111-9944</a>
                   <br />
-                  rodolforomao.com.br &nbsp;·&nbsp; github.com/rodolforomao &nbsp;·&nbsp; linkedin.com/in/rodolfo-romao-oliveira
+                  <a href="https://rodolforomao.com.br" target="_blank" rel="noopener noreferrer" style={{ color: "#666" }}>rodolforomao.com.br</a>
+                  &nbsp;·&nbsp;
+                  <a href="https://github.com/rodolforomao" target="_blank" rel="noopener noreferrer" style={{ color: "#666" }}>github.com/rodolforomao</a>
+                  &nbsp;·&nbsp;
+                  <a href="https://linkedin.com/in/rodolfo-romao-oliveira" target="_blank" rel="noopener noreferrer" style={{ color: "#666" }}>linkedin.com/in/rodolfo-romao-oliveira</a>
+                </p>
+                <p style={{ fontSize: "10px", color: "#999", margin: "8px 0 0" }}>
+                  {c.lastUpdated}
                 </p>
               </div>
 
