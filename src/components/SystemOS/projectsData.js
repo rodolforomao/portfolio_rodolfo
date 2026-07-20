@@ -113,7 +113,6 @@ export const WORK_PROJECTS = [
       "Web platform for weekly raffles built in Laravel, inspired by the Mega-Sena model.",
     descriptionPt:
       "Plataforma web em Laravel para sorteios semanais, inspirada no modelo da Mega-Sena.",
-    ghLink: "https://github.com/rodolforomao/polybit",
   },
   {
     name: "Smart Condo (Laravel 11)",
@@ -121,7 +120,6 @@ export const WORK_PROJECTS = [
       "Complete condominium management system rebuilt on Laravel 11, centralizing the entire condominium routine in a single digital platform.",
     descriptionPt:
       "Sistema de gestão condominial reconstruído em Laravel 11, centralizando toda a rotina do condomínio em uma única plataforma digital.",
-    ghLink: "https://github.com/rodolforomao/smart_condo",
   },
   {
     name: "DICI Simples (Anatel/SCM)",
@@ -129,7 +127,6 @@ export const WORK_PROJECTS = [
       "Simplified interface for Anatel's DICI sector-data system, built with React, TypeScript, and Vite.",
     descriptionPt:
       "Interface simplificada do sistema DICI da Anatel, construída com React, TypeScript e Vite.",
-    ghLink: "https://github.com/RodrigoSCM1/dici-simples-anatel-scm-engenharia",
   },
 ];
 

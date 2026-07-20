@@ -188,7 +188,6 @@ function Projects() {
               title="Polybit"
               description="Web platform for weekly raffles in Laravel, inspired by the Mega-Sena model. PHP 8+, MySQL/MariaDB, Laravel Mix for front-end assets."
               subdescription="Plataforma web em Laravel para sorteios semanais. Requisitos: PHP 8+, MySQL/MariaDB, Composer e Node/NPM para assets."
-              ghLink="https://github.com/rodolforomao/polybit"
             />
           </Col>
 
@@ -199,7 +198,6 @@ function Projects() {
               title="Smart Condo (Open Source Codebase)"
               description="Open-source Laravel 11 codebase underlying the Smart Condo SaaS product above, centralizing the entire condominium routine in a single digital platform. PHP 8+, MySQL, optional Redis."
               subdescription="Código-fonte aberto em Laravel 11 que serve de base para o produto SaaS Smart Condo listado acima: rotinas centralizadas, backend PHP 8+, MySQL (XAMPP), cache e storage configuráveis."
-              ghLink="https://github.com/rodolforomao/smart_condo"
             />
           </Col>
 
@@ -210,7 +208,6 @@ function Projects() {
               title="DICI Simples (Anatel/SCM)"
               description="Simplified DICI (Data, Information, Knowledge and Intelligence) interface for Anatel's sector data — a team project built at SCM Engenharia. Built with React, TypeScript, Vite and modern UI (e.g. Radix/shadcn)."
               subdescription="Interface simplificada do sistema DICI da Anatel — projeto em equipe na SCM Engenharia. Stack: React, TypeScript, Vite, formulários e UI moderna."
-              ghLink="https://github.com/RodrigoSCM1/dici-simples-anatel-scm-engenharia"
             />
           </Col>
         </Row>

@@ -21,6 +21,20 @@ const gridVariants = {
 
 function ProjectCard({ project, locale }) {
   const href = project.website || project.ghLink;
+
+  if (!href) {
+    return (
+      <motion.div
+        className="projects-live-card"
+        variants={cardVariants}
+        transition={{ duration: 0.35 }}
+      >
+        <h4 className="projects-live-card-name">{project.name}</h4>
+        <p className="projects-live-card-description">{projectText(locale, project)}</p>
+      </motion.div>
+    );
+  }
+
   const linkLabel = project.website
     ? t(locale, "projectsLive.websiteLabel")
     : t(locale, "projectsLive.githubLabel");
