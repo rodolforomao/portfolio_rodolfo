@@ -3,12 +3,18 @@
 WebSocket Relay Server — deploy em rodolforomao.com.br
 
 Faz a ponte entre:
-  [dealer_agent local]  ←WS→  [este relay]  ←WSS→  [browsers]
+  [dealer_agent]  ←WS→  [este relay]  ←WSS→  [browsers]
+  [termux_agent]  ←WS→  [este relay]  ←WSS→  [browsers]
 
 Troca de agente (dev local → Termux produção):
   - Novo agente substitui o anterior (não bloqueia com 4009)
   - Browsers recebem state_reset + agent_status com nova session_id
   - last_state é zerado ao desconectar ou trocar sessão
+
+Termux (rede residencial, sem IP fixo):
+  - role `termux_agent` abre WSS outbound (mesmo /dealer-ws)
+  - envia `termux_status` (sync Liquid + saúde do device)
+  - browsers recebem `termux_agent_status` + `termux_status`
 """
 
 import asyncio
@@ -23,15 +29,19 @@ from websockets.protocol import State
 load_dotenv()
 
 TOKEN = os.getenv("WS_BRIDGE_TOKEN", "change-me")
-PORT  = int(os.getenv("WS_RELAY_PORT", 8765))
-HOST  = os.getenv("WS_RELAY_HOST", "0.0.0.0")
+PORT = int(os.getenv("WS_RELAY_PORT", 8765))
+HOST = os.getenv("WS_RELAY_HOST", "0.0.0.0")
 
 dealer_agent: websockets.WebSocketServerProtocol | None = None
+termux_agent: websockets.WebSocketServerProtocol | None = None
 browser_clients: set[websockets.WebSocketServerProtocol] = set()
 last_state: dict | None = None
+last_termux_status: dict | None = None
 agent_connected_at: float | None = None
 agent_session_id: int = 0
 agent_meta: dict = {}
+termux_session_id: int = 0
+termux_meta: dict = {}
 _lock = asyncio.Lock()
 
 # Janela pra detectar duas fontes brigando pela mesma vaga de agente (ex: um
@@ -117,6 +127,21 @@ def _agent_status_payload(connected: bool) -> dict:
         payload["agent_session_id"] = agent_meta.get("agent_session_id")
         payload["git_tag"] = agent_meta.get("git_tag")
         payload["pid"] = agent_meta.get("pid")
+    return payload
+
+
+def _termux_agent_status_payload(connected: bool) -> dict:
+    payload = {
+        "type": "termux_agent_status",
+        "connected": connected,
+        "ts": _utc_now_iso(),
+    }
+    if connected and termux_meta:
+        payload["session_id"] = termux_meta.get("session_id")
+        payload["hostname"] = termux_meta.get("hostname")
+        payload["ip"] = termux_meta.get("ip")
+        payload["pid"] = termux_meta.get("pid")
+        payload["device"] = termux_meta.get("device")
     return payload
 
 
@@ -208,6 +233,35 @@ async def _disconnect_previous_agent(new_meta: dict) -> None:
     await broadcast_state_reset("agent_replaced")
 
 
+async def _disconnect_previous_termux(new_meta: dict) -> None:
+    global termux_agent, last_termux_status, termux_meta
+
+    prev = termux_agent
+    if prev is None or not _ws_is_open(prev):
+        termux_agent = None
+        # mantém last_termux_status até novo sample (browser ainda vê dados frescos)
+        termux_meta = {}
+        return
+
+    # Mesmo hostname+pid reconectando: encerra o socket velho sem zerar cache
+    same = (
+        termux_meta.get("hostname") == new_meta.get("hostname")
+        and termux_meta.get("pid") is not None
+        and termux_meta.get("pid") == new_meta.get("pid")
+    )
+    prev_label = f"{termux_meta.get('hostname', '?')} ({termux_meta.get('ip', '?')})"
+    new_label = f"{new_meta.get('hostname', '?')} ({new_meta.get('ip', '?')})"
+    log(f"Substituindo termux_agent '{prev_label}' por '{new_label}'" + (" (reconnect)" if same else ""))
+    termux_agent = None
+    if not same:
+        last_termux_status = None
+    termux_meta = {}
+    try:
+        await prev.close(4010, "Substituído por novo termux_agent")
+    except Exception:
+        pass
+
+
 async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
     global dealer_agent, last_state, agent_connected_at, agent_session_id, agent_meta
 
@@ -270,11 +324,80 @@ async def handle_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
             await broadcast(json.dumps(_agent_status_payload(False)))
 
 
+async def handle_termux_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
+    """Agente no S22/Termux — WSS outbound da rede residencial."""
+    global termux_agent, last_termux_status, termux_session_id, termux_meta
+
+    hostname = (auth.get("hostname") or "termux").strip()
+    ip = _extract_client_ip(ws)
+    pid = auth.get("pid")
+    device = auth.get("device") or auth.get("model")
+
+    async with _lock:
+        await _disconnect_previous_termux({"hostname": hostname, "ip": ip, "pid": pid})
+        termux_session_id += 1
+        termux_agent = ws
+        termux_meta = {
+            "session_id": termux_session_id,
+            "hostname": hostname,
+            "ip": ip,
+            "pid": pid,
+            "device": device,
+            "connected_at": _utc_now_iso(),
+        }
+
+    log(
+        f"Termux agent conectado: {hostname} "
+        f"(ip {ip or '?'}, session #{termux_session_id}, device {device or '?'}, pid {pid or '?'})"
+    )
+    await broadcast(json.dumps(_termux_agent_status_payload(True)))
+    if last_termux_status:
+        await broadcast(json.dumps(last_termux_status))
+
+    try:
+        async for raw in ws:
+            try:
+                msg = json.loads(raw)
+                mtype = msg.get("type")
+                if mtype == "termux_status":
+                    # Anexa meta observada pelo relay (IP público residencial)
+                    data = msg.get("data") if isinstance(msg.get("data"), dict) else {}
+                    enriched = {
+                        "type": "termux_status",
+                        "ts": msg.get("ts") or _utc_now_iso(),
+                        "session_id": termux_meta.get("session_id"),
+                        "hostname": hostname,
+                        "ip": ip,
+                        "device": device,
+                        "data": data,
+                    }
+                    last_termux_status = enriched
+                    await broadcast(json.dumps(enriched))
+                elif mtype in ("termux_command_result", "heartbeat", "error"):
+                    await broadcast(raw)
+            except Exception as e:
+                log(f"Erro ao processar msg do termux_agent: {e}")
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    finally:
+        should_notify = False
+        async with _lock:
+            if termux_agent is ws:
+                termux_agent = None
+                last_termux_status = None
+                termux_meta = {}
+                should_notify = True
+                log(f"Termux agent desconectado: {hostname} (ip {ip or '?'})")
+        if should_notify:
+            await broadcast(json.dumps(_termux_agent_status_payload(False)))
+
+
 async def handle_browser(ws: websockets.WebSocketServerProtocol):
     browser_clients.add(ws)
     log(f"Browser conectado: {ws.remote_address}  (total: {len(browser_clients)})")
 
     agent_live = _ws_is_open(dealer_agent)
+    termux_live = _ws_is_open(termux_agent)
 
     # Nunca envia cache de sessão morta — só estado do agente atualmente conectado
     if agent_live and last_state:
@@ -283,18 +406,32 @@ async def handle_browser(ws: websockets.WebSocketServerProtocol):
         await ws.send(json.dumps(_state_reset_payload("no_agent" if not agent_live else "awaiting_state")))
 
     await ws.send(json.dumps(_agent_status_payload(agent_live)))
+    await ws.send(json.dumps(_termux_agent_status_payload(termux_live)))
+    if termux_live and last_termux_status:
+        await ws.send(json.dumps(last_termux_status))
 
     try:
         async for raw in ws:
             try:
                 msg = json.loads(raw)
-                if msg.get("type") == "command":
+                mtype = msg.get("type")
+                if mtype == "command":
                     if _ws_is_open(dealer_agent):
                         await dealer_agent.send(raw)
                     else:
                         await ws.send(json.dumps({
                             "type": "error",
                             "message": "Dealer agent não está conectado",
+                            "req_id": msg.get("req_id"),
+                            "action": msg.get("action"),
+                        }))
+                elif mtype == "termux_command":
+                    if _ws_is_open(termux_agent):
+                        await termux_agent.send(raw)
+                    else:
+                        await ws.send(json.dumps({
+                            "type": "error",
+                            "message": "Termux agent não está conectado",
                             "req_id": msg.get("req_id"),
                             "action": msg.get("action"),
                         }))
@@ -329,6 +466,8 @@ async def handler(ws: websockets.WebSocketServerProtocol):
     role = auth.get("role", "browser")
     if role == "dealer_agent":
         await handle_agent(ws, auth)
+    elif role == "termux_agent":
+        await handle_termux_agent(ws, auth)
     elif role == "browser":
         await handle_browser(ws)
     else:
@@ -368,10 +507,11 @@ async def main():
         handler,
         HOST,
         PORT,
-        ping_interval=None,  # bridge gerencia próprio keepalive; heartbeat() cuida dos browsers
+        ping_interval=20,
+        ping_timeout=60,
         max_size=2 * 1024 * 1024,
     ):
-        log("Relay rodando. Aguardando conexões...")
+        log("Relay rodando. Aguardando conexões (browser / dealer_agent / termux_agent)...")
         await asyncio.Future()
 
 

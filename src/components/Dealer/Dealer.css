@@ -7179,6 +7179,205 @@ body.dealer-route-active .App.app-ready {
 }
 .dealer-oracle-thresholds summary { cursor: pointer; color: #79c0ff; margin-bottom: 6px; }
 
+/* ── Termux sync / device health ── */
+.dealer-termux-panel { padding: 4px 0 16px; }
+
+.dealer-termux-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+}
+
+.dealer-termux-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e6edf3;
+}
+
+.dealer-termux-header-meta {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.dealer-termux-conn {
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.dealer-termux-section-title {
+  margin: 18px 0 10px;
+  font-size: 0.92rem;
+  color: #c9d1d9;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dealer-termux-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.dealer-termux-grid-chain {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.dealer-termux-grid-health {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.dealer-termux-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.dealer-termux-card-ok { border-color: #238636; }
+.dealer-termux-card-warn { border-color: #9e6a03; }
+.dealer-termux-card-off { border-color: #6e7681; }
+
+.dealer-termux-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.dealer-termux-card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #21262d;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #79c0ff;
+  flex-shrink: 0;
+}
+
+.dealer-termux-card-icon svg { width: 18px; height: 18px; }
+
+.dealer-termux-card-head h4 {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #e6edf3;
+}
+
+.dealer-termux-card-head p {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.dealer-termux-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.dealer-termux-usage { margin-bottom: 10px; }
+
+.dealer-termux-usage-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #c9d1d9;
+  margin-bottom: 4px;
+}
+
+.dealer-termux-bar {
+  height: 6px;
+  background: #21262d;
+}
+
+.dealer-termux-bar .progress-bar { transition: width 0.35s ease; }
+
+.dealer-termux-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.dealer-termux-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dealer-termux-meta dt {
+  margin: 0;
+  color: #8b949e;
+  font-weight: 500;
+}
+
+.dealer-termux-meta dd {
+  margin: 0;
+  color: #e6edf3;
+}
+
+.dealer-termux-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.dealer-termux-hash { word-break: break-all; }
+
+.dealer-termux-alert { font-size: 0.8rem; }
+
+.dealer-termux-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+}
+
+.dealer-termux-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.dealer-termux-table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: #161b22;
+  color: #8b949e;
+  border-bottom: 1px solid #30363d;
+  font-weight: 600;
+}
+
+.dealer-termux-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #21262d;
+  color: #c9d1d9;
+  vertical-align: top;
+}
+
+.dealer-termux-cmd {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dealer-termux-footer {
+  margin: 14px 0 0;
+  font-size: 0.72rem;
+  color: #6e7681;
+}
+
 /* Banner de erros do manager no header */
 
 .dealer-status-banner-log-error {

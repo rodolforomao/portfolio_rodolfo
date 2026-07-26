@@ -16,7 +16,7 @@ import {
   TbBug, TbLogout, TbWallet, TbBook, TbBook2, TbHeartbeat, TbCoins,
   TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight, TbRocket,
   TbBookmark, TbBookmarkFilled, TbBookmarkOff, TbShieldCheck, TbTrash,
-  TbAlertTriangle, TbGauge,
+  TbAlertTriangle, TbGauge, TbDeviceMobile,
 } from 'react-icons/tb';
 import ArchitecturePanel from './ArchitecturePanel';
 import StrategyPanel from './StrategyPanel';
@@ -96,6 +96,7 @@ import { loadDealerPreferences } from './utils/dealerPreferences';
 import { log, registerPushLog } from './utils/logger';
 import LogsPanel from './LogsPanel';
 import OracleStatusPanel from './OracleStatusPanel';
+import TermuxSyncPanel from './TermuxSyncPanel';
 import { FollowRefLink } from './utils/followTarget';
 import './Dealer.css';
 import './DealerTheme.css';
@@ -1687,6 +1688,7 @@ export default function DealerConsole() {
   const {
     status, agentConnected, agentMeta, state, messages, events, sendCommand, disconnect, lastError,
     agentConflict, dismissAgentConflict,
+    termuxConnected, termuxMeta, termuxStatus, requestTermuxRefresh,
   } = useDealerWs(session?.wsUrl, session?.token, !!session?.authenticated);
 
   // Nomeação de agentes (por IP/hostname) fica só no navegador (localStorage,
@@ -2085,6 +2087,15 @@ export default function DealerConsole() {
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link
+                  active={mainView === 'termux'}
+                  onClick={() => setMainView('termux')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbDeviceMobile /> Termux
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
                   active={mainView === 'config'}
                   onClick={() => setMainView('config')}
                   className="dealer-main-nav-link"
@@ -2257,6 +2268,20 @@ export default function DealerConsole() {
             <Col xs={12}>
               <div className="dealer-panel dealer-panel-scroll">
                 <OracleStatusPanel sendCommand={sendCommand} wsStatus={status} />
+              </div>
+            </Col>
+          </Row>
+        ) : mainView === 'termux' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <TermuxSyncPanel
+                  wsStatus={status}
+                  termuxConnected={termuxConnected}
+                  termuxMeta={termuxMeta}
+                  termuxStatus={termuxStatus}
+                  requestTermuxRefresh={requestTermuxRefresh}
+                />
               </div>
             </Col>
           </Row>

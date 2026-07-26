@@ -55,12 +55,22 @@ export default function useDealerWs(wsUrl, token, enabled) {
   // produção). Fica setado até o operador dispensar ou até um tempo sem
   // recorrência — ver SystemStatusBar.
   const [agentConflict, setAgentConflict] = useState(null);
+  // Termux agent (WSS outbound do S22) — independente do dealer_agent
+  const [termuxConnected, setTermuxConnected] = useState(false);
+  const [termuxMeta, setTermuxMeta] = useState(null);
+  const [termuxStatus, setTermuxStatus] = useState(null);
 
   const clearAgentState = useCallback((reason) => {
     agentSessionRef.current = null;
     setAgentConnected(false);
     setAgentMeta(null);
     setState({ ...EMPTY_DEALER_STATE, resetReason: reason, ts: new Date().toISOString() });
+  }, []);
+
+  const clearTermuxState = useCallback(() => {
+    setTermuxConnected(false);
+    setTermuxMeta(null);
+    setTermuxStatus(null);
   }, []);
 
   const addLog = useCallback((text) => {
@@ -194,6 +204,46 @@ export default function useDealerWs(wsUrl, token, enabled) {
       return;
     }
 
+    if (type === 'termux_agent_status') {
+      if (msg.connected) {
+        setTermuxConnected(true);
+        setTermuxMeta({
+          sessionId: msg.session_id ?? null,
+          ip: msg.ip || null,
+          hostname: msg.hostname || null,
+          device: msg.device || null,
+          pid: msg.pid || null,
+          connectedAt: msg.ts || null,
+        });
+        addLog(
+          `[${msg.ts || ''}] Termux agent conectado`
+          + (msg.hostname ? ` (${msg.hostname})` : '')
+          + (msg.ip ? ` · ${msg.ip}` : '')
+          + (msg.session_id != null ? ` #${msg.session_id}` : ''),
+        );
+      } else {
+        clearTermuxState();
+        addLog(`[${msg.ts || ''}] Termux agent desconectado`);
+      }
+      return;
+    }
+
+    if (type === 'termux_status') {
+      setTermuxConnected(true);
+      setTermuxStatus(msg);
+      if (msg.hostname || msg.ip || msg.session_id != null) {
+        setTermuxMeta((prev) => ({
+          ...prev,
+          sessionId: msg.session_id ?? prev?.sessionId ?? null,
+          ip: msg.ip || prev?.ip || null,
+          hostname: msg.hostname || prev?.hostname || null,
+          device: msg.device || prev?.device || null,
+          connectedAt: msg.ts || prev?.connectedAt || null,
+        }));
+      }
+      return;
+    }
+
     if (type === 'command_result') {
       const reqKey = String(msg.req_id);
       const resolver = pendingRef.current.get(reqKey);
@@ -235,7 +285,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
         resolver({ ok: false, data: { error: errMsg }, action: msg.action });
       }
     }
-  }, [addLog, applyAgentMeta, clearAgentState]);
+  }, [addLog, applyAgentMeta, clearAgentState, clearTermuxState]);
 
   const connect = useCallback(() => {
     if (!enabled || !wsUrl || !token) return;
@@ -247,6 +297,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
 
     setStatus(STATUS.connecting);
     setLastError(null);
+    clearTermuxState();
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -293,6 +344,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
       wsRef.current = null;
       setStatus((prev) => (prev === STATUS.error ? prev : STATUS.idle));
       clearAgentState('browser_disconnected');
+      clearTermuxState();
       const pending = pendingRef.current.size;
       if (pending > 0) {
         log.warn('WS fechado com', pending, 'comando(s) pendente(s) — cancelando');
@@ -307,7 +359,7 @@ export default function useDealerWs(wsUrl, token, enabled) {
         reconnectRef.current = setTimeout(connect, 5000);
       }
     };
-  }, [enabled, wsUrl, token, addLog, handleMessage, clearAgentState]);
+  }, [enabled, wsUrl, token, addLog, handleMessage, clearAgentState, clearTermuxState]);
 
   const disconnect = useCallback(() => {
     if (reconnectRef.current) {
@@ -320,7 +372,8 @@ export default function useDealerWs(wsUrl, token, enabled) {
     }
     setStatus(STATUS.idle);
     clearAgentState('manual_disconnect');
-  }, [clearAgentState]);
+    clearTermuxState();
+  }, [clearAgentState, clearTermuxState]);
 
   useEffect(() => {
     if (enabled) {
@@ -409,6 +462,19 @@ export default function useDealerWs(wsUrl, token, enabled) {
 
   const dismissAgentConflict = useCallback(() => setAgentConflict(null), []);
 
+  const requestTermuxRefresh = useCallback(() => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new Error('WebSocket não conectado'));
+    }
+    const req_id = reqIdRef.current++;
+    wsRef.current.send(JSON.stringify({
+      type: 'termux_command',
+      action: 'refresh',
+      req_id,
+    }));
+    return Promise.resolve({ ok: true, req_id });
+  }, []);
+
   return {
     status,
     agentConnected,
@@ -419,6 +485,10 @@ export default function useDealerWs(wsUrl, token, enabled) {
     lastError,
     agentConflict,
     dismissAgentConflict,
+    termuxConnected,
+    termuxMeta,
+    termuxStatus,
+    requestTermuxRefresh,
     sendCommand,
     disconnect,
     reconnect: connect,
