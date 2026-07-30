@@ -104,15 +104,16 @@ function ChainCard({ label, network, networkKey }) {
     : null;
 
   // Alinha com a UI do Termux: chain no disco ≠ IBD via RPC.
-  let statusLabel = 'offline';
+  // Rótulo explícito: syncing / running (sincronizado) / stopped (parado).
+  let statusLabel = 'parado';
   let kind = 'off';
   let badge = 'danger';
   if (online && info.initialblockdownload) {
-    statusLabel = 'sincronizando';
+    statusLabel = 'syncing';
     kind = 'warn';
     badge = 'warning';
   } else if (online) {
-    statusLabel = 'sincronizado';
+    statusLabel = 'running';
     kind = 'ok';
     badge = 'success';
   } else if (daemon.running) {
@@ -131,8 +132,10 @@ function ChainCard({ label, network, networkKey }) {
     : daemon.running
       ? 'daemon up · RPC down'
       : hasChainData
-        ? 'elementsd parado · dados presentes'
-        : 'daemon down';
+        ? 'parado · dados presentes'
+        : 'parado';
+
+  const tunedParams = network.tuned_params || [];
 
   return (
     <MetricCard
@@ -147,6 +150,21 @@ function ChainCard({ label, network, networkKey }) {
           pid {daemon.pid ?? '—'}
         </Badge>
       </div>
+
+      {tunedParams.length > 0 && (
+        <div className="dealer-termux-tuning">
+          <p className="dealer-termux-tuning-title">Config fora do padrão (RAM)</p>
+          <ul className="dealer-termux-tuning-list">
+            {tunedParams.map((p) => (
+              <li key={p.key}>
+                <code>{p.key}={p.value}</code>
+                <span className="dealer-termux-tuning-default"> · padrão {p.default}</span>
+                {p.note && <span className="dealer-termux-tuning-note"> — {p.note}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {online ? (
         <>

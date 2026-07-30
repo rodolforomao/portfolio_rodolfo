@@ -7337,6 +7337,53 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-termux-alert { font-size: 0.8rem; }
 
+.dealer-termux-tuning {
+  margin: 10px 0 4px;
+  padding: 8px 10px;
+  border: 1px dashed #9e6a03;
+  border-radius: 6px;
+  background: rgba(158, 106, 3, 0.08);
+}
+
+.dealer-termux-tuning-title {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #d29922;
+  font-weight: 600;
+}
+
+.dealer-termux-tuning-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dealer-termux-tuning-list li {
+  font-size: 0.76rem;
+  color: #c9d1d9;
+}
+
+.dealer-termux-tuning-list code {
+  color: #e6edf3;
+  background: #21262d;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.76rem;
+}
+
+.dealer-termux-tuning-default {
+  color: #8b949e;
+}
+
+.dealer-termux-tuning-note {
+  color: #8b949e;
+}
+
 .dealer-termux-table-wrap {
   overflow-x: auto;
   border: 1px solid #30363d;
