@@ -15,6 +15,16 @@ Termux (rede residencial, sem IP fixo):
   - role `termux_agent` abre WSS outbound (mesmo /dealer-ws)
   - envia `termux_status` (sync Liquid + saúde do device)
   - browsers recebem `termux_agent_status` + `termux_status`
+
+Bridge genérico (SSH real entre dois pontos, via site) — token separado
+(SSH_BRIDGE_TOKEN, nunca o mesmo do dealer/browser):
+  - role `bridge_agent`  (device_id fixo, ex. termux) — fica alcançável,
+    encaminha bytes pro seu localhost:<porta> (normalmente sshd)
+  - role `bridge_client` — inicia sessão (`bridge_connect`) contra um
+    device_id; relay só repassa frames `bridge_data`/`bridge_close` entre
+    os dois — nunca decodifica o conteúdo (ssh real ponta-a-ponta)
+  - Ver scripts/bridge_agent.py (daemon alvo) e scripts/bridge_connect.py
+    (conector, uso típico como `ssh -o ProxyCommand=...`)
 """
 
 import asyncio
@@ -32,9 +42,21 @@ TOKEN = os.getenv("WS_BRIDGE_TOKEN", "change-me")
 PORT = int(os.getenv("WS_RELAY_PORT", 8765))
 HOST = os.getenv("WS_RELAY_HOST", "0.0.0.0")
 
+# Token do bridge SSH genérico — DELIBERADAMENTE separado de WS_BRIDGE_TOKEN,
+# que vai embutido no bundle React (REACT_APP_DEALER_WS_TOKEN) e portanto é
+# extraível por qualquer visitante do site. Sem SSH_BRIDGE_TOKEN definido,
+# os papéis bridge_agent/bridge_client ficam desabilitados (fail closed).
+SSH_BRIDGE_TOKEN = os.getenv("SSH_BRIDGE_TOKEN", "")
+
 dealer_agent: websockets.WebSocketServerProtocol | None = None
 termux_agent: websockets.WebSocketServerProtocol | None = None
 browser_clients: set[websockets.WebSocketServerProtocol] = set()
+
+# device_id -> ws do bridge_agent alcançável (ex.: "termux", "pc-black")
+bridge_targets: dict[str, websockets.WebSocketServerProtocol] = {}
+bridge_target_meta: dict[str, dict] = {}
+# session_id -> {"client": ws, "target": ws, "device_id": str}
+bridge_sessions: dict[str, dict] = {}
 last_state: dict | None = None
 last_termux_status: dict | None = None
 agent_connected_at: float | None = None
@@ -445,6 +467,140 @@ async def handle_browser(ws: websockets.WebSocketServerProtocol):
         log(f"Browser desconectado (restam: {len(browser_clients)})")
 
 
+async def handle_bridge_agent(ws: websockets.WebSocketServerProtocol, auth: dict):
+    """Device alcançável (ex.: Termux) — encaminha bytes pro seu localhost.
+
+    Não decodifica `bridge_data`: só repassa pro `bridge_client` pareado via
+    session_id. A ponta real (SSH, o que for) roda o protocolo dela mesma;
+    o relay é só transporte opaco.
+    """
+    device_id = (auth.get("device_id") or "").strip()
+    if not device_id:
+        await ws.close(4005, "device_id obrigatório")
+        return
+
+    ip = _extract_client_ip(ws)
+    hostname = (auth.get("hostname") or device_id).strip()
+
+    async with _lock:
+        prev = bridge_targets.get(device_id)
+        if prev is not None and prev is not ws and _ws_is_open(prev):
+            try:
+                await prev.close(4010, "Substituído por nova conexão bridge_agent")
+            except Exception:
+                pass
+        bridge_targets[device_id] = ws
+        bridge_target_meta[device_id] = {
+            "hostname": hostname,
+            "ip": ip,
+            "connected_at": _utc_now_iso(),
+        }
+
+    log(f"Bridge target conectado: device_id={device_id} hostname={hostname} ip={ip or '?'}")
+
+    try:
+        async for raw in ws:
+            try:
+                msg = json.loads(raw)
+            except Exception:
+                continue
+            mtype = msg.get("type")
+            session_id = msg.get("session_id")
+            if mtype in ("bridge_data", "bridge_close", "bridge_error") and session_id:
+                sess = bridge_sessions.get(session_id)
+                if sess and sess.get("target") is ws:
+                    client = sess.get("client")
+                    if _ws_is_open(client):
+                        await client.send(raw)
+                    if mtype in ("bridge_close", "bridge_error"):
+                        bridge_sessions.pop(session_id, None)
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    finally:
+        async with _lock:
+            if bridge_targets.get(device_id) is ws:
+                bridge_targets.pop(device_id, None)
+                bridge_target_meta.pop(device_id, None)
+        dead_sessions = [sid for sid, s in bridge_sessions.items() if s.get("target") is ws]
+        for sid in dead_sessions:
+            sess = bridge_sessions.pop(sid, None)
+            client = sess.get("client") if sess else None
+            if _ws_is_open(client):
+                try:
+                    await client.send(json.dumps({
+                        "type": "bridge_close", "session_id": sid, "reason": "target_disconnected",
+                    }))
+                except Exception:
+                    pass
+        log(f"Bridge target desconectado: device_id={device_id} (ip {ip or '?'})")
+
+
+async def handle_bridge_client(ws: websockets.WebSocketServerProtocol):
+    """Iniciador de sessão bridge (ex.: scripts/bridge_connect.py como ProxyCommand do ssh)."""
+    ip = _extract_client_ip(ws)
+    log(f"Bridge client conectado (ip {ip or '?'})")
+    my_sessions: set[str] = set()
+
+    try:
+        async for raw in ws:
+            try:
+                msg = json.loads(raw)
+            except Exception:
+                continue
+            mtype = msg.get("type")
+
+            if mtype == "bridge_connect":
+                to = (msg.get("to") or "").strip()
+                session_id = (msg.get("session_id") or "").strip()
+                if not to or not session_id:
+                    await ws.send(json.dumps({
+                        "type": "bridge_error", "session_id": session_id,
+                        "message": "to/session_id obrigatórios",
+                    }))
+                    continue
+                async with _lock:
+                    target = bridge_targets.get(to)
+                    if not _ws_is_open(target):
+                        await ws.send(json.dumps({
+                            "type": "bridge_error", "session_id": session_id,
+                            "message": f"device '{to}' não conectado",
+                        }))
+                        continue
+                    bridge_sessions[session_id] = {"client": ws, "target": target, "device_id": to}
+                my_sessions.add(session_id)
+                log(f"Bridge sessão aberta: {session_id} -> {to}")
+                try:
+                    await target.send(json.dumps({"type": "bridge_open", "session_id": session_id}))
+                except Exception:
+                    pass
+                await ws.send(json.dumps({"type": "bridge_ack", "session_id": session_id}))
+
+            elif mtype in ("bridge_data", "bridge_close") and msg.get("session_id"):
+                session_id = msg["session_id"]
+                sess = bridge_sessions.get(session_id)
+                if sess and sess.get("client") is ws:
+                    target = sess.get("target")
+                    if _ws_is_open(target):
+                        await target.send(raw)
+                    if mtype == "bridge_close":
+                        bridge_sessions.pop(session_id, None)
+                        my_sessions.discard(session_id)
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    finally:
+        for sid in list(my_sessions):
+            sess = bridge_sessions.pop(sid, None)
+            target = sess.get("target") if sess else None
+            if _ws_is_open(target):
+                try:
+                    await target.send(json.dumps({
+                        "type": "bridge_close", "session_id": sid, "reason": "client_disconnected",
+                    }))
+                except Exception:
+                    pass
+        log(f"Bridge client desconectado (ip {ip or '?'})")
+
+
 async def handler(ws: websockets.WebSocketServerProtocol):
     try:
         raw_auth = await asyncio.wait_for(ws.recv(), timeout=10.0)
@@ -456,20 +612,27 @@ async def handler(ws: websockets.WebSocketServerProtocol):
         await ws.close(4002, "Mensagem de auth inválida")
         return
 
-    if auth.get("type") != "auth" or auth.get("token") != TOKEN:
+    role = auth.get("role", "browser")
+    is_bridge_role = role in ("bridge_agent", "bridge_client")
+    expected_token = SSH_BRIDGE_TOKEN if is_bridge_role else TOKEN
+
+    if auth.get("type") != "auth" or not expected_token or auth.get("token") != expected_token:
         await ws.send(json.dumps({"type": "auth_fail", "message": "Token inválido"}))
         await ws.close(4003, "Unauthorized")
         return
 
     await ws.send(json.dumps({"type": "auth_ok"}))
 
-    role = auth.get("role", "browser")
     if role == "dealer_agent":
         await handle_agent(ws, auth)
     elif role == "termux_agent":
         await handle_termux_agent(ws, auth)
     elif role == "browser":
         await handle_browser(ws)
+    elif role == "bridge_agent":
+        await handle_bridge_agent(ws, auth)
+    elif role == "bridge_client":
+        await handle_bridge_client(ws)
     else:
         await ws.close(4004, f"Role desconhecida: {role}")
 
@@ -500,6 +663,7 @@ async def heartbeat():
 async def main():
     log(f"Relay iniciando em {HOST}:{PORT}")
     log(f"Token configurado: {'SIM' if TOKEN != 'change-me' else 'NÃO (use WS_BRIDGE_TOKEN=...)'}")
+    log(f"Bridge SSH (bridge_agent/bridge_client): {'HABILITADO' if SSH_BRIDGE_TOKEN else 'desabilitado (defina SSH_BRIDGE_TOKEN=...)'}")
 
     asyncio.create_task(heartbeat())
 

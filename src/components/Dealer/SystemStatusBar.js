@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { TbNetwork, TbCpu, TbLayoutList, TbRefresh, TbBrandTelegram, TbPencil } from 'react-icons/tb';
+import { TbNetwork, TbCpu, TbLayoutList, TbRefresh, TbBrandTelegram, TbPencil, TbServer } from 'react-icons/tb';
 import { countDealersByStatus } from './utils/dealerStatus';
 import { countOrdersByStatus } from './utils/orderStatus';
 import { prepareDealerOrders } from './utils/orderMarketNormalize';
@@ -99,6 +99,7 @@ export default function SystemStatusBar({
   selectedDealer,
   stateTs,
   telegramStatus,
+  bankslipStatus,
 }) {
   // Recalcula quando agentNamesVersion muda (renomeação salva no localStorage
   // não dispara re-render sozinha, ver useDealerWs/DealerConsole).
@@ -240,6 +241,19 @@ export default function SystemStatusBar({
             telegramStatus.active
               ? `Telegram ativo — ${telegramStatus.botCount} bot(s) · ${telegramStatus.chatCount} chat(s)`
               : 'Telegram não configurado — vá em Settings → Telegram'
+          }
+        />
+      )}
+      {bankslipStatus && bankslipStatus.running != null && (
+        <SecondaryPill
+          ok={bankslipStatus.running === true}
+          icon={TbServer}
+          label="bankslip_ws"
+          detail={bankslipStatus.running ? `PID ${bankslipStatus.pid}` : 'offline'}
+          title={
+            bankslipStatus.running
+              ? `bankslip_websocket (server.py) rodando no Termux — PID ${bankslipStatus.pid}`
+              : 'bankslip_websocket (server.py) não está rodando no Termux — serviço de terceiros que deveria ficar sempre online'
           }
         />
       )}

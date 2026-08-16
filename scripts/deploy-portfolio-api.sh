@@ -99,7 +99,23 @@ cp "\$PORTFOLIO_DIR/hestia-nginx-portfolio.conf" "\$NGINX_CONF_DIR/nginx.conf_po
 systemctl daemon-reload
 systemctl enable portfolio-api.service
 systemctl restart portfolio-api.service
-nginx -t && systemctl reload nginx
+
+nginx -t
+# Ver deploy-vault-services.sh: reload "sucesso" no systemd não garante que o
+# nginx aceitou a config (bind() pode falhar silenciosamente). Confirma pelos
+# PIDs de worker.
+BEFORE_WORKERS=\$(pgrep -f 'nginx: worker process' | sort)
+systemctl reload nginx
+sleep 2
+AFTER_WORKERS=\$(pgrep -f 'nginx: worker process' | sort)
+NEW_WORKERS=\$(comm -13 <(echo "\$BEFORE_WORKERS") <(echo "\$AFTER_WORKERS"))
+if [[ -z "\$NEW_WORKERS" ]]; then
+  echo "ERRO: nginx reload não trocou os workers — provável falha silenciosa (ex: bind() conflict)." >&2
+  echo "Últimas linhas de /var/log/nginx/error.log:" >&2
+  tail -20 /var/log/nginx/error.log >&2
+  exit 1
+fi
+echo "nginx reload confirmado — novos workers: \$NEW_WORKERS"
 REMOTE
 
 unset SSHPASS 2>/dev/null || true

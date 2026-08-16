@@ -1,0 +1,7 @@
+[Unit]
+Description=nginx-watchdog — detecta reload/bind do nginx falhando silenciosamente
+After=network.target nginx.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/admin/web/rodolforomao.com.br/vault-services/nginx-watchdog.sh

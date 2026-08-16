@@ -66,6 +66,9 @@ RSYNC_FILES=(
   scripts/hestia-fix-ws-upgrade-header.sh
   scripts/systemd/portfolio-vault.service
   scripts/systemd/portfolio-relay.service
+  scripts/nginx-watchdog.sh
+  scripts/systemd/nginx-watchdog.service
+  scripts/systemd/nginx-watchdog.timer
 )
 [[ "${VAULT_SYNC_DB:-}" == "1" && -f vault_data.db ]] && RSYNC_FILES+=(vault_data.db)
 
@@ -97,6 +100,9 @@ fi
 
 install -m 644 "\$VAULT_DIR/portfolio-vault.service" /etc/systemd/system/
 install -m 644 "\$VAULT_DIR/portfolio-relay.service" /etc/systemd/system/
+chmod 755 "\$VAULT_DIR/nginx-watchdog.sh"
+install -m 644 "\$VAULT_DIR/nginx-watchdog.service" /etc/systemd/system/
+install -m 644 "\$VAULT_DIR/nginx-watchdog.timer" /etc/systemd/system/
 
 cp "\$VAULT_DIR/hestia-nginx-vault.conf" "\$NGINX_CONF_DIR/nginx.ssl.conf_vault"
 cp "\$VAULT_DIR/hestia-nginx-vault.conf" "\$NGINX_CONF_DIR/nginx.conf_vault"
@@ -110,7 +116,26 @@ fi
 systemctl daemon-reload
 systemctl enable portfolio-vault.service portfolio-relay.service
 systemctl restart portfolio-vault.service portfolio-relay.service
-nginx -t && systemctl reload nginx
+systemctl enable --now nginx-watchdog.timer
+
+nginx -t
+# systemctl reload "sucesso" não significa que o nginx aceitou a config nova —
+# se um bind() falhar (porta já em uso por outro processo, ex: Apache), o
+# nginx mantém os workers antigos rodando e só loga [emerg], sem erro visível
+# pro systemd. Confirmamos comparando PIDs de worker antes/depois: se nenhum
+# PID novo aparecer, o reload falhou silenciosamente.
+BEFORE_WORKERS=\$(pgrep -f 'nginx: worker process' | sort)
+systemctl reload nginx
+sleep 2
+AFTER_WORKERS=\$(pgrep -f 'nginx: worker process' | sort)
+NEW_WORKERS=\$(comm -13 <(echo "\$BEFORE_WORKERS") <(echo "\$AFTER_WORKERS"))
+if [[ -z "\$NEW_WORKERS" ]]; then
+  echo "ERRO: nginx reload não trocou os workers — provável falha silenciosa (ex: bind() conflict)." >&2
+  echo "Últimas linhas de /var/log/nginx/error.log:" >&2
+  tail -20 /var/log/nginx/error.log >&2
+  exit 1
+fi
+echo "nginx reload confirmado — novos workers: \$NEW_WORKERS"
 REMOTE
 
 unset SSHPASS 2>/dev/null || true

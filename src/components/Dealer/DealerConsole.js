@@ -2139,6 +2139,7 @@ export default function DealerConsole() {
             selectedDealer={mainView === 'geral' ? selectedDealer : null}
             stateTs={state?.ts}
             telegramStatus={telegramStatus}
+            bankslipStatus={state?.services?.bankslip_websocket}
           />
           {agentConflict && (
             <Alert
