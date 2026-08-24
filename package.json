@@ -29,6 +29,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "prebuild": "bash scripts/sync-dealer-tools.sh",
+    "sync:tools": "bash scripts/sync-dealer-tools.sh",
+    "start:analyses": "ANALYSES_HTTP_PORT=8769 python3 tools/analyses/scripts/serve_live.py",
     "start:vault": "bash scripts/start-vault.sh",
     "start:relay": "bash scripts/start-relay.sh",
     "start:portfolio-api": "bash scripts/start-portfolio-api.sh",

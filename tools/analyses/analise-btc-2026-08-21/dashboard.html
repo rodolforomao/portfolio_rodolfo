@@ -1,0 +1,420 @@
+<title>BTC → USDT — Painel de Decisão</title>
+<style>
+  .viz-root {
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-blue: #2a78d6;
+    --series-aqua: #1baf7a;
+    --series-yellow: #eda100;
+    --series-violet: #4a3aa7;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+    --seq-100: #cde2fb;
+    --seq-400: #3987e5;
+    --seq-600: #184f95;
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --series-blue: #3987e5;
+      --series-aqua: #199e70;
+      --series-yellow: #c98500;
+      --series-violet: #9085e9;
+      --good: #0ca30c;
+      --warning: #fab219;
+      --serious: #ec835a;
+      --critical: #e66767;
+      --seq-100: #184f95;
+      --seq-400: #3987e5;
+      --seq-600: #cde2fb;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    --surface-1: #1a1a19; --page:#0d0d0d; --text-primary:#ffffff; --text-secondary:#c3c2b7;
+    --text-muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border: rgba(255,255,255,0.10);
+    --series-blue:#3987e5; --series-aqua:#199e70; --series-yellow:#c98500; --series-violet:#9085e9;
+    --critical:#e66767; --seq-100:#184f95; --seq-400:#3987e5; --seq-600:#cde2fb;
+  }
+  :root[data-theme="light"] .viz-root {
+    --surface-1:#fcfcfb; --page:#f9f9f7; --text-primary:#0b0b0b; --text-secondary:#52514e;
+    --text-muted:#898781; --grid:#e1e0d9; --baseline:#c3c2b7; --border: rgba(11,11,11,0.10);
+    --series-blue:#2a78d6; --series-aqua:#1baf7a; --series-yellow:#eda100; --series-violet:#4a3aa7;
+    --critical:#d03b3b; --seq-100:#cde2fb; --seq-400:#3987e5; --seq-600:#184f95;
+  }
+
+  .viz-root {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    padding: 32px 20px 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+  .viz-root * { box-sizing: border-box; }
+
+  header.top { margin-bottom: 28px; }
+  header.top .eyebrow {
+    font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-muted); font-weight: 600; margin-bottom: 6px;
+  }
+  header.top h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.top p.sub { font-size: 14px; color: var(--text-secondary); margin: 0; max-width: 720px; line-height: 1.5; }
+
+  .disclaimer {
+    margin-top: 16px; padding: 12px 14px; border-radius: 10px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;
+  }
+
+  section { margin-top: 36px; }
+  section > h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-muted); font-weight: 700; margin: 0 0 14px;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  section > h2 .n { color: var(--text-muted); font-weight: 500; }
+
+  .grid { display: grid; gap: 12px; }
+  .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 860px) {
+    .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+    .grid.cols-3 { grid-template-columns: 1fr; }
+    .grid.cols-2 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px;
+  }
+
+  .tile .label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .tile .value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
+  .tile .delta { font-size: 12.5px; margin-top: 4px; font-weight: 600; }
+  .tile .delta.good { color: var(--good); }
+  .tile .delta.critical { color: var(--critical); }
+  .tile .note { font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+    letter-spacing: .01em;
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .badge.good { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .badge.good .dot { background: var(--good); }
+  .badge.warning { color: #8a5a00; background: color-mix(in srgb, var(--warning) 22%, transparent); }
+  .badge.warning .dot { background: var(--warning); }
+  @media (prefers-color-scheme: dark) { .badge.warning { color: var(--warning); } }
+  :root[data-theme="dark"] .badge.warning { color: var(--warning); }
+  .badge.serious { color: #8a3d1d; background: color-mix(in srgb, var(--serious) 22%, transparent); }
+  @media (prefers-color-scheme: dark) { .badge.serious { color: var(--serious); } }
+  :root[data-theme="dark"] .badge.serious { color: var(--serious); }
+  .badge.serious .dot { background: var(--serious); }
+  .badge.critical { color: var(--critical); background: color-mix(in srgb, var(--critical) 14%, transparent); }
+  .badge.critical .dot { background: var(--critical); }
+  .badge.neutral { color: var(--text-secondary); background: color-mix(in srgb, var(--text-secondary) 12%, transparent); }
+  .badge.neutral .dot { background: var(--text-muted); }
+
+  /* Gauge / meter */
+  .meter { margin-top: 10px; }
+  .meter .track {
+    position: relative; height: 8px; border-radius: 4px; overflow: visible;
+    background: linear-gradient(to right,
+      var(--good) 0%, var(--good) 28%,
+      var(--baseline) 28%, var(--baseline) 44%,
+      var(--baseline) 44%, var(--baseline) 68%,
+      var(--warning) 68%, var(--warning) 82%,
+      var(--critical) 82%, var(--critical) 100%);
+  }
+  .meter .track.sentiment {
+    background: linear-gradient(to right,
+      var(--critical) 0%, var(--critical) 25%,
+      var(--serious) 25%, var(--serious) 45%,
+      var(--baseline) 45%, var(--baseline) 55%,
+      var(--warning) 55%, var(--warning) 75%,
+      var(--critical) 75%, var(--critical) 100%);
+  }
+  .meter .marker {
+    position: absolute; top: -4px; width: 3px; height: 16px; border-radius: 2px;
+    background: var(--text-primary); box-shadow: 0 0 0 2px var(--surface-1);
+  }
+  .meter .scale { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-top: 6px; }
+
+  /* Bars */
+  .bars { display: flex; align-items: flex-end; gap: 6px; height: 90px; margin-top: 10px; }
+  .bars .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+  .bars .bar { width: 100%; border-radius: 4px 4px 2px 2px; min-height: 3px; }
+  .bars .bar.pos { background: var(--good); }
+  .bars .bar.neg { background: var(--critical); }
+  .bars .lbl { font-size: 9.5px; color: var(--text-muted); }
+  .bars .zero-line { position: relative; }
+
+  table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.data th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+  table.data td { padding: 8px; border-bottom: 1px solid var(--grid); color: var(--text-secondary); }
+  table.data td:first-child { color: var(--text-primary); font-weight: 600; }
+  table.data tr:last-child td { border-bottom: none; }
+
+  /* Timeline */
+  .timeline { position: relative; padding: 30px 10px 10px; }
+  .timeline .line { position: absolute; top: 42px; left: 24px; right: 24px; height: 2px; background: var(--baseline); }
+  .timeline .events { display: flex; justify-content: space-between; position: relative; }
+  .timeline .event { flex: 1; text-align: center; position: relative; }
+  .timeline .event .pt { width: 12px; height: 12px; border-radius: 50%; background: var(--surface-1); border: 3px solid var(--series-blue); margin: 0 auto 8px; position: relative; top: 36px; }
+  .timeline .event.risk .pt { border-color: var(--critical); }
+  .timeline .event .when { font-size: 11px; color: var(--text-muted); font-weight: 700; margin-top: 44px; }
+  .timeline .event .what { font-size: 12.5px; color: var(--text-primary); margin-top: 3px; font-weight: 600; max-width: 160px; margin-left: auto; margin-right: auto; }
+  .timeline .event .why { font-size: 11.5px; color: var(--text-secondary); margin-top: 4px; max-width: 170px; margin-left: auto; margin-right: auto; line-height: 1.4; }
+
+  /* Scenario cards */
+  .scenario { border-top: 3px solid; }
+  .scenario.bull { border-color: var(--good); }
+  .scenario.bear { border-color: var(--critical); }
+  .scenario.neutral { border-color: var(--series-yellow); }
+  .scenario h3 { font-size: 14px; margin: 2px 0 8px; }
+  .scenario p { font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin: 0; }
+
+  /* Checklist */
+  .checklist { display: grid; gap: 10px; }
+  .checklist .q { display: flex; gap: 10px; padding: 12px 14px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; }
+  .checklist .q .num { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--series-blue); color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .checklist .q .txt { font-size: 13.5px; color: var(--text-primary); line-height: 1.5; }
+
+  .compare-note {
+    font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+  }
+  .compare-note .tag { display: inline-flex; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; margin-right: 4px; }
+  .compare-note .tag.overlap { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .compare-note .tag.new { background: color-mix(in srgb, var(--series-violet) 16%, transparent); color: var(--series-violet); }
+
+  footer.foot { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--grid); font-size: 11.5px; color: var(--text-muted); line-height: 1.6; }
+</style>
+
+<div class="viz-root">
+
+  <header class="top">
+    <div class="eyebrow">Painel de decisão · não é recomendação de investimento</div>
+    <h1>BTC → USDT: vale liquidar agora?</h1>
+    <p class="sub">Consolidação de indicadores técnicos, institucionais/on-chain, de sentimento e macro após o BTC subir ~15–23% na semana. Leitura de 21/08/2026 — confira os valores ao vivo antes de decidir.</p>
+    <div class="disclaimer">⚠️ Não sou consultor financeiro licenciado. Este painel organiza dados públicos para apoiar sua decisão — a decisão final e o risco são seus. Ver relatório completo em <code>analise-btc-liquidacao.md</code> na mesma pasta.</div>
+  </header>
+
+  <!-- TÉCNICO -->
+  <section>
+    <h2>Técnico &amp; estatístico <span class="n">— sinais divididos</span></h2>
+    <div class="grid cols-4">
+      <div class="card tile">
+        <div class="label">RSI diário (14)</div>
+        <div class="value">~82</div>
+        <span class="badge critical"><span class="dot"></span>Sobrecomprado</span>
+        <div class="meter">
+          <div class="track"><div class="marker" style="left:82%"></div></div>
+          <div class="scale"><span>0</span><span>30</span><span>70</span><span>100</span></div>
+        </div>
+        <div class="note">Acima de 70 = zona de sobrecompra. Não força reversão, mas aumenta chance de pullback.</div>
+      </div>
+      <div class="card tile">
+        <div class="label">Bollinger Bands</div>
+        <div class="value" style="font-size:20px;">Acima da banda superior</div>
+        <span class="badge warning"><span class="dot"></span>Risco de reversão curto prazo</span>
+        <div class="note">Fechamento acima da banda superior é historicamente associado a mean-reversion.</div>
+      </div>
+      <div class="card tile">
+        <div class="label">MACD</div>
+        <div class="value" style="font-size:20px;">Histograma positivo</div>
+        <span class="badge good"><span class="dot"></span>Momentum ainda ativo</span>
+        <div class="note">Contradiz o RSI: não mostra exaustão da tendência ainda.</div>
+      </div>
+      <div class="card tile">
+        <div class="label">Funding rate (perp)</div>
+        <div class="value">0,003–0,007%</div>
+        <span class="badge good"><span class="dot"></span>Alavancagem moderada</span>
+        <div class="meter">
+          <div class="track" style="background:linear-gradient(to right, var(--good) 0%, var(--good) 60%, var(--warning) 60%, var(--warning) 85%, var(--critical) 85%, var(--critical) 100%)"><div class="marker" style="left:20%"></div></div>
+          <div class="scale"><span>0%</span><span>0,03% (aquecido)</span></div>
+        </div>
+        <div class="note">Bem abaixo do limiar de 0,03% — não é um long trade lotado.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTITUCIONAL / ON-CHAIN -->
+  <section>
+    <h2>Fluxos institucionais &amp; on-chain <span class="n">— pesam para continuação</span></h2>
+    <div class="grid cols-3">
+      <div class="card">
+        <div class="label" style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">ETFs spot — fluxo diário (dias selecionados, ago/2026)</div>
+        <div class="bars">
+          <div class="bar-wrap"><div class="bar neg" style="height:26%"></div><span class="lbl">12/8<br>−61M</span></div>
+          <div class="bar-wrap"><div class="bar neg" style="height:50%"></div><span class="lbl">13/8<br>−131M</span></div>
+          <div class="bar-wrap"><div class="bar neg" style="height:22%"></div><span class="lbl">14/8<br>−56M</span></div>
+          <div class="bar-wrap"><div class="bar pos" style="height:70%"></div><span class="lbl">19/8<br>+517M</span></div>
+          <div class="bar-wrap"><div class="bar pos" style="height:82%"></div><span class="lbl">20/8<br>+606M</span></div>
+        </div>
+        <div class="note" style="margin-top:10px;">Mês acumula ~US$1,5bi líquido positivo, mas não foi unidirecional — houve 3 dias de saída antes da virada.</div>
+      </div>
+      <div class="card tile">
+        <div class="label">Whales (60 dias)</div>
+        <div class="value">+US$2,9bi</div>
+        <span class="badge good"><span class="dot"></span>Saíram de distribuição → acumulação</span>
+        <div class="note">Whale vs Retail Delta positivo — grandes players lideraram o movimento.</div>
+      </div>
+      <div class="card tile">
+        <div class="label">Demanda 30 dias (CryptoQuant)</div>
+        <div class="value">+25 mil BTC</div>
+        <span class="badge good"><span class="dot"></span>Primeira leitura positiva desde fev/26</span>
+        <div class="note">Vinha de −650 mil BTC em junho — recuperação forte, mas recente.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SENTIMENTO -->
+  <section>
+    <h2>Sentimento <span class="n">— ambíguo, virada rápida demais para confiar sozinho</span></h2>
+    <div class="grid cols-2">
+      <div class="card tile">
+        <div class="label">Fear &amp; Greed Index (cripto)</div>
+        <div class="value">~65–72 · Greed</div>
+        <span class="badge warning"><span class="dot"></span>Virada rápida (Medo Extremo → Ganância em dias)</span>
+        <div class="meter">
+          <div class="track sentiment"><div class="marker" style="left:68%"></div></div>
+          <div class="scale"><span>Medo extremo</span><span>Neutro</span><span>Ganância extrema</span></div>
+        </div>
+        <div class="note">Ainda não é Ganância Extrema (&gt;80) — zona onde o risco de topo por euforia é historicamente maior.</div>
+      </div>
+      <div class="card">
+        <div class="label" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Contexto da virada</div>
+        <table class="data">
+          <tr><td>Há 1 mês</td><td>~25 (Medo Extremo)</td></tr>
+          <tr><td>Há 1 semana</td><td>~29 (Medo Extremo)</td></tr>
+          <tr><td>Hoje</td><td>~65–72 (Ganância)</td></tr>
+        </table>
+        <div class="note" style="margin-top:8px;">Salto de ~16 pontos em 1 dia — uma das viradas de sentimento mais fortes de 2026. Pode ser início de tendência (alívio pós-capitulação) ou combustível de euforia. Sozinho não dá direção.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MACRO -->
+  <section>
+    <h2>Macro <span class="n">— misto</span></h2>
+    <div class="grid cols-4">
+      <div class="card tile">
+        <div class="label">Fed Funds Rate</div>
+        <div class="value">3,50–3,75%</div>
+        <span class="badge neutral"><span class="dot"></span>Mantido (voto 9–3)</span>
+        <div class="note">3 dissidentes hawkish — inflação acima da meta há +5 anos.</div>
+      </div>
+      <div class="card tile">
+        <div class="label">DXY (dólar)</div>
+        <div class="value">~99,4</div>
+        <span class="badge good"><span class="dot"></span>Enfraquecendo</span>
+        <div class="note">3ª sessão fraca seguida — geralmente favorável a BTC.</div>
+      </div>
+      <div class="card tile">
+        <div class="label">Treasury 30 anos</div>
+        <div class="value">&gt;5,33%</div>
+        <span class="badge warning"><span class="dot"></span>Máxima em 19 anos</span>
+        <div class="note">Mais prêmio de prazo/fiscal do que sinal do Fed.</div>
+      </div>
+      <div class="card tile">
+        <div class="label">Gatilho do rally</div>
+        <div class="value" style="font-size:16px;">Discurso político + recompra do Tesouro</div>
+        <span class="badge warning"><span class="dot"></span>Pontual, não orgânico</span>
+        <div class="note">Suporte de curto prazo, não necessariamente recorrente.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EVENTO -->
+  <section>
+    <h2>Risco de evento à frente <span class="n">— o que pode virar o jogo</span></h2>
+    <div class="card">
+      <div class="timeline">
+        <div class="line"></div>
+        <div class="events">
+          <div class="event">
+            <div class="pt"></div>
+            <div class="when">Hoje · 21/08</div>
+            <div class="what">Rally de +15–23% na semana</div>
+            <div class="why">RSI sobrecomprado, sentimento em Ganância</div>
+          </div>
+          <div class="event risk">
+            <div class="pt"></div>
+            <div class="when">15/09/2026</div>
+            <div class="what">Voto de cloture do Clarity Act (Senado)</div>
+            <div class="why">Binário · precisa de 60 votos. Mercado via o projeto como "morto" antes da reação atual.</div>
+          </div>
+          <div class="event risk">
+            <div class="pt"></div>
+            <div class="when">15–16/09/2026</div>
+            <div class="what">Reunião do FOMC</div>
+            <div class="why">Mesma semana do voto — duas fontes de volatilidade concentradas.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CENARIOS -->
+  <section>
+    <h2>Cenários <span class="n">— sem atribuir probabilidade falsa</span></h2>
+    <div class="grid cols-3">
+      <div class="card scenario bull">
+        <h3>🟢 Otimista</h3>
+        <p>Clarity Act passa o cloture em 15/09 → clareza regulatória libera capital institucional represado. ETFs seguem captando, dólar segue fraco, whales seguem acumulando. Rally atual é a perna inicial de um movimento maior.</p>
+      </div>
+      <div class="card scenario bear">
+        <h3>🔴 Pessimista</h3>
+        <p>RSI extremo + fechamento acima da banda de Bollinger favorecem pullback. Rally veio de 2 eventos pontuais, não de demanda orgânica. Fracasso no cloture de 15/09 é risco concreto e identificável — "sell the news" é um padrão histórico comum em cripto ao redor de catalisadores legislativos.</p>
+      </div>
+      <div class="card scenario neutral">
+        <h3>🟡 Neutro (mais provável no curtíssimo prazo)</h3>
+        <p>MACD não mostra exaustão e alavancagem não está esticada — contra um colapso iminente. Mas sobrecompra + catalisador binário em 3–4 semanas favorecem mais volatilidade/lateralização do que continuação linear e limpa.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FRAMEWORK -->
+  <section>
+    <h2>Perguntas antes de decidir <span class="n">— não a resposta, o que separa os cenários</span></h2>
+    <div class="checklist">
+      <div class="q"><div class="num">1</div><div class="txt">Seu horizonte é os próximos 30 dias (onde o voto do Senado pesa mais) ou anos (onde esse ruído importa menos)?</div></div>
+      <div class="q"><div class="num">2</div><div class="txt">Você acredita que o Clarity Act passa o cloture em 15/09? Se não, o risco de manter a posição inteira aumenta.</div></div>
+      <div class="q"><div class="num">3</div><div class="txt">Precisa da liquidez em USDT para algo específico em breve, ou é só realocação de portfólio?</div></div>
+      <div class="q"><div class="num">4</div><div class="txt">Aguentaria psicologicamente um pullback de 10–20%, cenário estatisticamente plausível dado o RSI atual?</div></div>
+      <div class="q"><div class="num">5</div><div class="txt">Considerou uma liquidação parcial (ex.: 20–40%) em vez de tudo ou nada — reduz exposição ao evento de setembro e fraciona o imposto?</div></div>
+    </div>
+  </section>
+
+  <!-- COMPARACAO COM O MACRO-DASHBOARD -->
+  <section>
+    <h2>Comparação com o seu macro-dashboard (rodolforomao.com.br)</h2>
+    <div class="card compare-note">
+      <p><span class="tag overlap">Em comum</span> RSI, Bollinger, ETFs, dominância/market cap, funding rate, Fear Index, DXY, Treasury Yields, VIX, CDI, S&amp;P/Nasdaq, Fed/FOMC — seu dashboard já cobre a maior parte dos indicadores técnicos e macro usados aqui.</p>
+      <p style="margin-top:8px;"><span class="tag new">Novo neste painel</span> Leitura explícita do MACD junto ao RSI (para flagar a contradição entre os dois), estatística de mean-reversion histórica, o catalisador específico do rally atual (Clarity Act + recompra do Tesouro) com a data do voto de cloture como evento de risco, acumulação de whales, e a camada de decisão (cenários + checklist + custo fiscal no Brasil) — que é específica desta decisão de liquidar ou não, não um indicador de mercado contínuo.</p>
+    </div>
+  </section>
+
+  <footer class="foot">
+    Fontes completas e ressalvas sobre divergência de preço entre fontes: ver <code>analise-btc-liquidacao.md</code> nesta mesma pasta. Dados de 21/08/2026 — indicadores mudam rápido; confira ao vivo antes de agir.
+  </footer>
+
+</div>

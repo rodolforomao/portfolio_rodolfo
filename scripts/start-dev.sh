@@ -41,6 +41,8 @@ bash "$ROOT/scripts/ensure-venv.sh"
 echo "========================================"
 echo " Dev — React :3000 + relay :${WS_RELAY_PORT:-8765}"
 echo " Abra: http://localhost:3000/dealer"
+echo " Após login: Menu → Dealer | Analyses | Liquid TX"
+echo " Tools: public/tools/* (npm run sync:tools)"
 echo "========================================"
 echo
 

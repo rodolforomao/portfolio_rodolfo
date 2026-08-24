@@ -2,9 +2,13 @@ const { createProxyMiddleware } = require("http-proxy-middleware");
 
 // Dev-only proxy rules (substitui o antigo package.json "proxy": single-string,
 // que era um catch-all impreciso). Cada regra é explícita e isolada por prefixo de path:
-//   /api/vault      -> vault_server.py       (:8766) — comportamento já existente, preservado
-//   /api/portfolio  -> portfolio_api_server.py (:8767) — novo, seção /system
-//   /api/termux     -> termux_api_server.py  (:8768) — sync Liquid + saúde do S22
+//   /api/vault       -> vault_server.py        (:8766)
+//   /api/portfolio   -> portfolio_api_server.py (:8767)
+//   /api/termux      -> termux_api_server.py   (:8768)
+//   /api/analyses/*  -> tools/analyses serve_live.py (:8769) — opcional
+//
+// Analyses e Liquid TX estáticos ficam em public/tools/* (via scripts/sync-dealer-tools.sh).
+
 module.exports = function (app) {
   app.use(
     "/api/vault",
@@ -27,6 +31,30 @@ module.exports = function (app) {
     createProxyMiddleware({
       target: process.env.TERMUX_API_PROXY_TARGET || "http://127.0.0.1:8768",
       changeOrigin: true,
+    })
+  );
+
+  // Opcional: python3 tools/analyses/scripts/serve_live.py
+  const analysesTarget =
+    process.env.ANALYSES_API_PROXY_TARGET || "http://127.0.0.1:8769";
+  app.use(
+    "/api/analyses",
+    createProxyMiddleware({
+      target: analysesTarget,
+      changeOrigin: true,
+      pathRewrite: {
+        "^/api/analyses/live": "/api/live",
+        "^/api/analyses/recompute": "/api/recompute",
+        "^/api/analyses/formulas": "/api/formulas",
+        "^/api/analyses": "",
+      },
+      onError: (err, _req, res) => {
+        // Sem serve_live.py o dashboard usa public/tools/analyses/live.json
+        if (!res.headersSent) {
+          res.writeHead(502, { "Content-Type": "application/json" });
+        }
+        res.end(JSON.stringify({ error: "analyses API offline", detail: String(err.message || err) }));
+      },
     })
   );
 };

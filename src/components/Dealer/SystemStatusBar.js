@@ -248,12 +248,12 @@ export default function SystemStatusBar({
         <SecondaryPill
           ok={bankslipStatus.running === true}
           icon={TbServer}
-          label="bankslip_ws"
+          label="swap server"
           detail={bankslipStatus.running ? `PID ${bankslipStatus.pid}` : 'offline'}
           title={
             bankslipStatus.running
-              ? `bankslip_websocket (server.py) rodando no Termux — PID ${bankslipStatus.pid}`
-              : 'bankslip_websocket (server.py) não está rodando no Termux — serviço de terceiros que deveria ficar sempre online'
+              ? `swap server (server.py) rodando no Termux — PID ${bankslipStatus.pid}`
+              : 'swap server (server.py) não está rodando no Termux — serviço de terceiros que deveria ficar sempre online'
           }
         />
       )}

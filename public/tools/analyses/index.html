@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BTC → USDT — motor dinâmico</title>
+  <style>
+    :root {
+      --bg: #0f1114;
+      --panel: #171a1f;
+      --text: #e8eaed;
+      --muted: #9aa0a6;
+      --line: #2a2f36;
+      --accent: #5b9fd4;
+      --ok: #3d9a6a;
+      --warn: #c4a035;
+      --neg: #c45c5c;
+      --pos: #3d9a6a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    main { max-width: 980px; margin: 0 auto; padding: 28px 18px 64px; }
+    h1 { font-size: 1.55rem; margin: 0 0 6px; font-weight: 600; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); margin: 0 0 18px; font-size: 0.95rem; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+    button {
+      background: var(--accent); color: #0b0d10; border: 0; border-radius: 6px;
+      padding: 9px 14px; font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    }
+    button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    #status, #asof { color: var(--muted); font-size: 0.85rem; }
+    .verdict {
+      border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 14px 0 20px;
+      background: var(--panel);
+    }
+    .verdict.warn { border-color: #6a5a2a; }
+    .verdict.ok { border-color: #2f5a44; }
+    .verdict .eyebrow { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .verdict h2 { margin: 4px 0 8px; font-size: 1.2rem; }
+    .verdict p { margin: 0; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    @media (max-width: 720px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    }
+    .stat .k { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat .v { font-size: 1.15rem; font-weight: 600; margin-top: 4px; }
+    .panel {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+      padding: 16px; margin-bottom: 16px;
+    }
+    .panel h3 { margin: 0 0 12px; font-size: 0.95rem; font-weight: 600; }
+    .weights label { display: grid; grid-template-columns: 140px 1fr 40px; gap: 10px; align-items: center; margin-bottom: 10px; font-size: 0.9rem; }
+    input[type=range] { width: 100%; }
+    .pillar { margin-bottom: 12px; }
+    .pillar .row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 4px; }
+    .pillar .bar { height: 8px; background: #22262c; border-radius: 4px; overflow: hidden; }
+    .pillar .bar i { display: block; height: 100%; border-radius: 4px; }
+    .pillar .bar i.pos { background: var(--pos); }
+    .pillar .bar i.neg { background: var(--neg); }
+    .pillar .detail { color: var(--muted); font-size: 0.78rem; margin-top: 4px; font-family: ui-monospace, monospace; }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 720px) { .charts { grid-template-columns: 1fr; } }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    td, th { border-top: 1px solid var(--line); padding: 8px 6px; text-align: left; vertical-align: top; }
+    code { font-family: ui-monospace, monospace; color: #c5d4e8; }
+    a { color: var(--accent); }
+    footer { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>BTC → USDT — motor de fórmulas dinâmico</h1>
+    <p class="sub">Dados ao vivo via API local · scores recalculados no browser ao mover os pesos · horizonte 7–30 dias</p>
+
+    <div class="toolbar">
+      <button id="btn-refresh" type="button">Atualizar dados ao vivo</button>
+      <button id="btn-reset" class="secondary" type="button">Pesos padrão</button>
+      <span id="status"></span>
+      <span id="asof"></span>
+    </div>
+
+    <div id="verdict" class="verdict">Carregando…</div>
+    <div id="stats" class="grid"></div>
+
+    <div class="panel">
+      <h3>Macro ao vivo (mesmo stack do site)</h3>
+      <p id="macro-source" class="sub" style="margin-top:0"></p>
+      <div id="macro-stats" class="grid"></div>
+    </div>
+
+    <div class="panel weights">
+      <h3>Pesos das fórmulas (ajuste em tempo real)</h3>
+      <label>Estatística <input id="w-stat" type="range" min="0" max="2" step="0.05" value="1" /><span id="v-stat">1.00</span></label>
+      <label>Histórico <input id="w-hist" type="range" min="0" max="2" step="0.05" value="0.8" /><span id="v-hist">0.80</span></label>
+      <label>Macro <input id="w-macro" type="range" min="0" max="2" step="0.05" value="1" /><span id="v-macro">1.00</span></label>
+      <label>Sentimento <input id="w-sentiment" type="range" min="0" max="2" step="0.05" value="1" /><span id="v-sentiment">1.00</span></label>
+      <label>Estrutura <input id="w-structure" type="range" min="0" max="2" step="0.05" value="0.7" /><span id="v-structure">0.70</span></label>
+    </div>
+
+    <div class="panel">
+      <h3>Pilares (score ∈ [-2, +2])</h3>
+      <div id="pillars"></div>
+    </div>
+
+    <div class="charts">
+      <div class="panel">
+        <h3>BTC 30d</h3>
+        <div id="chart-price"></div>
+      </div>
+      <div class="panel">
+        <h3>Fear & Greed 14d</h3>
+        <div id="chart-fg"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Fórmulas ativas</h3>
+      <table>
+        <thead><tr><th>Nome</th><th>Expressão</th></tr></thead>
+        <tbody id="formulas"></tbody>
+      </table>
+    </div>
+
+    <footer>
+      Não é consultoria financeira. Snapshot: <code>./live.json</code> ·
+      API ao vivo (opcional): <code>npm run start:analyses</code> → <code>/api/analyses/live</code> ·
+      Macro: <a href="https://rodolforomao.com.br/macro-dashboard" target="_blank" rel="noopener">rodolforomao.com.br/macro-dashboard</a>.
+    </footer>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>

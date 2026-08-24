@@ -16,7 +16,7 @@ import {
   TbBug, TbLogout, TbWallet, TbBook, TbBook2, TbHeartbeat, TbCoins,
   TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight, TbRocket,
   TbBookmark, TbBookmarkFilled, TbBookmarkOff, TbShieldCheck, TbTrash,
-  TbAlertTriangle, TbGauge, TbDeviceMobile,
+  TbAlertTriangle, TbGauge, TbDeviceMobile, TbApps,
 } from 'react-icons/tb';
 import ArchitecturePanel from './ArchitecturePanel';
 import StrategyPanel from './StrategyPanel';
@@ -1996,6 +1996,16 @@ export default function DealerConsole() {
                 lastUpdate={scanLastUpdate}
               />
               <div className="dealer-topbar-actions">
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => navigate('/dealer/menu')}
+                  className="dealer-menu-btn"
+                  title="Voltar ao menu de ferramentas"
+                >
+                  <TbApps />
+                  <span className="dealer-messages-btn-label">Menu</span>
+                </Button>
                 <Button
                   variant="outline-secondary"
                   size="sm"

@@ -40,6 +40,12 @@ export const INFRA_VPS_IP = process.env.REACT_APP_VPS_IP || '';
 
 export const SESSION_KEY = 'dealer_ws_session';
 
+/** Embeds publicados em public/tools/* (npm run sync:tools). */
+export const ANALYSES_EMBED_URL =
+  process.env.REACT_APP_ANALYSES_URL || '/tools/analyses/';
+export const LIQUID_TX_EMBED_URL =
+  process.env.REACT_APP_LIQUID_TX_URL || '/tools/liquid-tx/';
+
 export function validateCredentials(username, password) {
   if (!DEALER_USER || !DEALER_PASSWORD) {
     return { ok: false, error: 'Credenciais não configuradas no servidor (REACT_APP_DEALER_USER / REACT_APP_DEALER_PASSWORD).' };

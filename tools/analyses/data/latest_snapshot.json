@@ -1,0 +1,27 @@
+{
+  "as_of_utc": "2026-08-21T13:40:01.425416+00:00",
+  "price": 76977.05,
+  "ret_7d_pct": 22.1,
+  "ret_30d_pct": 16.43,
+  "rsi14": 87.01,
+  "week_zscore": 3.4,
+  "fear_greed": {
+    "value": 72,
+    "label": "Greed"
+  },
+  "funding_last_pct_8h": 0.0058,
+  "after_ge_10": {
+    "n": 18,
+    "fwd7_avg": 1.47,
+    "fwd7_win_pct": 61.1,
+    "fwd30_avg": 8.06,
+    "fwd30_win_pct": 66.7
+  },
+  "after_ge_15": {
+    "n": 5,
+    "fwd7_avg": 3.47,
+    "fwd7_win_pct": 80.0,
+    "fwd30_avg": 13.26,
+    "fwd30_win_pct": 80.0
+  }
+}

@@ -30,7 +30,7 @@ export default function DealerLogin() {
     }
 
     saveSession();
-    navigate('/dealer/console');
+    navigate('/dealer/menu');
   };
 
   return (
