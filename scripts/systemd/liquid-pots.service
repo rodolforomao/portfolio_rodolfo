@@ -1,0 +1,16 @@
+[Unit]
+Description=Liquid Pots API (liquid_pots_server.py) — alertas Telegram de potes
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/web/rodolforomao.com.br/liquid-pots
+EnvironmentFile=/home/admin/web/rodolforomao.com.br/liquid-pots/.env.liquid-pots
+ExecStart=/home/admin/web/rodolforomao.com.br/liquid-pots/venv/bin/python3 /home/admin/web/rodolforomao.com.br/liquid-pots/liquid_pots_server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

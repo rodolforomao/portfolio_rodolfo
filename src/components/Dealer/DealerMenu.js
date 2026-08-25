@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Container from 'react-bootstrap/Container';
 import Button from 'react-bootstrap/Button';
 import {
-  TbChartCandle, TbChartLine, TbArrowsExchange, TbLogout, TbLock,
+  TbChartCandle, TbChartLine, TbArrowsExchange, TbLogout, TbLock, TbSettings,
 } from 'react-icons/tb';
 import { clearSession, loadSession } from './config';
 import './Dealer.css';
@@ -26,6 +26,12 @@ const TOOLS = [
     title: 'Liquid TX',
     description: 'Histórico e análise de transações Liquid.',
     icon: TbArrowsExchange,
+  },
+  {
+    to: '/dealer/settings',
+    title: 'Settings',
+    description: 'Configuração compartilhada (Telegram e demais).',
+    icon: TbSettings,
   },
 ];
 

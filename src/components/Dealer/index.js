@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import DealerLogin from './DealerLogin';
 import DealerConsole from './DealerConsole';
 import DealerMenu from './DealerMenu';
+import DealerHubSettings from './DealerHubSettings';
 import DealerToolFrame from './DealerToolFrame';
 import { loadSession, ANALYSES_EMBED_URL, LIQUID_TX_EMBED_URL } from './config';
 
@@ -19,6 +20,7 @@ export default function DealerApp() {
     <Routes>
       <Route path="/" element={<DealerIndex />} />
       <Route path="/menu" element={<DealerMenu />} />
+      <Route path="/settings" element={<DealerHubSettings />} />
       <Route path="/console" element={<DealerConsole />} />
       <Route
         path="/analyses"

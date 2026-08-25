@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FocusEvent, type MouseEvent } from "react";
 import { fetchBtcSpot, type SpotQuote } from "./btcPrice";
 import BuyVolumeChart from "./BuyVolumeChart";
+import PotsPanel from "./PotsPanel";
 import {
   avgPriceFromTxs,
   blockstreamTxUrl,
   buyVolumeByPriceBucket,
   compareToBtcSpot,
   formatAmount,
+  formatDateGroupLabel,
+  formatDateTime,
   formatFee,
   formatPct,
   formatPrice,
@@ -16,6 +19,14 @@ import {
   txUsdtPerLbtc,
   type LiquidTx,
 } from "./csv";
+import {
+  createWallet,
+  findMatchingWallet,
+  loadWalletTxs,
+  loadWallets,
+  updateWalletImport,
+  type Wallet,
+} from "./wallets";
 
 type TypeFilter = "all" | "Received" | "Sent" | "Swap";
 
@@ -37,6 +48,15 @@ function typeBadge(type: string): string {
   return "badge";
 }
 
+function openDatePicker(e: MouseEvent<HTMLInputElement> | FocusEvent<HTMLInputElement>) {
+  const el = e.currentTarget;
+  try {
+    el.showPicker?.();
+  } catch {
+    /* iframe / browser sem suporte — o clique nativo ainda tenta abrir */
+  }
+}
+
 export default function App() {
   const [txs, setTxs] = useState<LiquidTx[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +64,8 @@ export default function App() {
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [appliedFrom, setAppliedFrom] = useState("");
+  const [appliedTo, setAppliedTo] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [query, setQuery] = useState("");
   const [onlySelected, setOnlySelected] = useState(false);
@@ -51,6 +73,65 @@ export default function App() {
   const [btc, setBtc] = useState<SpotQuote | null>(null);
   const [btcError, setBtcError] = useState<string | null>(null);
   const [btcLoading, setBtcLoading] = useState(true);
+
+  const [wallets, setWallets] = useState<Wallet[]>(() => loadWallets());
+  const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
+
+  const activeWallet = useMemo(
+    () => wallets.find((w) => w.id === activeWalletId) ?? null,
+    [wallets, activeWalletId]
+  );
+
+  /** Detecta a carteira pelo overlap de txids; se não achar, pede um nome (nova carteira). */
+  function resolveWalletForImport(parsed: LiquidTx[]): Wallet {
+    const match = findMatchingWallet(parsed);
+    if (match) {
+      const updated = updateWalletImport(match.id, parsed);
+      setWallets(loadWallets());
+      return updated;
+    }
+    const name =
+      window.prompt(
+        "Não reconheci essa carteira pelas transações. Como quer chamá-la?",
+        wallets.length === 0 ? "Carteira 1" : ""
+      ) || "";
+    const created = createWallet(name, parsed);
+    setWallets(loadWallets());
+    return created;
+  }
+
+  function switchWallet(id: string) {
+    const cached = loadWalletTxs(id);
+    setActiveWalletId(id);
+    const sorted = [...cached].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    setTxs(sorted);
+    setSelected(new Set());
+    setOnlySelected(false);
+    if (sorted.length) {
+      setDateRange(
+        toDateKey(sorted[sorted.length - 1].timestamp),
+        toDateKey(sorted[0].timestamp),
+        true
+      );
+    }
+  }
+
+  function setDateRange(from: string, to: string, apply = true) {
+    setDateFrom(from);
+    setDateTo(to);
+    if (apply) {
+      setAppliedFrom(from);
+      setAppliedTo(to);
+    }
+  }
+
+  function applyDateFilter() {
+    setAppliedFrom(dateFrom);
+    setAppliedTo(dateTo);
+  }
+
+  const dateFilterPending =
+    dateFrom !== appliedFrom || dateTo !== appliedTo;
 
   useEffect(() => {
     let cancelled = false;
@@ -63,10 +144,16 @@ export default function App() {
         const parsed = parseCsv(text).sort((a, b) =>
           b.timestamp.localeCompare(a.timestamp)
         );
+        const wallet = resolveWalletForImport(parsed);
+        if (cancelled) return;
+        setActiveWalletId(wallet.id);
         setTxs(parsed);
         if (parsed.length) {
-          setDateFrom(toDateKey(parsed[parsed.length - 1].timestamp));
-          setDateTo(toDateKey(parsed[0].timestamp));
+          setDateRange(
+            toDateKey(parsed[parsed.length - 1].timestamp),
+            toDateKey(parsed[0].timestamp),
+            true
+          );
         }
       } catch (e) {
         if (!cancelled) {
@@ -79,6 +166,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -113,8 +201,8 @@ export default function App() {
     const q = query.trim().toLowerCase();
     return txs.filter((tx) => {
       const day = toDateKey(tx.timestamp);
-      if (dateFrom && day < dateFrom) return false;
-      if (dateTo && day > dateTo) return false;
+      if (appliedFrom && day < appliedFrom) return false;
+      if (appliedTo && day > appliedTo) return false;
       if (typeFilter !== "all" && tx.type !== typeFilter) return false;
       if (onlySelected && !selected.has(tx.txid)) return false;
       if (q) {
@@ -123,7 +211,18 @@ export default function App() {
       }
       return true;
     });
-  }, [txs, dateFrom, dateTo, typeFilter, query, onlySelected, selected]);
+  }, [txs, appliedFrom, appliedTo, typeFilter, query, onlySelected, selected]);
+
+  const groupedByDate = useMemo(() => {
+    const groups: { dateKey: string; txs: LiquidTx[] }[] = [];
+    for (const tx of filtered) {
+      const dateKey = toDateKey(tx.timestamp);
+      const last = groups[groups.length - 1];
+      if (last && last.dateKey === dateKey) last.txs.push(tx);
+      else groups.push({ dateKey, txs: [tx] });
+    }
+    return groups;
+  }, [filtered]);
 
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((tx) => selected.has(tx.txid));
@@ -180,12 +279,17 @@ export default function App() {
       const parsed = parseCsv(text).sort((a, b) =>
         b.timestamp.localeCompare(a.timestamp)
       );
+      const wallet = resolveWalletForImport(parsed);
+      setActiveWalletId(wallet.id);
       setTxs(parsed);
       setSelected(new Set());
       setOnlySelected(false);
       if (parsed.length) {
-        setDateFrom(toDateKey(parsed[parsed.length - 1].timestamp));
-        setDateTo(toDateKey(parsed[0].timestamp));
+        setDateRange(
+          toDateKey(parsed[parsed.length - 1].timestamp),
+          toDateKey(parsed[0].timestamp),
+          true
+        );
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao ler arquivo");
@@ -252,6 +356,32 @@ export default function App() {
         </div>
       </header>
 
+      {wallets.length > 0 && (
+        <div className="wallet-bar">
+          <div className="field">
+            <label htmlFor="wallet">Carteira</label>
+            <select
+              id="wallet"
+              value={activeWalletId ?? ""}
+              onChange={(e) => switchWallet(e.target.value)}
+            >
+              {wallets.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} ({w.txCount} tx)
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="file-hint">
+            Detectada automaticamente pelas transações do CSV. Cada carteira
+            guarda seus próprios potes e histórico.
+            {activeWallet
+              ? ` Última importação: ${formatDateTime(activeWallet.lastImportedAt)}.`
+              : ""}
+          </p>
+        </div>
+      )}
+
       <section className="panel">
         <div className="filters">
           <div className="field">
@@ -261,6 +391,11 @@ export default function App() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
+              onClick={openDatePicker}
+              onFocus={openDatePicker}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyDateFilter();
+              }}
             />
           </div>
           <div className="field">
@@ -270,6 +405,11 @@ export default function App() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
+              onClick={openDatePicker}
+              onFocus={openDatePicker}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyDateFilter();
+              }}
             />
           </div>
           <div className="field">
@@ -307,11 +447,24 @@ export default function App() {
           <div className="actions">
             <button
               type="button"
+              className={`btn btn-primary${dateFilterPending ? " btn-pulse" : ""}`}
+              onClick={applyDateFilter}
+              title="Aplica as datas De/Até na lista"
+            >
+              Aplicar filtro
+            </button>
+            <button
+              type="button"
               className="btn"
               onClick={() => {
                 if (txs.length) {
-                  setDateFrom(toDateKey(txs[txs.length - 1].timestamp));
-                  setDateTo(toDateKey(txs[0].timestamp));
+                  setDateRange(
+                    toDateKey(txs[txs.length - 1].timestamp),
+                    toDateKey(txs[0].timestamp),
+                    true
+                  );
+                } else {
+                  setDateRange("", "", true);
                 }
                 setTypeFilter("all");
                 setQuery("");
@@ -374,6 +527,14 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      <PotsPanel
+        selectedTxs={selectedTxs}
+        spot={btc?.price ?? null}
+        walletId={activeWalletId}
+        walletName={activeWallet?.name ?? null}
+        walletTxs={txs}
+      />
 
       {selectedCount > 0 && (
         <section className="panel price-panel" aria-live="polite">
@@ -564,8 +725,17 @@ export default function App() {
                   <th className="num">Fee</th>
                 </tr>
               </thead>
-              <tbody>
-                {filtered.map((tx) => {
+              {groupedByDate.map((group) => (
+              <tbody key={group.dateKey}>
+                <tr className="date-group-row">
+                  <td colSpan={10}>
+                    {formatDateGroupLabel(group.dateKey)}
+                    <span className="date-group-count">
+                      {group.txs.length} transaç{group.txs.length === 1 ? "ão" : "ões"}
+                    </span>
+                  </td>
+                </tr>
+                {group.txs.map((tx) => {
                   const isSel = selected.has(tx.txid);
                   const price = txUsdtPerLbtc(tx);
                   return (
@@ -633,6 +803,7 @@ export default function App() {
                   );
                 })}
               </tbody>
+              ))}
             </table>
           )}
         </div>

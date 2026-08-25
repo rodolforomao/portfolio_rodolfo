@@ -283,7 +283,10 @@ async function refreshLive() {
     try {
       const w = readWeights();
       const q = new URLSearchParams(w).toString();
-      const liveRes = await fetch("/api/analyses/live?" + q);
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 800);
+      const liveRes = await fetch("/api/analyses/live?" + q, { signal: ac.signal });
+      clearTimeout(timer);
       if (liveRes.ok) {
         data = await liveRes.json();
       }

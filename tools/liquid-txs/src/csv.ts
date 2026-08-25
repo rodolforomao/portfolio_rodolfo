@@ -67,6 +67,33 @@ export function toDateKey(timestamp: string): string {
   return timestamp.slice(0, 10);
 }
 
+/** Formats an ISO timestamp as DD/MM/AAAA, HH:mm:ss (pt-BR), down to the second. */
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+/** Formats a date key (YYYY-MM-DD) as a long pt-BR day label for group headers. */
+export function formatDateGroupLabel(dateKey: string): string {
+  const d = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dateKey;
+  const label = d.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function blockstreamTxUrl(txid: string): string {
   return `https://blockstream.info/liquid/tx/${txid}`;
 }

@@ -31,6 +31,7 @@ pnpm-debug.log*
 # Local data (vault_server.py)
 vault_data.db
 *.db-journal
+liquid_pots_data.json
 
 # TypeScript
 typings/

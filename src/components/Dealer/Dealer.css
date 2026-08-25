@@ -108,7 +108,13 @@ body.dealer-route-active .App.app-ready {
 
 @media (min-width: 640px) {
   .dealer-hub-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .dealer-hub-grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
@@ -160,12 +166,65 @@ body.dealer-route-active .App.app-ready {
   justify-content: center;
 }
 
+.dealer-hub-settings-card {
+  max-width: 520px;
+}
+
+.dealer-hub-settings-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.dealer-hub-settings-section {
+  text-align: left;
+}
+
+.dealer-hub-settings-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: #e6edf3;
+}
+
+.dealer-hub-settings-desc {
+  color: #8b949e;
+  font-size: 0.85rem;
+  margin: 0 0 12px;
+}
+
+.dealer-hub-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dealer-hub-settings-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .dealer-tool-root {
   display: flex;
   flex-direction: column;
   height: 100dvh;
   padding-bottom: 0;
   overflow: hidden;
+}
+
+.dealer-tool-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #0d1117;
+  /* Permite o date picker nativo do iframe (Chrome) */
+  color-scheme: dark;
 }
 
 .dealer-tool-bar {
@@ -200,13 +259,6 @@ body.dealer-route-active .App.app-ready {
   font-size: 1rem;
   font-weight: 700;
   color: #e6edf3;
-}
-
-.dealer-tool-frame {
-  flex: 1;
-  width: 100%;
-  border: 0;
-  background: #0d1117;
 }
 
 .dealer-hint {
