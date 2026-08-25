@@ -24,6 +24,7 @@ import {
   findMatchingWallet,
   loadWalletTxs,
   loadWallets,
+  renameWallet,
   updateWalletImport,
   type Wallet,
 } from "./wallets";
@@ -98,6 +99,14 @@ export default function App() {
     const created = createWallet(name, parsed);
     setWallets(loadWallets());
     return created;
+  }
+
+  function renameActiveWallet() {
+    if (!activeWallet) return;
+    const name = window.prompt("Novo nome para a carteira:", activeWallet.name);
+    if (!name || !name.trim() || name.trim() === activeWallet.name) return;
+    renameWallet(activeWallet.id, name);
+    setWallets(loadWallets());
   }
 
   function switchWallet(id: string) {
@@ -212,6 +221,25 @@ export default function App() {
       return true;
     });
   }, [txs, appliedFrom, appliedTo, typeFilter, query, onlySelected, selected]);
+
+  /** Dias mais recentes com transações, priorizando os que tiveram mais atividade (repetidos). */
+  const recentDateShortcuts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const tx of txs) {
+      const key = toDateKey(tx.timestamp);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .slice(0, 14)
+      .map(([dateKey, count]) => ({ dateKey, count }));
+  }, [txs]);
+
+  const isSingleDayFilter = appliedFrom !== "" && appliedFrom === appliedTo;
+
+  function applyDayShortcut(dateKey: string) {
+    setDateRange(dateKey, dateKey, true);
+  }
 
   const groupedByDate = useMemo(() => {
     const groups: { dateKey: string; txs: LiquidTx[] }[] = [];
@@ -358,19 +386,30 @@ export default function App() {
 
       {wallets.length > 0 && (
         <div className="wallet-bar">
-          <div className="field">
-            <label htmlFor="wallet">Carteira</label>
-            <select
-              id="wallet"
-              value={activeWalletId ?? ""}
-              onChange={(e) => switchWallet(e.target.value)}
+          <div className="wallet-bar-select">
+            <div className="field">
+              <label htmlFor="wallet">Carteira</label>
+              <select
+                id="wallet"
+                value={activeWalletId ?? ""}
+                onChange={(e) => switchWallet(e.target.value)}
+              >
+                {wallets.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name} ({w.txCount} tx)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              className="btn"
+              onClick={renameActiveWallet}
+              disabled={!activeWallet}
+              title="Renomear esta carteira"
             >
-              {wallets.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name} ({w.txCount} tx)
-                </option>
-              ))}
-            </select>
+              ✏️ Renomear carteira
+            </button>
           </div>
           <p className="file-hint">
             Detectada automaticamente pelas transações do CSV. Cada carteira
@@ -488,6 +527,31 @@ export default function App() {
           escolher outro arquivo exportado.
         </p>
       </section>
+
+      {recentDateShortcuts.length > 0 && (
+        <section className="panel date-shortcuts">
+          <p className="file-hint" style={{ margin: "0 0 10px" }}>
+            Dias mais recentes (repetidos = mais transações). Clique para
+            filtrar só aquele dia.
+          </p>
+          <div className="date-shortcuts-list">
+            {recentDateShortcuts.map(({ dateKey, count }) => (
+              <button
+                key={dateKey}
+                type="button"
+                className={`date-chip${count > 1 ? " date-chip--busy" : ""}${
+                  isSingleDayFilter && appliedFrom === dateKey ? " date-chip--active" : ""
+                }`}
+                onClick={() => applyDayShortcut(dateKey)}
+                title={`Filtrar ${dateKey} (${count} transaç${count === 1 ? "ão" : "ões"})`}
+              >
+                {dateKey}
+                <span className="date-chip-count">{count}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="selection-bar">
         <div>

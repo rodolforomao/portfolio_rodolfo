@@ -217,6 +217,17 @@ async function api<T>(
         ...(init?.headers || {}),
       },
     });
+    // fetch() segue redirects automaticamente e, para métodos != GET/HEAD, um 301/302
+    // rebaixa o request para GET e descarta o corpo — a resposta pareceria "ok" mas a
+    // operação (create/update/delete) nunca teria realmente acontecido. Aborta cedo
+    // em vez de reportar sucesso falso.
+    const method = (init?.method || "GET").toUpperCase();
+    if (res.redirected && method !== "GET" && method !== "HEAD") {
+      return {
+        ok: false,
+        error: `Redirecionado durante ${method} — operação pode não ter sido aplicada (verifique config de proxy).`,
+      };
+    }
     let data: (T & { error?: string }) | null = null;
     try {
       data = await res.json();
@@ -245,14 +256,17 @@ export type PotsApiState = {
   poll_seconds: number;
 };
 
+// nginx redireciona (301) "/api/liquid-pots" sem barra final para "/api/liquid-pots/".
+// fetch() segue esse redirect rebaixando POST/PUT para GET e descartando o corpo — por
+// isso os endpoints "raiz" (sem :id) sempre precisam da barra final aqui.
 export async function fetchPotsState() {
-  return api<PotsApiState>("");
+  return api<PotsApiState>("/");
 }
 
 export async function createPotRemote(
   body: ReturnType<typeof buildPotFromSelection> & { label: string }
 ) {
-  return api<PotsApiState & { pot: LiquidPot }>("", {
+  return api<PotsApiState & { pot: LiquidPot }>("/", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -277,7 +291,7 @@ export async function deletePotRemote(id: string) {
 }
 
 export async function syncPotsRemote(pots: LiquidPot[]) {
-  return api<PotsApiState>("", {
+  return api<PotsApiState>("/", {
     method: "PUT",
     body: JSON.stringify({ pots }),
   });

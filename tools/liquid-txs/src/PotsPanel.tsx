@@ -66,14 +66,31 @@ export default function PotsPanel({
   }, []);
 
   // Re-sync this wallet's pots whenever a (re)import refreshes its tx list.
+  // Always sync against a freshly-fetched server snapshot (never the local `pots`
+  // closure) — PUT replaces the whole remote list, so syncing against a stale/local
+  // copy here would silently wipe out pots created elsewhere (other tab, other device,
+  // or just moments earlier in this same tab, since effect deps don't include `pots`).
   useEffect(() => {
     if (!walletId || walletTxs.length === 0) return;
-    const result = syncPotsWithWallet(pots, walletId, walletTxs);
-    if (!result.changed) return;
-    setPots(result.pots);
-    void syncPotsRemote(result.pots).then((remote) => {
-      if (remote.ok) setApiOnline(true);
-    });
+    let cancelled = false;
+    (async () => {
+      const fresh = await fetchPotsState();
+      if (cancelled) return;
+      if (!fresh.ok) return; // offline — don't sync/overwrite against a guess
+      const basePots = fresh.data.pots || [];
+      const result = syncPotsWithWallet(basePots, walletId, walletTxs);
+      // Só toca no estado local quando há algo de fato para atualizar — evita
+      // sobrescrever um pote local recém-criado (ex.: fallback offline) que ainda
+      // não tenha chegado ao servidor no momento deste fetch.
+      if (result.changed) {
+        setPots(result.pots);
+        const remote = await syncPotsRemote(result.pots);
+        if (!cancelled && remote.ok) setApiOnline(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletId, walletTxs]);
 
@@ -117,8 +134,8 @@ export default function PotsPanel({
         setLabel("");
         setMsg(
           tgConfigured || remote.data.telegram?.configured
-            ? `Pote "${name}" criado — alertas ±0,5% e ±1%.`
-            : `Pote "${name}" criado. Configure Telegram em Menu → Settings.`
+            ? `Pote "${name}" criado e salvo — alertas ±0,5% e ±1% ativos.`
+            : `Pote "${name}" criado e salvo. Para receber alertas, configure o Telegram em Menu → Settings.`
         );
       } else {
         const pot: LiquidPot = {

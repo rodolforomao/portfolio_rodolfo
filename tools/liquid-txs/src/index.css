@@ -620,6 +620,13 @@ td.num {
   min-width: 220px;
 }
 
+.wallet-bar-select {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
 .date-group-row td {
   background: #182230;
   color: var(--text);
@@ -634,6 +641,65 @@ td.num {
   font-weight: 500;
   font-size: 0.75rem;
   margin-left: 8px;
+}
+
+.date-shortcuts {
+  margin-bottom: 18px;
+}
+
+.date-shortcuts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.date-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--stroke-strong);
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.date-chip:hover {
+  border-color: var(--accent-dim);
+}
+
+.date-chip--busy {
+  border-color: var(--accent-dim);
+}
+
+.date-chip--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #061310;
+  font-weight: 600;
+}
+
+.date-chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.date-chip--active .date-chip-count {
+  background: rgba(6, 19, 16, 0.25);
+  color: #061310;
 }
 
 @media (max-width: 720px) {
