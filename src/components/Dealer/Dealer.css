@@ -1526,6 +1526,136 @@ body.dealer-route-active .App.app-ready {
   color: #c9d1d9;
 }
 
+.dealer-opp-card.dealer-opp-spread {
+  border-color: rgba(248, 81, 73, 0.4);
+  background: rgba(248, 81, 73, 0.07);
+  animation: dealer-opp-spread-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes dealer-opp-spread-pulse {
+  0%, 100% { border-color: rgba(248, 81, 73, 0.35); }
+  50% { border-color: rgba(248, 81, 73, 0.75); }
+}
+
+.dealer-opp-spread-badge {
+  font-size: 0.68rem;
+  vertical-align: middle;
+}
+
+.dealer-opp-spread-pct {
+  color: #f85149;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.dealer-opp-spread-cta {
+  color: #f85149 !important;
+  background: rgba(248, 81, 73, 0.1) !important;
+  border-left: 3px solid #f85149 !important;
+}
+
+.dealer-opp-spread-age {
+  font-size: 0.68rem;
+  color: #f85149;
+  font-weight: 600;
+}
+
+.dealer-opp-tab-badge {
+  font-size: 0.68rem;
+  vertical-align: middle;
+}
+
+.dealer-opp-spread-legs-title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6e7681;
+  margin-top: 2px;
+}
+
+/* ── Metas de conversão ── */
+.dealer-goal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.dealer-goal-form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: #c9d1d9;
+}
+
+.dealer-goal-form-label {
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+
+.dealer-goal-form-select {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+
+.dealer-goal-form-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #c9d1d9;
+}
+
+.dealer-goal-form-range {
+  flex: 1;
+  min-width: 140px;
+}
+
+.dealer-goal-card {
+  border-color: rgba(88, 166, 255, 0.3);
+}
+
+.dealer-goal-remove {
+  padding: 2px 8px;
+}
+
+.dealer-goal-paths {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dealer-goal-path-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.dealer-goal-path {
+  font-weight: 600;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.dealer-goal-path-good    { color: #3fb950; }
+.dealer-goal-path-neutral { color: #d29922; }
+.dealer-goal-path-na      { color: #6e7681; font-size: 0.78rem; }
+
 /* ── Painel de Oportunidades ── */
 .dealer-opp-panel {
   margin-bottom: 8px;
@@ -1607,6 +1737,15 @@ body.dealer-route-active .App.app-ready {
 .dealer-opp-card.dealer-opp-baixa { border-color: #30363d; }
 .dealer-opp-card.dealer-opp-nula  { border-color: #21262d; opacity: 0.7; }
 .dealer-opp-card.covered          { opacity: 0.85; }
+
+.dealer-opp-card.dealer-opp-side-buy {
+  background: rgba(63, 185, 80, 0.06);
+  border-color: rgba(63, 185, 80, 0.35);
+}
+.dealer-opp-card.dealer-opp-side-sell {
+  background: rgba(248, 81, 73, 0.06);
+  border-color: rgba(248, 81, 73, 0.35);
+}
 
 .dealer-opp-head {
   display: flex;

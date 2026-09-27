@@ -40,6 +40,7 @@ import TransactionsPanel from './TransactionsPanel';
 import OrderBookPresenceBadge from './OrderBookPresenceBadge';
 import OrderBooksPanel from './OrderBooksPanel';
 import { formatBookAmount, marketPairKeyFromNames } from './utils/sideswapBook';
+import { computeSpreadOpportunities } from './utils/spreadOpportunities';
 import {
   resolveOrderBookPresence,
   sortOrderHistoryByBook,
@@ -1853,6 +1854,11 @@ export default function DealerConsole() {
     !!marketData.assets?.length,
   );
 
+  const spreadOpportunityCount = useMemo(
+    () => computeSpreadOpportunities(scanPairs, scanBooks, scanIndPrices).total,
+    [scanPairs, scanBooks, scanIndPrices],
+  );
+
   const refreshAssets = React.useCallback(async () => {
     if (status !== 'connected' || !agentConnected) return;
     setRefreshingAssets(true);
@@ -2049,6 +2055,11 @@ export default function DealerConsole() {
                   className="dealer-main-nav-link"
                 >
                   <TbArrowsExchange /> Oportunidades
+                  {spreadOpportunityCount > 0 && (
+                    <Badge bg="danger" className="ms-1 dealer-nav-log-badge">
+                      {spreadOpportunityCount}
+                    </Badge>
+                  )}
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
@@ -2486,6 +2497,7 @@ export default function DealerConsole() {
                     setMidTab('operacional');
                   }}
                   belowMarketThresholdPct={belowMarketThresholdPct}
+                  sendCommand={sendCommand}
                 />
               </div>
             </Col>

@@ -28,6 +28,8 @@ const ALERT_TYPE_META = {
   notify_order_stuck_pending:   { label: 'Ordem presa pendente (sem order_id)', group: 'avancado' },
   notify_price_oracle_unavailable: { label: 'Oracle de preços indisponível',    group: 'avancado' },
   notify_below_market:           { label: 'Venda abaixo do preço de mercado (SideSwap)', group: 'avancado' },
+  notify_spread_opportunity:    { label: 'Spread Opportunity (arbitragem triangular L-BTC/USDt/DePix)', group: 'avancado' },
+  notify_rebalance_goal:        { label: 'Meta de conversão (rota favorável disponível)', group: 'avancado' },
 };
 
 const ALERT_GROUPS = {
@@ -49,6 +51,8 @@ const EVENT_TYPE_LABELS = {
   manager_disconnected:     'Manager desconectado',
   price_oracle_unavailable: 'Oracle indisponível',
   below_market:             'Abaixo do mercado',
+  spread_opportunity:       'Spread Opportunity',
+  rebalance_goal:           'Meta de conversão',
 };
 
 function BotFormFields({
