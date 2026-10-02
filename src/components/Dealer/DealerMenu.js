@@ -16,9 +16,9 @@ const TOOLS = [
     icon: TbChartCandle,
   },
   {
-    to: '/dealer/console?view=cotacoes',
+    to: '/dealer/cotacoes',
     title: 'Cotações',
-    description: 'Reais na conta, entrega em cripto e a divisão da mesa.',
+    description: 'O que entra na conta, a entrega em cripto e a divisão da mesa.',
     icon: TbReceipt,
   },
   {

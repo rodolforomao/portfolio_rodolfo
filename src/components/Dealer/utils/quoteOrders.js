@@ -35,10 +35,45 @@ export function normalizeHops(hops) {
 
 export const MONEY = {
   BRL: { code: 'BRL', symbol: 'R$' },
+  DEPIX: { code: 'DEPIX', symbol: 'Depix' },
   USDT: { code: 'USDT', symbol: '₮' },
   BTC: { code: 'BTC', symbol: '₿' },
   ETH: { code: 'ETH', symbol: 'Ξ' },
 };
+
+/** O que pode entrar na conta. Depix vale 1 real. Outra usa o par da Binance em BRL. */
+export const RECEIVE_PRESETS = [
+  { id: 'BRL', label: 'Reais' },
+  { id: 'DEPIX', label: 'Depix' },
+  { id: 'USDT', label: 'USDT' },
+  { id: 'BTC', label: 'BTC' },
+  { id: 'ETH', label: 'ETH' },
+  { id: 'OUTRA', label: 'Outra' },
+];
+
+export function isBrlPeg(code) {
+  const name = String(code || '').trim().toUpperCase();
+  return name === 'BRL' || name === 'DEPIX';
+}
+
+export function receiveCode(choice, custom) {
+  if (choice === 'OUTRA') return String(custom || '').trim().toUpperCase();
+  return String(choice || 'BRL').trim().toUpperCase() || 'BRL';
+}
+
+export function receiveCurrencyOf(quote) {
+  return String(quote?.receiveCurrency || 'BRL').trim().toUpperCase() || 'BRL';
+}
+
+/** Valor que entrou, na moeda em que foi recebido. Ordens antigas são reais. */
+export function receivedOf(quote) {
+  const code = receiveCurrencyOf(quote);
+  const raw = quote?.receiveAmount != null && quote.receiveAmount !== ''
+    ? quote.receiveAmount
+    : quote?.brlAmount;
+  const amount = Number(raw);
+  return { code, amount: Number.isFinite(amount) ? amount : null };
+}
 
 export function moneyMeta(code) {
   return MONEY[code] || { code: code || '', symbol: code || '' };

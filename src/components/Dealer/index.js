@@ -5,6 +5,7 @@ import DealerConsole from './DealerConsole';
 import DealerMenu from './DealerMenu';
 import DealerHubSettings from './DealerHubSettings';
 import DealerToolFrame from './DealerToolFrame';
+import QuoteOrdersPage from './QuoteOrdersPage';
 import { loadSession, ANALYSES_EMBED_URL, LIQUID_TX_EMBED_URL } from './config';
 
 function DealerIndex() {
@@ -22,6 +23,7 @@ export default function DealerApp() {
       <Route path="/menu" element={<DealerMenu />} />
       <Route path="/settings" element={<DealerHubSettings />} />
       <Route path="/console" element={<DealerConsole />} />
+      <Route path="/cotacoes" element={<QuoteOrdersPage />} />
       <Route
         path="/analyses"
         element={<DealerToolFrame title="Analyses" src={ANALYSES_EMBED_URL} />}

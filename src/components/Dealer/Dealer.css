@@ -8025,7 +8025,26 @@ body.dealer-route-active .App.app-ready {
   gap: 8px;
 }
 
-/* ── Cotações: mesa de preço travado ── */
+/* ── Cotações: página própria, fora do console ── */
+.quote-page {
+  min-height: 100dvh;
+  background: #12161c;
+  padding: 18px 22px 48px;
+}
+
+.quote-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  color: #a39e94;
+  text-decoration: none;
+  font-family: "Source Sans 3", "Segoe UI", sans-serif;
+  font-size: 0.85rem;
+}
+
+.quote-page-back:hover { color: #e2c27a; }
+
 .dealer-quote {
   --q-ink: #ebe7df;
   --q-muted: #a39e94;
@@ -8170,9 +8189,18 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-quote-fields {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(16rem, 1.4fr) repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
+
+.dealer-quote-receive {
+  display: flex;
+  gap: 6px;
+}
+
+.dealer-quote-receive > input { flex: 1 1 6rem; min-width: 0; }
+.dealer-quote-receive > select { flex: 0 0 6.6rem; }
+.dealer-quote-receive > input:last-child { flex: 0 0 4.5rem; }
 
 .dealer-quote-fields label,
 .dealer-quote-mesa label,

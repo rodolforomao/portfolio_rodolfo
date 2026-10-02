@@ -13,6 +13,11 @@ import {
   computeQuote,
   effectiveStatus,
   isTerceiroParty,
+  RECEIVE_PRESETS,
+  isBrlPeg,
+  receiveCode,
+  receiveCurrencyOf,
+  receivedOf,
   quoteRelation,
   quoteWithoutTerceiro,
   fetchBinancePrice,
@@ -216,7 +221,10 @@ function PctField({ value, onCommit, ariaLabel }) {
 export default function QuoteOrdersPanel() {
   const [asset, setAsset] = useState('USDT');
   const [network, setNetwork] = useState(DELIVERY_ASSETS[0].networks[0]);
-  const [brlInput, setBrlInput] = useState('');
+  const [receiveInput, setReceiveInput] = useState('');
+  const [receiveChoice, setReceiveChoice] = useState('BRL');
+  const [receiveCustom, setReceiveCustom] = useState('');
+  const [receivePx, setReceivePx] = useState(1);
   const [clientName, setClientName] = useState('');
   const [clientAddress, setClientAddress] = useState('');
   const [hops, setHops] = useState([]);
@@ -235,7 +243,12 @@ export default function QuoteOrdersPanel() {
   const [formError, setFormError] = useState('');
 
   const meta = assetMeta(asset);
-  const brlAmount = parseBrlInput(brlInput);
+  const incomingCode = receiveCode(receiveChoice, receiveCustom);
+  const receiveAmount = parseBrlInput(receiveInput);
+  const unitBrl = !incomingCode ? NaN : isBrlPeg(incomingCode) ? 1 : receivePx;
+  const brlAmount = Number.isFinite(receiveAmount) && Number.isFinite(unitBrl)
+    ? receiveAmount * unitBrl
+    : NaN;
   const mesaPct = partyPct({ pct: mesaInput });
   const partsSum = parties.reduce((sum, p) => sum + partyPct(p), 0);
   const mesaMatches = Math.abs(partsSum - mesaPct) < 0.0001;
@@ -323,6 +336,22 @@ export default function QuoteOrdersPanel() {
   }, [asset, profitCurrency]);
 
   useEffect(() => {
+    if (!incomingCode || isBrlPeg(incomingCode)) {
+      setReceivePx(1);
+      return undefined;
+    }
+    let cancelled = false;
+    fetchBinancePrice(`${incomingCode}BRL`)
+      .then((next) => {
+        if (!cancelled) setReceivePx(next.price);
+      })
+      .catch(() => {
+        if (!cancelled) setReceivePx(NaN);
+      });
+    return () => { cancelled = true; };
+  }, [incomingCode]);
+
+  useEffect(() => {
     if (asset === 'USDT') return undefined;
     let cancelled = false;
     fetchBinancePrice('USDTBRL')
@@ -389,6 +418,9 @@ export default function QuoteOrdersPanel() {
     expiresAt: Date.now() + QUOTE_TTL_MS,
     status: 'aberta',
     brlAmount: source.brlAmount,
+    receiveAmount: source.receiveAmount,
+    receiveCurrency: source.receiveCurrency || 'BRL',
+    receiveRate: source.receiveRate ?? 1,
     asset: source.asset,
     network: source.network,
     symbol: assetMeta(source.asset).symbol,
@@ -413,8 +445,16 @@ export default function QuoteOrdersPanel() {
   const handleCreate = async (event) => {
     event?.preventDefault();
     setFormError('');
-    if (!Number.isFinite(brlAmount) || brlAmount <= 0) {
-      setFormError('Informe o valor em reais que entra na conta.');
+    if (!incomingCode) {
+      setFormError('Informe a moeda que entra na conta.');
+      return;
+    }
+    if (!Number.isFinite(receiveAmount) || receiveAmount <= 0) {
+      setFormError('Informe o valor que entra na conta.');
+      return;
+    }
+    if (!isBrlPeg(incomingCode) && !(Number.isFinite(receivePx) && receivePx > 0)) {
+      setFormError(`A Binance não tem o par ${incomingCode}BRL.`);
       return;
     }
     if (!(mesaPct > 0)) {
@@ -442,12 +482,19 @@ export default function QuoteOrdersPanel() {
         setUsdtRate(usdt);
         lockedUsdt = usdt.price;
       }
+      const lockedReceive = isBrlPeg(incomingCode)
+        ? 1
+        : (await fetchBinancePrice(`${incomingCode}BRL`)).price;
       let profitRate = null;
       if (profitCurrency !== 'BRL' && profitCurrency !== 'USDT' && profitCurrency !== asset) {
         profitRate = (await fetchBinancePrice(`${profitCurrency}BRL`)).price;
       }
       const quote = buildSnapshot(fresh.price, {
-        brlAmount, asset, network, clientName, clientAddress, hops, mesaPct, parties,
+        brlAmount: receiveAmount * lockedReceive,
+        receiveAmount,
+        receiveCurrency: incomingCode,
+        receiveRate: lockedReceive,
+        asset, network, clientName, clientAddress, hops, mesaPct, parties,
         usdtRate: lockedUsdt, profitCurrency, profitRate,
       });
       persist([quote, ...quotes]);
@@ -474,8 +521,16 @@ export default function QuoteOrdersPanel() {
       if ((quote.asset || 'USDT') !== 'USDT') {
         lockedUsdt = (await fetchBinancePrice('USDTBRL')).price;
       }
+      const incoming = receiveCurrencyOf(quote);
+      const amountIn = quote.receiveAmount != null ? Number(quote.receiveAmount) : Number(quote.brlAmount);
+      const lockedReceive = isBrlPeg(incoming)
+        ? 1
+        : (await fetchBinancePrice(`${incoming}BRL`)).price;
       const next = buildSnapshot(fresh.price, {
-        brlAmount: quote.brlAmount,
+        brlAmount: amountIn * lockedReceive,
+        receiveAmount: amountIn,
+        receiveCurrency: incoming,
+        receiveRate: lockedReceive,
         asset: quote.asset,
         network: quote.network,
         clientName: quote.clientName || '',
@@ -690,13 +745,32 @@ export default function QuoteOrdersPanel() {
         <h5 className="dealer-quote-sheet-title">Nova ordem</h5>
         <div className="dealer-quote-fields">
           <label>
-            Reais na conta
-            <input
-              inputMode="decimal"
-              value={brlInput}
-              onChange={(e) => setBrlInput(e.target.value)}
-              placeholder="100000"
-            />
+            Entra na conta
+            <span className="dealer-quote-receive">
+              <input
+                inputMode="decimal"
+                value={receiveInput}
+                onChange={(e) => setReceiveInput(e.target.value)}
+                placeholder="100000"
+              />
+              <select
+                aria-label="Moeda que entra"
+                value={receiveChoice}
+                onChange={(e) => setReceiveChoice(e.target.value)}
+              >
+                {RECEIVE_PRESETS.map((item) => (
+                  <option key={item.id} value={item.id}>{item.label}</option>
+                ))}
+              </select>
+              {receiveChoice === 'OUTRA' && (
+                <input
+                  aria-label="Código da moeda"
+                  value={receiveCustom}
+                  onChange={(e) => setReceiveCustom(e.target.value.toUpperCase())}
+                  placeholder="SOL"
+                />
+              )}
+            </span>
           </label>
             <label>
               Entregar
@@ -890,6 +964,7 @@ export default function QuoteOrdersPanel() {
           calc={preview}
           asset={asset}
           network={network}
+          received={Number.isFinite(receiveAmount) ? { code: incomingCode || 'BRL', amount: receiveAmount } : null}
           rateLabel={rate ? `${formatRate(rate.price)} BRL` : 'aguardando Binance'}
         />
 
@@ -1050,11 +1125,11 @@ export default function QuoteOrdersPanel() {
   );
 }
 
-function QuoteMath({ calc, asset, network, rateLabel }) {
+function QuoteMath({ calc, asset, network, rateLabel, received }) {
   if (!calc) {
     return (
       <p className="dealer-quote-preview-empty">
-        Informe o valor em reais para ver quanto o cliente recebe e quanto fica para cada um.
+        Informe o valor que entra na conta para ver quanto o cliente recebe e quanto fica para cada um.
       </p>
     );
   }
@@ -1064,7 +1139,10 @@ function QuoteMath({ calc, asset, network, rateLabel }) {
       <div className="dealer-quote-preview-hero">
         <span>Cliente recebe</span>
         <strong>{formatAsset(calc.client, asset)}</strong>
-        <span>Rede {network}. 1 {moneyMeta(asset).symbol} = {rateLabel}</span>
+        <span>
+          {received ? `Entra ${formatMoney(received.amount, received.code)}. ` : ''}
+          Rede {network}. 1 {moneyMeta(asset).symbol} = {rateLabel}
+        </span>
       </div>
       <table className="dealer-quote-table">
         <thead>
@@ -1251,7 +1329,10 @@ function QuoteRow({
         </span>
         <span className="dealer-quote-fig">
           <span className="dealer-quote-fig-label">Entra</span>
-          <strong>{formatBrl(quote.brlAmount)}</strong>
+          <strong>{formatMoney(receivedOf(quote).amount, receivedOf(quote).code)}</strong>
+          {receivedOf(quote).code !== 'BRL' && (
+            <span className="dealer-quote-fig-sub">{formatBrl(quote.brlAmount)}</span>
+          )}
         </span>
         <span className="dealer-quote-fig">
           <span className="dealer-quote-fig-label">Mesa</span>
@@ -1288,7 +1369,10 @@ function QuoteRow({
         <div className="dealer-quote-xrays">
           <section className="dealer-quote-xray">
             <h5>Cliente</h5>
-            <p>Envia <strong>{formatBrl(calc.brl)}</strong></p>
+            <p>
+              Envia <strong>{formatMoney(receivedOf(quote).amount, receivedOf(quote).code)}</strong>
+              {receivedOf(quote).code !== 'BRL' && <> ({formatBrl(calc.brl)})</>}
+            </p>
             <p>
               Recebe <strong>{formatAsset(calc.client, quote.asset)}</strong>
               {' '}na rede {quote.network || 'não informada'}

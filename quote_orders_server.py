@@ -259,7 +259,10 @@ def init_db(conn: sqlite3.Connection) -> None:
           profit_rate REAL,
           payout_status TEXT,
           client_address TEXT,
-          hops_json TEXT
+          hops_json TEXT,
+          receive_currency TEXT,
+          receive_amount REAL,
+          receive_rate REAL
         )
         """
     )
@@ -276,6 +279,12 @@ def init_db(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE quote_orders ADD COLUMN client_address TEXT")
     if "hops_json" not in cols:
         conn.execute("ALTER TABLE quote_orders ADD COLUMN hops_json TEXT")
+    if "receive_currency" not in cols:
+        conn.execute("ALTER TABLE quote_orders ADD COLUMN receive_currency TEXT")
+    if "receive_amount" not in cols:
+        conn.execute("ALTER TABLE quote_orders ADD COLUMN receive_amount REAL")
+    if "receive_rate" not in cols:
+        conn.execute("ALTER TABLE quote_orders ADD COLUMN receive_rate REAL")
     conn.execute(
         """
         UPDATE quote_orders
@@ -348,8 +357,9 @@ def _upsert(conn: sqlite3.Connection, quote: dict) -> None:
           id, created_at, expires_at, decided_at, status, brl_amount, asset,
           network, symbol, rate, client_name, mesa_pct, parties_json,
           source_file, source_sheet, note, renewed_from, renewed_to, usdt_rate,
-          profit_currency, profit_rate, payout_status, client_address, hops_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          profit_currency, profit_rate, payout_status, client_address, hops_json,
+          receive_currency, receive_amount, receive_rate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           created_at=excluded.created_at,
           expires_at=excluded.expires_at,
@@ -373,7 +383,10 @@ def _upsert(conn: sqlite3.Connection, quote: dict) -> None:
           profit_rate=excluded.profit_rate,
           payout_status=excluded.payout_status,
           client_address=excluded.client_address,
-          hops_json=excluded.hops_json
+          hops_json=excluded.hops_json,
+          receive_currency=excluded.receive_currency,
+          receive_amount=excluded.receive_amount,
+          receive_rate=excluded.receive_rate
         """,
         (
             quote.get("id"),
@@ -400,6 +413,9 @@ def _upsert(conn: sqlite3.Connection, quote: dict) -> None:
             quote.get("payoutStatus") or "a_pagar",
             quote.get("clientAddress") or "",
             json.dumps(quote.get("hops") or [], ensure_ascii=False),
+            (quote.get("receiveCurrency") or "BRL").strip().upper() or "BRL",
+            quote.get("receiveAmount") if quote.get("receiveAmount") is not None else quote.get("brlAmount"),
+            quote.get("receiveRate") if quote.get("receiveRate") is not None else 1,
         ),
     )
 
@@ -415,6 +431,13 @@ def _row_to_quote(row: sqlite3.Row) -> dict:
         hops = []
     if not isinstance(hops, list):
         hops = []
+    currency = (row["receive_currency"] or "BRL").strip().upper() or "BRL"
+    amount = row["receive_amount"]
+    if amount is None:
+        amount = row["brl_amount"]
+    peg = row["receive_rate"]
+    if peg is None:
+        peg = 1 if currency in ("BRL", "DEPIX") else None
     return {
         "id": row["id"],
         "createdAt": row["created_at"],
@@ -440,6 +463,9 @@ def _row_to_quote(row: sqlite3.Row) -> dict:
         "renewedTo": row["renewed_to"],
         "clientAddress": row["client_address"] or "",
         "hops": hops,
+        "receiveCurrency": currency,
+        "receiveAmount": amount,
+        "receiveRate": peg,
     }
 
 

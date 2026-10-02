@@ -1,5 +1,6 @@
 import {
   formatMoney, formatMoneyLabeled, moneyMeta, normalizeHops, partyPaid, payoutLabel, payoutOf, profitCurrencyOf,
+  receivedOf,
   settlementOf, snapshotAmounts,
 } from './quoteOrders';
 
@@ -307,11 +308,12 @@ export function drawClientSlip(quote, calc) {
   ctx.fillText(`${who}válida até ${formatWhen(quote.expiresAt)}`, x, 76);
   rule(ctx, x, 112, width - 96);
 
+  const sent = receivedOf(quote);
   let y = drawBlock(
     ctx, x, 136,
     'Você envia',
-    formatMoney(calc.brl, 'BRL'),
-    moneyMeta('BRL').code,
+    formatMoney(sent.amount, sent.code),
+    sent.code === 'BRL' ? 'BRL' : `equivale a ${formatMoney(calc.brl, 'BRL')}`,
   );
   y = drawBlock(
     ctx, x, y + 8,
@@ -392,11 +394,12 @@ export function drawMesaSlip(quote, calc, title = 'Cotação da mesa') {
   ctx.fillText(`Binance · ${formatWhen(quote.createdAt)}${usdtSnap}`, x, 214);
   rule(ctx, x, 248, width - 96);
 
+  const sent = receivedOf(quote);
   let y = drawBlock(
     ctx, x, 268,
     'Cliente enviou',
-    formatMoney(calc.brl, 'BRL'),
-    brl.code,
+    formatMoney(sent.amount, sent.code),
+    sent.code === 'BRL' ? brl.code : `equivale a ${formatMoney(calc.brl, 'BRL')}`,
   );
   y = drawBlock(
     ctx, x, y,

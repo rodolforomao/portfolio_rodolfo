@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
@@ -16,7 +16,7 @@ import {
   TbBug, TbLogout, TbWallet, TbBook, TbBook2, TbHeartbeat, TbCoins,
   TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight, TbRocket,
   TbBookmark, TbBookmarkFilled, TbBookmarkOff, TbShieldCheck, TbTrash,
-  TbAlertTriangle, TbGauge, TbDeviceMobile, TbApps, TbReceipt,
+  TbAlertTriangle, TbGauge, TbDeviceMobile, TbApps,
 } from 'react-icons/tb';
 import ArchitecturePanel from './ArchitecturePanel';
 import StrategyPanel from './StrategyPanel';
@@ -26,7 +26,6 @@ import useSideswapBook from './useSideswapBook';
 import useCompetitorTracking from './useCompetitorTracking';
 import useMarketScan from './useMarketScan';
 import MarketOpportunities from './MarketOpportunities';
-import QuoteOrdersPanel from './QuoteOrdersPanel';
 import { loadSession, clearSession, resolveWsUrl } from './config';
 import {
   fetchVaultDealers,
@@ -1661,9 +1660,7 @@ export default function DealerConsole() {
   const [showMessages, setShowMessages] = useState(false);
   const [orderRegistryTick, setOrderRegistryTick] = useState(0);
   const [updateRestartResult, setUpdateRestartResult] = useState(null);
-  const [mainView, setMainView] = useState(() => (
-    new URLSearchParams(window.location.search).get('view') === 'cotacoes' ? 'cotacoes' : 'geral'
-  ));
+  const [mainView, setMainView] = useState('geral');
   const [midTab, setMidTab] = useState('operacional');
   const [dealersExpanded, setDealersExpanded] = useState(true);
   const [mobilePanel, setMobilePanel] = useState('center');
@@ -1980,6 +1977,9 @@ export default function DealerConsole() {
   };
 
   if (!session?.authenticated) return null;
+  if (new URLSearchParams(window.location.search).get('view') === 'cotacoes') {
+    return <Navigate to="/dealer/cotacoes" replace />;
+  }
 
   const showWsError = lastError && status === 'error';
   const showAgentOffline = status === 'connected' && !agentConnected;
@@ -2063,15 +2063,6 @@ export default function DealerConsole() {
                       {spreadOpportunityCount}
                     </Badge>
                   )}
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link
-                  active={mainView === 'cotacoes'}
-                  onClick={() => setMainView('cotacoes')}
-                  className="dealer-main-nav-link"
-                >
-                  <TbReceipt /> Cotações
                 </Nav.Link>
               </Nav.Item>
               <Nav.Item>
@@ -2488,14 +2479,6 @@ export default function DealerConsole() {
                   lastUpdate={bookLastUpdate}
                   reconnect={reconnectBook}
                 />
-              </div>
-            </Col>
-          </Row>
-        ) : mainView === 'cotacoes' ? (
-          <Row className="g-3">
-            <Col xs={12}>
-              <div className="dealer-panel dealer-panel-scroll">
-                <QuoteOrdersPanel />
               </div>
             </Col>
           </Row>
