@@ -8,7 +8,6 @@ import solUrl from '../assets/marks/sol.png';
 import trxUrl from '../assets/marks/trx.png';
 import polUrl from '../assets/marks/pol.png';
 import arbUrl from '../assets/marks/arb.png';
-import brlUrl from '../assets/marks/brl.png';
 
 /** DePix, USDT e L-BTC vêm da SideSwap. O restante, da Binance. */
 const URLS = {
@@ -22,7 +21,6 @@ const URLS = {
   trx: trxUrl,
   pol: polUrl,
   arb: arbUrl,
-  brl: brlUrl,
 };
 
 const NETWORK_KEY = {
@@ -103,7 +101,6 @@ function assetKey(code) {
   if (name === 'TRX') return 'trx';
   if (name === 'POL' || name === 'MATIC') return 'pol';
   if (name === 'ARB') return 'arb';
-  if (name === 'BRL') return 'brl';
   return null;
 }
 
@@ -114,9 +111,37 @@ function paintImage(ctx, key, x, y, size) {
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
   ctx.clip();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, x, y, size, size);
   ctx.restore();
   return true;
+}
+
+/** Bandeira em três formas. Sem estrelas nem faixa: isso só existe legível bem maior. */
+function paintBrazil(ctx, x, y, size) {
+  const cx = x + size / 2;
+  const cy = y + size / 2;
+  const r = size / 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#009C3B';
+  ctx.fill();
+  const dx = r * 0.78;
+  const dy = r * 0.68;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - dy);
+  ctx.lineTo(cx + dx, cy);
+  ctx.lineTo(cx, cy + dy);
+  ctx.lineTo(cx - dx, cy);
+  ctx.closePath();
+  ctx.fillStyle = '#FFDF00';
+  ctx.fill();
+  const br = r * 0.32;
+  ctx.beginPath();
+  ctx.arc(cx, cy, br, 0, Math.PI * 2);
+  ctx.fillStyle = '#002776';
+  ctx.fill();
 }
 
 function paintFiat(ctx, x, y, size) {
@@ -157,6 +182,10 @@ function paintBase(ctx, x, y, size) {
 
 export function paintAsset(ctx, asset, x, y, size) {
   const code = canonAsset(asset);
+  if (code === 'BRL') {
+    paintBrazil(ctx, x, y, size);
+    return;
+  }
   const key = assetKey(code);
   if (key && paintImage(ctx, key, x, y, size)) return;
   if (code === 'USD') {
@@ -190,7 +219,7 @@ export function paintPair(ctx, asset, network, x, y, size, ring = '#171c24') {
   }
   const networkKey = NETWORK_KEY[network];
   const coinKey = assetKey(asset);
-  const overlay = coinKey && coinKey !== networkKey;
+  const overlay = size >= 36 && coinKey && coinKey !== networkKey;
   const badge = overlay ? Math.max(8, size * 0.4) : 0;
   const disc = overlay ? size - badge * 0.42 : size;
   paintNetwork(ctx, network, x, y, disc);
