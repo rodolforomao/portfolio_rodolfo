@@ -517,6 +517,47 @@ export default function QuoteOrdersPanel() {
     persist(quotes.map((q) => (q.id === id ? { ...q, ...partial } : q)));
   };
 
+  const replaceParties = (id, parties) => {
+    persist(quotes.map((q) => {
+      if (q.id !== id) return q;
+      const flags = parties.map((party) => partyPaid(party, q));
+      const payoutStatus = !flags.length || flags.every((paid) => !paid)
+        ? 'a_pagar'
+        : flags.every(Boolean) ? 'efetivada' : 'parcial';
+      return { ...q, parties, payoutStatus };
+    }));
+  };
+
+  const addPartyToQuote = (id) => {
+    const quote = quotes.find((q) => q.id === id);
+    if (!quote || payoutOf(quote) === 'efetivada') return;
+    const parties = quote.parties || [];
+    const used = parties.reduce((sum, party) => sum + partyPct(party), 0);
+    const rest = Math.max(0, Math.round((partyPct({ pct: quote.mesaPct }) - used) * 10000) / 10000);
+    const hasTerceiro = parties.some((party) => isTerceiroParty(party));
+    replaceParties(id, [
+      ...parties,
+      {
+        name: hasTerceiro ? '' : 'Terceiro',
+        pct: rest,
+        mine: parties.length === 0,
+        terceiro: !hasTerceiro,
+        paid: false,
+      },
+    ]);
+  };
+
+  const removePartyFromQuote = (id, index) => {
+    const quote = quotes.find((q) => q.id === id);
+    if (!quote || payoutOf(quote) === 'efetivada') return;
+    let parties = (quote.parties || []).filter((_, i) => i !== index);
+    if (!parties.length) return;
+    if (!parties.some((party) => party.mine)) {
+      parties = parties.map((party, i) => ({ ...party, mine: i === 0 }));
+    }
+    replaceParties(id, parties);
+  };
+
   const setPartyPct = (id, index, pct) => {
     persist(quotes.map((q) => {
       if (q.id !== id) return q;
@@ -995,6 +1036,8 @@ export default function QuoteOrdersPanel() {
                 });
               }}
               onPartyPaid={(index, paid) => setPartyPaid(quote.id, index, paid)}
+              onAddParty={() => addPartyToQuote(quote.id)}
+              onRemoveParty={(index) => removePartyFromQuote(quote.id, index)}
               onClientAddress={(address) => patchQuote(quote.id, { clientAddress: address })}
               onNetwork={(networkName) => patchQuote(quote.id, { network: networkName })}
               onHops={(nextHops) => patchQuote(quote.id, { hops: nextHops })}
@@ -1144,10 +1187,11 @@ function shareMessage(result, who) {
 function QuoteRow({
   number, quote, now, busy, onRealize, onDecline, onUndo, onRenew, onRemove, onRename,
   onPartyPct, onMesaPct, onProfitCurrency, onPayout, onPartyTerceiro, onPartyPaid,
-  onClientAddress, onNetwork, onHops,
+  onClientAddress, onNetwork, onHops, onAddParty, onRemoveParty,
 }) {
   const status = effectiveStatus(quote, now);
   const calc = computeQuote(quote);
+  const partiesOpen = payoutOf(quote) !== 'efetivada';
   const open = status === 'aberta' || status === 'expirada';
   const decided = status === 'realizada' || status === 'nao_realizada';
   const [expanded, setExpanded] = useState(false);
@@ -1335,6 +1379,17 @@ function QuoteRow({
                     />
                     terceiro
                   </label>
+                  {partiesOpen && (quote.parties || []).length > 1 && (
+                    <button
+                      type="button"
+                      className="dealer-quote-icon-btn"
+                      title="Retirar parte"
+                      aria-label={`Retirar ${split.name || 'parte'}`}
+                      onClick={() => onRemoveParty(index)}
+                    >
+                      <TbTrash />
+                    </button>
+                  )}
                 </div>
                 {others.length > 0 && (
                   <p className="dealer-quote-row-time">{moneyParts(others).join(', ')}</p>
@@ -1356,6 +1411,11 @@ function QuoteRow({
               </section>
             );
           })}
+          {partiesOpen && (
+            <button type="button" className="dealer-quote-add" onClick={onAddParty}>
+              <TbPlus /> Colocar parte
+            </button>
+          )}
         </div>
       )}
       <div className="dealer-quote-row-actions">
