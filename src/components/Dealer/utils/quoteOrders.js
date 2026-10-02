@@ -21,6 +21,18 @@ export const DELIVERY_ASSETS = [
   },
 ];
 
+export const NETWORKS = [...new Set(DELIVERY_ASSETS.flatMap((item) => item.networks))];
+
+export function normalizeHops(hops) {
+  if (!Array.isArray(hops)) return [];
+  return hops
+    .map((hop) => ({
+      network: String(hop?.network || '').trim(),
+      address: String(hop?.address || '').trim(),
+    }))
+    .filter((hop) => hop.network || hop.address);
+}
+
 export const MONEY = {
   BRL: { code: 'BRL', symbol: 'R$' },
   USDT: { code: 'USDT', symbol: '₮' },
@@ -81,6 +93,16 @@ export function isTerceiroParty(party) {
   if (party?.terceiro === true) return true;
   if (party?.terceiro === false) return false;
   return /^terceiro$/i.test(String(party?.name || '').trim());
+}
+
+/** Cotação John (cliente) <> Luiz + terceiro + Rodolfo. O nome Dealer fica de fora. */
+export function quoteRelation(quote) {
+  const client = String(quote?.clientName || '').trim() || 'Cliente';
+  const side = (quote?.parties || [])
+    .filter((party) => String(party?.name || '').trim().toLowerCase() !== 'dealer')
+    .map((party) => (isTerceiroParty(party) ? 'terceiro' : String(party?.name || '').trim()))
+    .filter(Boolean);
+  return `Cotação ${client} (cliente) <> ${side.join(' + ') || 'mesa'}`;
 }
 
 /** Mesa sem o terceiro: a porcentagem cai o que era dele (3% vira 2,5%). */
@@ -204,6 +226,33 @@ export function profitCurrencyChoices(asset) {
   return choices;
 }
 
+/**
+ * Percentual da mesa que produz esse valor na moeda da divisão.
+ * O valor é sempre uma fração dos reais da ordem.
+ */
+export function pctFromAmount(amount, quote) {
+  const brl = Number(quote?.brlAmount);
+  const value = Number(amount);
+  if (!Number.isFinite(brl) || brl <= 0 || !Number.isFinite(value) || value < 0) return null;
+  const currency = profitCurrencyOf(quote);
+  const asset = quote?.asset || 'USDT';
+  let partBrl = null;
+  if (currency === 'BRL') {
+    partBrl = value;
+  } else if (currency === 'USDT') {
+    const px = Number(quote?.usdtRate || (asset === 'USDT' ? quote?.rate : NaN));
+    if (Number.isFinite(px) && px > 0) partBrl = value * px;
+  } else if (currency === asset) {
+    const px = Number(quote?.rate);
+    if (Number.isFinite(px) && px > 0) partBrl = value * px;
+  } else {
+    const px = Number(quote?.profitRate);
+    if (Number.isFinite(px) && px > 0) partBrl = value * px;
+  }
+  if (!Number.isFinite(partBrl)) return null;
+  return roundPct((partBrl / brl) * 100);
+}
+
 /** Valor da parte na moeda escolhida para dividir o lucro. */
 export function settlementOf(split, quote) {
   const currency = profitCurrencyOf(quote);
@@ -218,8 +267,28 @@ export function settlementOf(split, quote) {
   return { code: currency, amount: null };
 }
 
+/** Pago nesta ordem. Se a ordem inteira já foi efetivada, cada parte conta como paga. */
+export function partyPaid(party, quote) {
+  if (party?.paid === true) return true;
+  if (party?.paid === false) return false;
+  return quote?.payoutStatus === 'efetivada';
+}
+
 export function payoutOf(quote) {
-  return quote?.payoutStatus === 'efetivada' ? 'efetivada' : 'a_pagar';
+  const parties = quote?.parties || [];
+  if (!parties.length) {
+    return quote?.payoutStatus === 'efetivada' ? 'efetivada' : 'a_pagar';
+  }
+  const paid = parties.map((party) => partyPaid(party, quote));
+  if (paid.every(Boolean)) return 'efetivada';
+  if (paid.some(Boolean)) return 'parcial';
+  return 'a_pagar';
+}
+
+export function payoutLabel(state) {
+  if (state === 'efetivada') return 'Efetivada';
+  if (state === 'parcial') return 'Parcial';
+  return 'A pagar';
 }
 
 /** USDT, reais e, se a entrega for outra, essa moeda também. */
@@ -311,14 +380,14 @@ export function payoutProfit(quotes) {
     if (quote.status !== 'realizada') continue;
     const calc = computeQuote(quote);
     if (!calc) continue;
-    const bucket = buckets[payoutOf(quote)];
     const asset = quote.asset || 'USDT';
-    for (const split of calc.splits) {
-      if (!split.mine) continue;
+    calc.splits.forEach((split, index) => {
+      if (!split.mine) return;
+      const bucket = buckets[partyPaid(quote.parties?.[index], quote) ? 'efetivada' : 'a_pagar'];
       bucket.brl += split.brl;
       if (split.usdt != null) bucket.usdt += split.usdt;
       addAsset(bucket.byAsset, asset, split.asset);
-    }
+    });
   }
   return buckets;
 }

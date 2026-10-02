@@ -41,6 +41,11 @@ EXECUTED_SEED = [
         "clientName": "John",
         "sourceFile": "jhon 2.ods",
         "sourceSheet": "Sheet1",
+        "parties": [
+            {"name": "Luiz", "pct": 1, "mine": False, "terceiro": False},
+            {"name": "Terceiro", "pct": 1, "mine": False, "terceiro": True},
+            {"name": "Rodolfo", "pct": 1, "mine": True, "terceiro": False},
+        ],
     },
     {
         "id": "imp-jhon-3",
@@ -51,6 +56,11 @@ EXECUTED_SEED = [
         "clientName": "John",
         "sourceFile": "jhon 3.ods",
         "sourceSheet": "Sheet1",
+        "parties": [
+            {"name": "Luiz", "pct": 1, "mine": False, "terceiro": False},
+            {"name": "Terceiro", "pct": 1, "mine": False, "terceiro": True},
+            {"name": "Rodolfo", "pct": 1, "mine": True, "terceiro": False},
+        ],
     },
     {
         "id": "imp-john-4",
@@ -61,6 +71,11 @@ EXECUTED_SEED = [
         "clientName": "John",
         "sourceFile": "john 4.ods",
         "sourceSheet": "Sheet1",
+        "parties": [
+            {"name": "Luiz", "pct": 1, "mine": False, "terceiro": False},
+            {"name": "Terceiro", "pct": 1, "mine": False, "terceiro": True},
+            {"name": "Rodolfo", "pct": 1, "mine": True, "terceiro": False},
+        ],
     },
     {
         "id": "imp-john-5-25k",
@@ -70,13 +85,13 @@ EXECUTED_SEED = [
         "mesaPct": 3,
         "clientName": "John",
         "sourceFile": "john 5.ods",
-        "sourceSheet": "Washington + terceiro",
+        "sourceSheet": "Luiz + terceiro",
         "parties": [
-            {"name": "Washington", "pct": 1.25, "mine": False, "terceiro": False},
-            {"name": "Terceiro", "pct": 0.5, "mine": False, "terceiro": True},
-            {"name": "Dealer", "pct": 1.25, "mine": True, "terceiro": False},
+            {"name": "Luiz", "pct": 1, "mine": False, "terceiro": False},
+            {"name": "Terceiro", "pct": 1, "mine": False, "terceiro": True},
+            {"name": "Rodolfo", "pct": 1, "mine": True, "terceiro": False},
         ],
-        "note": "Aba Global é só Washington, mesa 2,5% (cliente receberia ₮ 4.644,63). Com o terceiro, a mesa sobe 0,5%.",
+        "note": "",
     },
     {
         "id": "imp-john-5-50k",
@@ -86,15 +101,25 @@ EXECUTED_SEED = [
         "mesaPct": 3,
         "clientName": "John",
         "sourceFile": "john 5.ods",
-        "sourceSheet": "Washington + terceiro",
+        "sourceSheet": "Bruno + terceiro",
         "parties": [
-            {"name": "Washington", "pct": 1.25, "mine": False, "terceiro": False},
+            {"name": "Bruno", "pct": 1.25, "mine": False, "terceiro": False},
             {"name": "Terceiro", "pct": 0.5, "mine": False, "terceiro": True},
             {"name": "Dealer", "pct": 1.25, "mine": True, "terceiro": False},
         ],
-        "note": "Aba Global é só Washington, mesa 2,5% (cliente receberia ₮ 9.290,67). Com o terceiro, a mesa sobe 0,5%.",
+        "note": "Aba Global é só o Bruno, mesa 2,5% (cliente receberia ₮ 9.290,67). Com o terceiro, a mesa sobe 0,5%.",
     },
 ]
+
+# Do #1 ao #4 a mesa de 3% é Luiz, terceiro e Rodolfo, 1% cada.
+LUIZ_RODOLFO_IDS = ("imp-jhon-2", "imp-jhon-3", "imp-john-4", "imp-john-5-25k")
+LUIZ_RODOLFO_PARTIES = [
+    {"name": "Luiz", "pct": 1, "mine": False, "terceiro": False},
+    {"name": "Terceiro", "pct": 1, "mine": False, "terceiro": True},
+    {"name": "Rodolfo", "pct": 1, "mine": True, "terceiro": False},
+]
+LUIZ_DEALER_IDS = ("imp-jhon-2", "imp-jhon-3", "imp-john-4")
+LUIZ_DEALER_PARTIES = LUIZ_RODOLFO_PARTIES
 
 JOHN5_REPLACED_IDS = (
     "imp-john-5-global-25k",
@@ -102,6 +127,102 @@ JOHN5_REPLACED_IDS = (
     "imp-john-5-john-25k",
     "imp-john-5-john-50k",
 )
+
+
+def _name_bruno_on_order_five(conn: sqlite3.Connection) -> None:
+    """A ordem de R$ 50 mil do john 5 é John <> Bruno + terceiro."""
+    row = conn.execute(
+        "SELECT parties_json, note, source_sheet FROM quote_orders WHERE id = ?",
+        ("imp-john-5-50k",),
+    ).fetchone()
+    if row is None:
+        return
+    try:
+        parties = json.loads(row["parties_json"] or "[]")
+    except json.JSONDecodeError:
+        return
+    changed = False
+    for party in parties:
+        if str(party.get("name") or "").strip().lower() == "washington":
+            party["name"] = "Bruno"
+            changed = True
+    if not changed:
+        return
+    note = row["note"] or ""
+    note = note.replace("só Washington", "só o Bruno")
+    sheet = "Bruno + terceiro" if "Washington" in (row["source_sheet"] or "") else (row["source_sheet"] or "")
+    conn.execute(
+        "UPDATE quote_orders SET parties_json = ?, note = ?, source_sheet = ? WHERE id = ?",
+        (json.dumps(parties, ensure_ascii=False), note, sheet, "imp-john-5-50k"),
+    )
+    conn.commit()
+
+
+def _name_luiz_rodolfo(conn: sqlite3.Connection) -> None:
+    """Do #1 ao #4: Luiz, terceiro e Rodolfo. Não mexe se o Rodolfo já está na ordem."""
+    payload = json.dumps(LUIZ_RODOLFO_PARTIES, ensure_ascii=False)
+    changed = False
+    for order_id in LUIZ_RODOLFO_IDS:
+        row = conn.execute(
+            "SELECT parties_json, note FROM quote_orders WHERE id = ?",
+            (order_id,),
+        ).fetchone()
+        if row is None:
+            continue
+        try:
+            parties = json.loads(row["parties_json"] or "[]")
+        except json.JSONDecodeError:
+            parties = []
+        names = {str(party.get("name") or "").strip().lower() for party in parties}
+        if "rodolfo" in names:
+            continue
+        note = row["note"] or ""
+        if order_id == "imp-john-5-25k":
+            note = ""
+            conn.execute(
+                """
+                UPDATE quote_orders
+                   SET parties_json = ?, note = ?, source_sheet = ?
+                 WHERE id = ?
+                """,
+                (payload, note, "Luiz + terceiro", order_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE quote_orders SET parties_json = ? WHERE id = ?",
+                (payload, order_id),
+            )
+        changed = True
+    if changed:
+        conn.commit()
+
+
+def _name_luiz_dealer(conn: sqlite3.Connection) -> None:
+    """Troca a parte genérica Mesa por Luiz e Dealer. Não mexe se já foi renomeada."""
+    payload = json.dumps(LUIZ_DEALER_PARTIES, ensure_ascii=False)
+    changed = False
+    for order_id in LUIZ_DEALER_IDS:
+        row = conn.execute(
+            "SELECT parties_json FROM quote_orders WHERE id = ?",
+            (order_id,),
+        ).fetchone()
+        if row is None:
+            continue
+        try:
+            parties = json.loads(row["parties_json"] or "[]")
+        except json.JSONDecodeError:
+            parties = []
+        if len(parties) != 1:
+            continue
+        if str(parties[0].get("name") or "").strip().lower() != "mesa":
+            continue
+        conn.execute(
+            "UPDATE quote_orders SET parties_json = ? WHERE id = ?",
+            (payload, order_id),
+        )
+        changed = True
+    if changed:
+        conn.commit()
 
 
 def connect() -> sqlite3.Connection:
@@ -136,7 +257,9 @@ def init_db(conn: sqlite3.Connection) -> None:
           usdt_rate REAL,
           profit_currency TEXT,
           profit_rate REAL,
-          payout_status TEXT
+          payout_status TEXT,
+          client_address TEXT,
+          hops_json TEXT
         )
         """
     )
@@ -149,6 +272,10 @@ def init_db(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE quote_orders ADD COLUMN profit_rate REAL")
     if "payout_status" not in cols:
         conn.execute("ALTER TABLE quote_orders ADD COLUMN payout_status TEXT")
+    if "client_address" not in cols:
+        conn.execute("ALTER TABLE quote_orders ADD COLUMN client_address TEXT")
+    if "hops_json" not in cols:
+        conn.execute("ALTER TABLE quote_orders ADD COLUMN hops_json TEXT")
     conn.execute(
         """
         UPDATE quote_orders
@@ -157,6 +284,9 @@ def init_db(conn: sqlite3.Connection) -> None:
         """
     )
     conn.commit()
+    _name_luiz_dealer(conn)
+    _name_luiz_rodolfo(conn)
+    _name_bruno_on_order_five(conn)
     count = conn.execute("SELECT COUNT(*) AS n FROM quote_orders").fetchone()["n"]
     if not count:
         for raw in EXECUTED_SEED:
@@ -218,8 +348,8 @@ def _upsert(conn: sqlite3.Connection, quote: dict) -> None:
           id, created_at, expires_at, decided_at, status, brl_amount, asset,
           network, symbol, rate, client_name, mesa_pct, parties_json,
           source_file, source_sheet, note, renewed_from, renewed_to, usdt_rate,
-          profit_currency, profit_rate, payout_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          profit_currency, profit_rate, payout_status, client_address, hops_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           created_at=excluded.created_at,
           expires_at=excluded.expires_at,
@@ -241,7 +371,9 @@ def _upsert(conn: sqlite3.Connection, quote: dict) -> None:
           usdt_rate=excluded.usdt_rate,
           profit_currency=excluded.profit_currency,
           profit_rate=excluded.profit_rate,
-          payout_status=excluded.payout_status
+          payout_status=excluded.payout_status,
+          client_address=excluded.client_address,
+          hops_json=excluded.hops_json
         """,
         (
             quote.get("id"),
@@ -266,6 +398,8 @@ def _upsert(conn: sqlite3.Connection, quote: dict) -> None:
             quote.get("profitCurrency"),
             quote.get("profitRate"),
             quote.get("payoutStatus") or "a_pagar",
+            quote.get("clientAddress") or "",
+            json.dumps(quote.get("hops") or [], ensure_ascii=False),
         ),
     )
 
@@ -275,6 +409,12 @@ def _row_to_quote(row: sqlite3.Row) -> dict:
         parties = json.loads(row["parties_json"] or "[]")
     except json.JSONDecodeError:
         parties = []
+    try:
+        hops = json.loads(row["hops_json"] or "[]")
+    except (json.JSONDecodeError, IndexError, KeyError):
+        hops = []
+    if not isinstance(hops, list):
+        hops = []
     return {
         "id": row["id"],
         "createdAt": row["created_at"],
@@ -298,6 +438,8 @@ def _row_to_quote(row: sqlite3.Row) -> dict:
         "note": row["note"] or "",
         "renewedFrom": row["renewed_from"],
         "renewedTo": row["renewed_to"],
+        "clientAddress": row["client_address"] or "",
+        "hops": hops,
     }
 
 
