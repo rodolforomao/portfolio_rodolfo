@@ -1,0 +1,216 @@
+import { formatMoney, formatMoneyLabeled, moneyMeta } from './quoteOrders';
+
+const SCALE = 2;
+const INK = '#1A2421';
+const MUTED = '#5E6D68';
+const LINE = '#D5E0DC';
+const PAPER = '#F4F7F6';
+const RECEIVE = '#0F6E56';
+
+function setup(width, height) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width * SCALE;
+  canvas.height = height * SCALE;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(SCALE, SCALE);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, width, height);
+  return { canvas, ctx };
+}
+
+function setFont(ctx, size, weight) {
+  ctx.font = `${weight} ${size}px "Segoe UI", "Helvetica Neue", sans-serif`;
+  ctx.textBaseline = 'top';
+}
+
+function fillFit(ctx, text, x, y, size, weight, maxWidth) {
+  let current = size;
+  setFont(ctx, current, weight);
+  while (current > 16 && ctx.measureText(text).width > maxWidth) {
+    current -= 1;
+    setFont(ctx, current, weight);
+  }
+  ctx.fillText(text, x, y);
+}
+
+function rule(ctx, x, y, width) {
+  ctx.strokeStyle = LINE;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + width, y);
+  ctx.stroke();
+}
+
+function formatWhen(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatRate(n) {
+  return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+}
+
+function formatPct(n) {
+  return `${Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`;
+}
+
+function drawBlock(ctx, x, y, label, value, detail, valueColor) {
+  setFont(ctx, 13, 500);
+  ctx.fillStyle = MUTED;
+  ctx.fillText(label, x, y);
+  ctx.fillStyle = valueColor || INK;
+  fillFit(ctx, value, x, y + 22, 28, 600, 544);
+  let next = y + 60;
+  if (detail) {
+    setFont(ctx, 14, 500);
+    ctx.fillStyle = MUTED;
+    ctx.fillText(detail, x, y + 58);
+    next = y + 84;
+  }
+  return next;
+}
+
+/** Proposta do cliente: enviado, recebido, rede. Sem a mesa. */
+export function drawClientSlip(quote, calc) {
+  const width = 640;
+  const height = 520;
+  const { canvas, ctx } = setup(width, height);
+  const x = 48;
+
+  ctx.fillStyle = RECEIVE;
+  ctx.fillRect(0, 0, 8, height);
+
+  setFont(ctx, 26, 600);
+  ctx.fillText('Proposta', x, 40);
+  setFont(ctx, 14, 500);
+  ctx.fillStyle = MUTED;
+  const who = quote.clientName ? `Para ${quote.clientName} · ` : '';
+  ctx.fillText(`${who}válida até ${formatWhen(quote.expiresAt)}`, x, 76);
+  rule(ctx, x, 112, width - 96);
+
+  let y = drawBlock(
+    ctx, x, 136,
+    'Você envia',
+    formatMoney(calc.brl, 'BRL'),
+    moneyMeta('BRL').code,
+  );
+  y = drawBlock(
+    ctx, x, y + 8,
+    'Você recebe',
+    formatMoney(calc.client, quote.asset),
+    `${moneyMeta(quote.asset).code} · rede ${quote.network}`,
+    RECEIVE,
+  );
+
+  setFont(ctx, 13, 500);
+  ctx.fillStyle = MUTED;
+  ctx.fillText('O valor a receber usa a cotação travada nesta proposta.', x, height - 56);
+  return canvas;
+}
+
+/** Visão da mesa: snapshot, enviado, recebido e a parte de cada um. */
+export function drawMesaSlip(quote, calc) {
+  const width = 640;
+  const rows = calc.splits.length;
+  const height = 640 + rows * 28;
+  const { canvas, ctx } = setup(width, height);
+  const x = 48;
+  const quoteAsset = moneyMeta(quote.asset);
+  const brl = moneyMeta('BRL');
+
+  ctx.fillStyle = '#1A2421';
+  ctx.fillRect(0, 0, 8, height);
+
+  setFont(ctx, 26, 600);
+  ctx.fillText('Mesa', x, 40);
+  setFont(ctx, 14, 500);
+  ctx.fillStyle = MUTED;
+  const who = quote.clientName ? `Cliente ${quote.clientName}` : 'Cliente';
+  ctx.fillText(who, x, 76);
+  rule(ctx, x, 112, width - 96);
+
+  setFont(ctx, 13, 500);
+  ctx.fillStyle = MUTED;
+  ctx.fillText('Snapshot da cotação', x, 132);
+  ctx.fillStyle = INK;
+  fillFit(ctx, `${quoteAsset.symbol} ${quote.asset} / ${brl.symbol} ${brl.code}`, x, 154, 22, 600, 544);
+  setFont(ctx, 16, 500);
+  ctx.fillStyle = INK;
+  ctx.fillText(`1 ${quoteAsset.symbol} = ${brl.symbol} ${formatRate(calc.rate)}`, x, 188);
+  setFont(ctx, 13, 500);
+  ctx.fillStyle = MUTED;
+  ctx.fillText(`Binance · ${formatWhen(quote.createdAt)}`, x, 214);
+  rule(ctx, x, 248, width - 96);
+
+  let y = drawBlock(
+    ctx, x, 268,
+    'Cliente enviou',
+    formatMoney(calc.brl, 'BRL'),
+    brl.code,
+  );
+  y = drawBlock(
+    ctx, x, y,
+    'Cliente recebe',
+    formatMoneyLabeled(calc.client, quote.asset),
+    `rede ${quote.network}`,
+    RECEIVE,
+  );
+
+  rule(ctx, x, y, width - 96);
+  setFont(ctx, 14, 600);
+  ctx.fillStyle = INK;
+  ctx.fillText(`Porcentagem da mesa ${formatPct(calc.feePct)}`, x, y + 16);
+
+  let rowY = y + 48;
+  calc.splits.forEach((split) => {
+    setFont(ctx, 15, 500);
+    ctx.fillStyle = MUTED;
+    const right = `${formatPct(split.pct)}   ${formatMoneyLabeled(split.asset, quote.asset)}`;
+    const rightWidth = ctx.measureText(right).width;
+    ctx.fillText(right, width - 48 - rightWidth, rowY);
+    ctx.fillStyle = INK;
+    let name = split.name;
+    const maxName = width - 96 - rightWidth - 16;
+    while (ctx.measureText(name).width > maxName && name.replace(/…$/, '').length > 1) {
+      const bare = name.endsWith('…') ? name.slice(0, -1) : name;
+      name = `${bare.slice(0, -1)}…`;
+    }
+    ctx.fillText(name, x, rowY);
+    rowY += 28;
+  });
+
+  return canvas;
+}
+
+export async function shareCanvas(canvas, filename) {
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Falha ao gerar a imagem'))), 'image/png');
+  });
+  const file = new File([blob], filename, { type: 'image/png' });
+  if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: filename.replace(/\.png$/, '') });
+    return 'shared';
+  }
+  if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      return 'copied';
+    } catch {
+      /* clipboard bloqueado: baixa o arquivo */
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  return 'downloaded';
+}

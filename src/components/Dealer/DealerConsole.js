@@ -16,7 +16,7 @@ import {
   TbBug, TbLogout, TbWallet, TbBook, TbBook2, TbHeartbeat, TbCoins,
   TbSettings, TbLayoutDashboard, TbChartLine, TbTerminal2, TbNetwork, TbChevronLeft, TbChevronRight, TbRocket,
   TbBookmark, TbBookmarkFilled, TbBookmarkOff, TbShieldCheck, TbTrash,
-  TbAlertTriangle, TbGauge, TbDeviceMobile, TbApps,
+  TbAlertTriangle, TbGauge, TbDeviceMobile, TbApps, TbReceipt,
 } from 'react-icons/tb';
 import ArchitecturePanel from './ArchitecturePanel';
 import StrategyPanel from './StrategyPanel';
@@ -26,6 +26,7 @@ import useSideswapBook from './useSideswapBook';
 import useCompetitorTracking from './useCompetitorTracking';
 import useMarketScan from './useMarketScan';
 import MarketOpportunities from './MarketOpportunities';
+import QuoteOrdersPanel from './QuoteOrdersPanel';
 import { loadSession, clearSession, resolveWsUrl } from './config';
 import {
   fetchVaultDealers,
@@ -2064,6 +2065,15 @@ export default function DealerConsole() {
               </Nav.Item>
               <Nav.Item>
                 <Nav.Link
+                  active={mainView === 'cotacoes'}
+                  onClick={() => setMainView('cotacoes')}
+                  className="dealer-main-nav-link"
+                >
+                  <TbReceipt /> Cotações
+                </Nav.Link>
+              </Nav.Item>
+              <Nav.Item>
+                <Nav.Link
                   active={mainView === 'livros'}
                   onClick={() => setMainView('livros')}
                   className="dealer-main-nav-link"
@@ -2476,6 +2486,14 @@ export default function DealerConsole() {
                   lastUpdate={bookLastUpdate}
                   reconnect={reconnectBook}
                 />
+              </div>
+            </Col>
+          </Row>
+        ) : mainView === 'cotacoes' ? (
+          <Row className="g-3">
+            <Col xs={12}>
+              <div className="dealer-panel dealer-panel-scroll">
+                <QuoteOrdersPanel />
               </div>
             </Col>
           </Row>

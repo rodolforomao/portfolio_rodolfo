@@ -8022,3 +8022,367 @@ body.dealer-route-active .App.app-ready {
   display: flex;
   gap: 8px;
 }
+
+/* ── Cotações BRL → cripto ── */
+.dealer-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dealer-quote-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dealer-quote-head .dealer-opp-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dealer-quote-rate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e6edf3;
+  font-variant-numeric: tabular-nums;
+}
+
+.dealer-quote-rate-meta {
+  color: #6e7681;
+  font-size: 0.72rem;
+}
+
+.dealer-quote-icon-btn {
+  background: transparent;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.dealer-quote-icon-btn:hover { color: #e6edf3; border-color: #8b949e; }
+.dealer-quote-icon-btn:disabled { opacity: 0.4; cursor: default; }
+
+.dealer-quote-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.dealer-quote-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dealer-quote-fields label,
+.dealer-quote-party {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+
+.dealer-quote input,
+.dealer-quote select {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+}
+
+.dealer-quote input:focus,
+.dealer-quote select:focus {
+  outline: 2px solid #1f6feb;
+  border-color: #1f6feb;
+}
+
+.dealer-quote-mesa {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dealer-quote-mesa label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: #8b949e;
+  width: 160px;
+}
+
+.dealer-quote-mesa-ok,
+.dealer-quote-mesa-bad {
+  font-size: 0.75rem;
+  padding-bottom: 6px;
+}
+
+.dealer-quote-mesa-ok { color: #3fb950; }
+.dealer-quote-mesa-bad { color: #f85149; }
+
+.dealer-quote-share-note {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: #58a6ff;
+}
+
+.dealer-quote-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dealer-quote-preset {
+  text-align: left;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  color: #8b949e;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.dealer-quote-preset strong {
+  display: block;
+  color: #e6edf3;
+  font-size: 0.82rem;
+  margin-bottom: 2px;
+}
+
+.dealer-quote-preset span {
+  display: block;
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.dealer-quote-preset.active {
+  border-color: #1f6feb;
+  background: rgba(31, 111, 235, 0.12);
+}
+
+.dealer-quote-parties {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dealer-quote-party {
+  display: grid;
+  grid-template-columns: 1fr 90px auto 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.dealer-quote-mine {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #8b949e;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.dealer-quote-add {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: #58a6ff;
+  font-size: 0.78rem;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dealer-quote-preview {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.dealer-quote-preview-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dealer-quote-preview-hero span {
+  color: #8b949e;
+  font-size: 0.75rem;
+}
+
+.dealer-quote-preview-hero strong {
+  color: #3fb950;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.dealer-quote-preview-empty {
+  margin: 0;
+  color: #6e7681;
+  font-size: 0.8rem;
+}
+
+.dealer-quote-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dealer-quote-table td {
+  padding: 4px 0;
+  border-bottom: 1px solid #21262d;
+  color: #c9d1d9;
+}
+
+.dealer-quote-table td:nth-child(n+2) {
+  text-align: right;
+  padding-left: 12px;
+}
+
+.dealer-quote-table tr.mine td {
+  color: #3fb950;
+  font-weight: 600;
+}
+
+.dealer-quote-submit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dealer-quote-submit-note {
+  color: #8b949e;
+  font-size: 0.75rem;
+}
+
+.dealer-quote-profit {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #0d1117;
+  border: 1px solid #238636;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #8b949e;
+  font-size: 0.78rem;
+}
+
+.dealer-quote-profit strong {
+  color: #3fb950;
+  font-size: 1.05rem;
+}
+
+.dealer-quote-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.dealer-quote-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dealer-quote-row {
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #161b22;
+}
+
+.dealer-quote-row.status-realizada { border-color: rgba(63, 185, 80, 0.45); }
+.dealer-quote-row.status-expirada { border-color: rgba(248, 81, 73, 0.4); }
+
+.dealer-quote-row header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dealer-quote-row header strong { color: #e6edf3; }
+
+.dealer-quote-status {
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 8px;
+  border: 1px solid #30363d;
+  color: #8b949e;
+}
+
+.dealer-quote-status.status-aberta { color: #d29922; border-color: #9e6a03; }
+.dealer-quote-status.status-realizada { color: #3fb950; border-color: #238636; }
+.dealer-quote-status.status-expirada,
+.dealer-quote-status.status-nao_realizada { color: #f85149; border-color: #da3633; }
+
+.dealer-quote-row-time,
+.dealer-quote-row-delivery,
+.dealer-quote-renewed {
+  color: #8b949e;
+  font-size: 0.75rem;
+}
+
+.dealer-quote-row-delivery { margin: 6px 0 0; }
+.dealer-quote-row-delivery strong { color: #e6edf3; }
+
+.dealer-quote-row-splits {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 0.75rem;
+  color: #c9d1d9;
+}
+
+.dealer-quote-row-splits .mine { color: #3fb950; }
+
+.dealer-quote-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+@media (max-width: 800px) {
+  .dealer-quote-fields,
+  .dealer-quote-presets,
+  .dealer-quote-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .dealer-quote-party {
+    grid-template-columns: 1fr 72px;
+  }
+}

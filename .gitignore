@@ -30,6 +30,7 @@ pnpm-debug.log*
 
 # Local data (vault_server.py)
 vault_data.db
+quote_orders.db
 *.db-journal
 liquid_pots_data.json
 

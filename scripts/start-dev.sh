@@ -39,7 +39,7 @@ fi
 bash "$ROOT/scripts/ensure-venv.sh"
 
 echo "========================================"
-echo " Dev — React :3000 + relay :${WS_RELAY_PORT:-8765}"
+echo " Dev — React :3000 + relay :${WS_RELAY_PORT:-8765} + cotações :${QUOTE_ORDERS_HTTP_PORT:-8771}"
 echo " Abra: http://localhost:3000/dealer"
 echo " Após login: Menu → Dealer | Analyses | Liquid TX"
 echo " Tools: public/tools/* (npm run sync:tools)"
@@ -48,7 +48,8 @@ echo
 
 exec npx concurrently \
   --kill-others-on-fail \
-  --names "react,relay" \
-  --prefix-colors "cyan,yellow" \
+  --names "react,relay,quotes" \
+  --prefix-colors "cyan,yellow,green" \
   "npm run start" \
-  "bash scripts/start-relay.sh"
+  "bash scripts/start-relay.sh" \
+  "bash scripts/start-quote-orders.sh"

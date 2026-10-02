@@ -60,6 +60,25 @@ module.exports = function (app) {
   );
 
   app.use(
+    "/api/quote-orders",
+    createProxyMiddleware({
+      target: process.env.QUOTE_ORDERS_PROXY_TARGET || "http://127.0.0.1:8771",
+      changeOrigin: true,
+      onError: (err, _req, res) => {
+        if (!res.headersSent) {
+          res.writeHead(502, { "Content-Type": "application/json" });
+        }
+        res.end(
+          JSON.stringify({
+            error: "quote-orders API offline",
+            detail: String(err.message || err),
+          })
+        );
+      },
+    })
+  );
+
+  app.use(
     "/api/liquid-pots",
     createProxyMiddleware({
       target: process.env.LIQUID_POTS_PROXY_TARGET || "http://127.0.0.1:8770",
