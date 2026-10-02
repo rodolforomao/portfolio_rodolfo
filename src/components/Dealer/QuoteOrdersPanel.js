@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import {
   TbRefresh, TbPlus, TbTrash, TbCheck, TbX, TbReceipt, TbShare,
+  TbChevronDown, TbChevronRight,
 } from 'react-icons/tb';
 import {
   DELIVERY_ASSETS,
@@ -10,6 +11,8 @@ import {
   assetMeta,
   computeQuote,
   effectiveStatus,
+  isTerceiroParty,
+  quoteWithoutTerceiro,
   fetchBinancePrice,
   fetchQuotes,
   formatMoney,
@@ -322,6 +325,7 @@ export default function QuoteOrdersPanel() {
       name: String(p.name || '').trim() || 'Sem nome',
       pct: partyPct(p),
       mine: !!p.mine,
+      terceiro: isTerceiroParty(p),
     })),
     profitCurrency: source.profitCurrency || source.asset,
     profitRate: source.profitRate || null,
@@ -444,6 +448,16 @@ export default function QuoteOrdersPanel() {
     }));
   };
 
+  const setPartyTerceiro = (id, index, terceiro) => {
+    persist(quotes.map((q) => {
+      if (q.id !== id) return q;
+      return {
+        ...q,
+        parties: (q.parties || []).map((p, i) => (i === index ? { ...p, terceiro } : p)),
+      };
+    }));
+  };
+
   const chooseProfitCurrency = async (quote, currency) => {
     const delivery = quote.asset || 'USDT';
     let profitRate = null;
@@ -466,6 +480,15 @@ export default function QuoteOrdersPanel() {
       )),
     })));
   };
+
+  const quoteNumber = useMemo(() => {
+    const ordered = [...quotes].sort((a, b) => (
+      (a.createdAt || 0) - (b.createdAt || 0) || String(a.id).localeCompare(String(b.id))
+    ));
+    const map = new Map();
+    ordered.forEach((q, index) => map.set(q.id, index + 1));
+    return map;
+  }, [quotes]);
 
   const visible = quotes.filter((q) => {
     const status = effectiveStatus(q, now);
@@ -614,6 +637,14 @@ export default function QuoteOrdersPanel() {
                 />
                 meu lucro
               </label>
+              <label className="dealer-quote-mine">
+                <input
+                  type="checkbox"
+                  checked={isTerceiroParty(party)}
+                  onChange={(e) => updateParty(index, { terceiro: e.target.checked })}
+                />
+                terceiro
+              </label>
               <button
                 type="button"
                 className="dealer-quote-icon-btn"
@@ -725,6 +756,7 @@ export default function QuoteOrdersPanel() {
           {visible.map((quote) => (
             <QuoteRow
               key={quote.id}
+              number={quoteNumber.get(quote.id)}
               quote={quote}
               now={now}
               busy={creating}
@@ -735,6 +767,7 @@ export default function QuoteOrdersPanel() {
               onRemove={() => handleRemove(quote.id)}
               onRename={(index, name) => renamePartyOnQuote(quote.id, index, name)}
               onPartyPct={(index, pct) => setPartyPct(quote.id, index, pct)}
+              onPartyTerceiro={(index, terceiro) => setPartyTerceiro(quote.id, index, terceiro)}
               onMesaPct={(pct) => patchQuote(quote.id, { mesaPct: pct })}
               onProfitCurrency={(currency) => chooseProfitCurrency(quote, currency)}
               onPayout={(status) => patchQuote(quote.id, { payoutStatus: status })}
@@ -805,25 +838,44 @@ function shareMessage(result, who) {
 }
 
 function QuoteRow({
-  quote, now, busy, onRealize, onDecline, onUndo, onRenew, onRemove, onRename,
-  onPartyPct, onMesaPct, onProfitCurrency, onPayout,
+  number, quote, now, busy, onRealize, onDecline, onUndo, onRenew, onRemove, onRename,
+  onPartyPct, onMesaPct, onProfitCurrency, onPayout, onPartyTerceiro,
 }) {
   const status = effectiveStatus(quote, now);
   const calc = computeQuote(quote);
   const open = status === 'aberta' || status === 'expirada';
   const decided = status === 'realizada' || status === 'nao_realizada';
+  const [expanded, setExpanded] = useState(false);
   const [shareNote, setShareNote] = useState('');
   const [sharing, setSharing] = useState(false);
+  const mesaProfit = calc
+    ? settlementOf({ brl: calc.feeBrl, usdt: calc.feeUsdt, asset: calc.fee }, quote)
+    : null;
 
   const sendImage = async (kind) => {
     if (!calc) return;
     setSharing(true);
     setShareNote('');
     try {
-      const canvas = kind === 'client' ? drawClientSlip(quote, calc) : drawMesaSlip(quote, calc);
-      const file = kind === 'client' ? 'proposta-cliente.png' : 'proposta-mesa.png';
+      let canvas;
+      let file;
+      let who;
+      if (kind === 'client') {
+        canvas = drawClientSlip(quote, calc);
+        file = 'cotacao-cliente.png';
+        who = 'do cliente';
+      } else if (kind === 'mesa') {
+        const mesaQuote = quoteWithoutTerceiro(quote);
+        canvas = drawMesaSlip(mesaQuote, computeQuote(mesaQuote), 'Cotação da mesa');
+        file = 'cotacao-mesa.png';
+        who = 'da mesa';
+      } else {
+        canvas = drawMesaSlip(quote, calc, 'Cotação terceiro');
+        file = 'cotacao-terceiro.png';
+        who = 'do terceiro';
+      }
       const result = await shareCanvas(canvas, file);
-      setShareNote(shareMessage(result, kind === 'client' ? 'do cliente' : 'da mesa'));
+      setShareNote(shareMessage(result, who));
     } catch (err) {
       if (err?.name === 'AbortError') return;
       setShareNote(err?.message || 'Não foi possível gerar a imagem.');
@@ -832,24 +884,35 @@ function QuoteRow({
     }
   };
   return (
-    <article className={`dealer-quote-row status-${status}`}>
-      <header>
-        <strong>
-          {quote.clientName ? `${quote.clientName} · ` : ''}
-          {formatBrl(quote.brlAmount)}
-        </strong>
-        {quote.sourceFile && (
-          <span className="dealer-quote-row-time">
-            {quote.sourceFile}{quote.sourceSheet ? ` · ${quote.sourceSheet}` : ''}
+    <article className={`dealer-quote-row status-${status}${expanded ? ' open' : ''}`}>
+      <button
+        type="button"
+        className="dealer-quote-summary"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <span className="dealer-quote-num">#{number}</span>
+        {quote.clientName && <strong>{quote.clientName}</strong>}
+        <span className="dealer-quote-summary-item">
+          Total <strong>{formatBrl(quote.brlAmount)}</strong>
+        </span>
+        <span className="dealer-quote-summary-item">
+          Mesa <strong>{calc ? formatBrl(calc.feeBrl) : '—'}</strong>
+          {calc ? ` ${formatPct(calc.feePct)}` : ''}
+        </span>
+        <span className="dealer-quote-summary-item">
+          Lucro <strong>{formatSettlement(mesaProfit)}</strong>
+        </span>
+        <span className={`dealer-quote-status status-${status}`}>{STATUS_LABEL[status]}</span>
+        {status === 'realizada' && (
+          <span className={`dealer-quote-status status-${payoutOf(quote) === 'efetivada' ? 'realizada' : 'aberta'}`}>
+            {payoutOf(quote) === 'efetivada' ? 'Efetivada' : 'A pagar'}
           </span>
         )}
-        <span className={`dealer-quote-status status-${status}`}>{STATUS_LABEL[status]}</span>
-        <span className="dealer-quote-row-time">
-          {formatWhen(quote.createdAt)}
-          {status === 'aberta' ? ` · expira em ${formatRemaining(quote.expiresAt, now)}` : ''}
-          {status === 'expirada' ? ' · passou de 1h' : ''}
-        </span>
-      </header>
+        {expanded ? <TbChevronDown /> : <TbChevronRight />}
+      </button>
+      {expanded && (
+      <>
       {calc && (
         <p className="dealer-quote-row-delivery">
           Entregar <strong>{formatAsset(calc.client, quote.asset)}</strong> na rede {quote.network || 'não informada'}.
@@ -937,6 +1000,14 @@ function QuoteRow({
                     onCommit={(pct) => onPartyPct(index, pct)}
                   />
                   <span>{split.mine ? 'seu' : ''}</span>
+                  <label className="dealer-quote-mine">
+                    <input
+                      type="checkbox"
+                      checked={isTerceiroParty(quote.parties?.[index])}
+                      onChange={(e) => onPartyTerceiro(index, e.target.checked)}
+                    />
+                    terceiro
+                  </label>
                 </div>
                 <p>
                   <strong>{formatSettlement(settlement)}</strong>
@@ -953,10 +1024,13 @@ function QuoteRow({
         {calc && (
           <>
             <Button size="sm" variant="outline-primary" onClick={() => sendImage('client')} disabled={sharing}>
-              <TbShare /> Imagem do cliente
+              <TbShare /> Cotação do cliente
             </Button>
             <Button size="sm" variant="outline-primary" onClick={() => sendImage('mesa')} disabled={sharing}>
-              <TbShare /> Imagem da mesa
+              <TbShare /> Cotação da mesa
+            </Button>
+            <Button size="sm" variant="outline-primary" onClick={() => sendImage('terceiro')} disabled={sharing}>
+              <TbShare /> Cotação terceiro
             </Button>
           </>
         )}
@@ -986,6 +1060,8 @@ function QuoteRow({
         </button>
       </div>
       {shareNote && <p className="dealer-quote-share-note">{shareNote}</p>}
+      </>
+      )}
     </article>
   );
 }

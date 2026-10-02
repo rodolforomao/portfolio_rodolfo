@@ -77,6 +77,20 @@ export function parseBrlInput(input) {
   return Number(s);
 }
 
+export function isTerceiroParty(party) {
+  if (party?.terceiro === true) return true;
+  if (party?.terceiro === false) return false;
+  return /^terceiro$/i.test(String(party?.name || '').trim());
+}
+
+/** Mesa sem o terceiro: a porcentagem cai o que era dele (3% vira 2,5%). */
+export function quoteWithoutTerceiro(quote) {
+  const parties = (quote?.parties || []).filter((party) => !isTerceiroParty(party));
+  if (!parties.length) return quote;
+  const mesaPct = parties.reduce((sum, party) => sum + partyPct(party), 0);
+  return { ...quote, parties, mesaPct };
+}
+
 export function partyPct(party) {
   const n = typeof party?.pct === 'number'
     ? party.pct

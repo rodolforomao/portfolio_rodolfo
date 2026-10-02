@@ -8187,7 +8187,7 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-quote-party {
   display: grid;
-  grid-template-columns: 1fr 90px auto 28px;
+  grid-template-columns: 1fr 90px auto auto 28px;
   align-items: center;
   gap: 8px;
 }
@@ -8406,6 +8406,38 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-quote-row.status-realizada { border-color: rgba(63, 185, 80, 0.45); }
 .dealer-quote-row.status-expirada { border-color: rgba(248, 81, 73, 0.4); }
+
+.dealer-quote-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #8b949e;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.dealer-quote-summary strong { color: #e6edf3; font-variant-numeric: tabular-nums; }
+
+.dealer-quote-num {
+  color: #58a6ff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.2rem;
+}
+
+.dealer-quote-summary-item { white-space: nowrap; }
+
+.dealer-quote-summary svg {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
 
 .dealer-quote-row header {
   display: flex;

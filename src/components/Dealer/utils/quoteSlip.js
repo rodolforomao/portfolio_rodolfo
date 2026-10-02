@@ -91,7 +91,7 @@ export function drawClientSlip(quote, calc) {
   ctx.fillRect(0, 0, 8, height);
 
   setFont(ctx, 26, 600);
-  ctx.fillText('Proposta', x, 40);
+  ctx.fillText('Cotação do cliente', x, 40);
   setFont(ctx, 14, 500);
   ctx.fillStyle = MUTED;
   const who = quote.clientName ? `Para ${quote.clientName} · ` : '';
@@ -135,7 +135,7 @@ function divisionLabel(quote) {
 }
 
 /** Visão da mesa: snapshot, enviado, recebido e a parte de cada um. */
-export function drawMesaSlip(quote, calc) {
+export function drawMesaSlip(quote, calc, title = 'Cotação da mesa') {
   const width = 760;
   const rows = calc.splits.length;
   const height = 640 + rows * 28;
@@ -148,7 +148,7 @@ export function drawMesaSlip(quote, calc) {
   ctx.fillRect(0, 0, 8, height);
 
   setFont(ctx, 26, 600);
-  ctx.fillText('Mesa', x, 40);
+  ctx.fillText(title, x, 40);
   setFont(ctx, 14, 500);
   ctx.fillStyle = MUTED;
   const who = quote.clientName ? `Cliente ${quote.clientName}` : 'Cliente';
