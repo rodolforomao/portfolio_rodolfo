@@ -198,9 +198,9 @@ export async function shareCanvas(canvas, filename) {
     await navigator.share({ files: [file], title: filename.replace(/\.png$/, '') });
     return 'shared';
   }
-  if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+  if (navigator.clipboard?.write && typeof window.ClipboardItem !== 'undefined') {
     try {
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      await navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })]);
       return 'copied';
     } catch {
       /* clipboard bloqueado: baixa o arquivo */
