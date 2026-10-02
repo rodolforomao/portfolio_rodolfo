@@ -8199,7 +8199,7 @@ body.dealer-route-active .App.app-ready {
   gap: 6px;
 }
 
-.dealer-quote-receive > input { flex: 1 1 6rem; min-width: 0; }
+.dealer-quote-receive > input { flex: 1 1 7.5rem; min-width: 0; }
 .dealer-quote-receive > select { flex: 0 0 6.6rem; }
 .dealer-quote-receive > input:last-child { flex: 0 0 4.5rem; }
 
@@ -8222,6 +8222,7 @@ body.dealer-route-active .App.app-ready {
   padding: 7px 8px;
   font-family: inherit;
   font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .dealer-quote input:focus,

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import {
   TbRefresh, TbPlus, TbTrash, TbCheck, TbX, TbShare,
@@ -33,6 +33,9 @@ import {
   moneyMeta,
   normalizeHops,
   parseBrlInput,
+  maskDecimalInput,
+  formatDecimalInput,
+  decimalPlaces,
   partyPaid,
   partyPct,
   pctFromAmount,
@@ -215,29 +218,73 @@ function AddressField({ value, ariaLabel, placeholder, onCommit }) {
   );
 }
 
+function caretAfterMask(raw, caret, formatted) {
+  const digitsBefore = String(raw).slice(0, caret).replace(/\D/g, '').length;
+  if (!digitsBefore) return formatted.startsWith('0,') ? 2 : 0;
+  let seen = 0;
+  for (let i = 0; i < formatted.length; i += 1) {
+    if (/\d/.test(formatted[i])) {
+      seen += 1;
+      if (seen === digitsBefore) return i + 1;
+    }
+  }
+  return formatted.length;
+}
+
+function DecimalInput({ value, onValue, decimals = 2, onBlur, className, ...rest }) {
+  const ref = useRef(null);
+  const caret = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || caret.current == null || document.activeElement !== el) return;
+    const pos = caret.current;
+    caret.current = null;
+    el.setSelectionRange(pos, pos);
+  });
+  return (
+    <input
+      {...rest}
+      ref={ref}
+      className={className}
+      inputMode="decimal"
+      value={value}
+      onChange={(e) => {
+        const raw = e.target.value;
+        const at = e.target.selectionStart ?? raw.length;
+        const formatted = maskDecimalInput(raw, decimals);
+        caret.current = caretAfterMask(raw, at, formatted);
+        onValue(formatted);
+      }}
+      onBlur={onBlur}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+      }}
+    />
+  );
+}
+
 function MoneyField({ amount, code, ariaLabel, onCommit }) {
-  const digits = code === 'BTC' || code === 'ETH' ? 6 : 2;
+  const digits = decimalPlaces(code);
   const shown = Number.isFinite(Number(amount))
-    ? Number(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: digits })
+    ? formatDecimalInput(Number(amount), digits)
     : '';
   const [text, setText] = useState(shown);
   useEffect(() => setText(shown), [shown]);
   return (
     <span className="dealer-quote-amount">
       <Mark code={code} size={18} label={moneyMeta(code).code || code} />
-      <input
-        inputMode="decimal"
+      <DecimalInput
         aria-label={ariaLabel}
-        placeholder="Valor"
+        placeholder={digits === 2 ? '0,00' : '0,00'}
+        decimals={digits}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onValue={setText}
         onBlur={() => {
           const n = parseBrlInput(text);
-          if (Number.isFinite(n) && n >= 0) onCommit(n);
-          else setText(shown);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur();
+          if (Number.isFinite(n) && n >= 0) {
+            onCommit(n);
+            setText(formatDecimalInput(n, digits));
+          } else setText(shown);
         }}
       />
     </span>
@@ -248,19 +295,16 @@ function PctField({ value, onCommit, ariaLabel }) {
   const [text, setText] = useState(pctToField(value));
   useEffect(() => setText(pctToField(value)), [value]);
   return (
-    <input
+    <DecimalInput
       className="dealer-quote-pct"
-      inputMode="decimal"
       aria-label={ariaLabel}
+      decimals={4}
       value={text}
-      onChange={(e) => setText(e.target.value)}
+      onValue={setText}
       onBlur={() => {
         const n = partyPct({ pct: text });
         if (n >= 0 && String(text).trim()) onCommit(n);
         else setText(pctToField(value));
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
       }}
     />
   );
@@ -806,16 +850,31 @@ export default function QuoteOrdersPanel() {
             Entra na conta
             <span className="dealer-quote-receive">
               <Mark code={incomingCode || 'BRL'} size={20} label={incomingCode || 'BRL'} />
-              <input
-                inputMode="decimal"
+              <DecimalInput
+                aria-label="Valor que entra"
+                decimals={decimalPlaces(isBrlPeg(incomingCode) ? 'BRL' : incomingCode)}
                 value={receiveInput}
-                onChange={(e) => setReceiveInput(e.target.value)}
-                placeholder="100000"
+                onValue={setReceiveInput}
+                placeholder={isBrlPeg(incomingCode) ? '50.002,35' : '0,00'}
+                onBlur={() => {
+                  const n = parseBrlInput(receiveInput);
+                  const places = decimalPlaces(isBrlPeg(incomingCode) ? 'BRL' : incomingCode);
+                  if (Number.isFinite(n)) setReceiveInput(formatDecimalInput(n, places));
+                }}
               />
               <select
                 aria-label="Moeda que entra"
                 value={receiveChoice}
-                onChange={(e) => setReceiveChoice(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setReceiveChoice(next);
+                  const code = receiveCode(next, receiveCustom);
+                  const places = decimalPlaces(isBrlPeg(code) ? 'BRL' : code);
+                  setReceiveInput((prev) => {
+                    const n = parseBrlInput(prev);
+                    return Number.isFinite(n) ? formatDecimalInput(n, places) : maskDecimalInput(prev, places);
+                  });
+                }}
               >
                 {RECEIVE_PRESETS.map((item) => (
                   <option key={item.id} value={item.id}>{item.label}</option>
@@ -932,11 +991,11 @@ export default function QuoteOrdersPanel() {
         <div className="dealer-quote-mesa">
           <label>
             Porcentagem da mesa
-            <input
-              inputMode="decimal"
+            <DecimalInput
+              decimals={2}
               value={mesaInput}
-              onChange={(e) => changeMesa(e.target.value)}
-              placeholder="3"
+              onValue={changeMesa}
+              placeholder="3,00"
             />
           </label>
           <label>
@@ -969,12 +1028,12 @@ export default function QuoteOrdersPanel() {
                 onChange={(e) => updateParty(index, { name: e.target.value })}
                 placeholder="Nome na mesa"
               />
-              <input
+              <DecimalInput
                 className="dealer-quote-pct"
                 aria-label={`Percentual de ${party.name || index + 1}`}
-                inputMode="decimal"
-                value={party.pct}
-                onChange={(e) => changePartyPct(index, e.target.value)}
+                decimals={4}
+                value={typeof party.pct === 'number' ? pctToField(party.pct) : String(party.pct ?? '')}
+                onValue={(value) => changePartyPct(index, value)}
               />
               <MoneyField
                 amount={(() => {
@@ -991,7 +1050,7 @@ export default function QuoteOrdersPanel() {
                     brlAmount, asset, rate: rate?.price, usdtRate: liveUsdt, profitCurrency,
                   });
                   if (pct == null) return;
-                  changePartyPct(index, pct);
+                  changePartyPct(index, pctToField(pct));
                 }}
               />
               <label className="dealer-quote-mine">

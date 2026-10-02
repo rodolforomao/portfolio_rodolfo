@@ -127,10 +127,62 @@ export function fetchBinancePrice(symbol) {
 /** Aceita 100000, 100.000 e 100.000,50. */
 export function parseBrlInput(input) {
   const s = String(input || '').trim().replace(/\s/g, '');
-  if (!s) return NaN;
+  if (!s || s === ',') return NaN;
   if (s.includes(',')) return Number(s.replace(/\./g, '').replace(',', '.'));
   if (/^\d{1,3}(\.\d{3})+$/.test(s)) return Number(s.replace(/\./g, ''));
   return Number(s);
+}
+
+/** Casas da máscara. Real, DePix e stablecoins ficam em centavos. */
+export function decimalPlaces(code) {
+  const name = String(code || '').trim().toUpperCase();
+  if (name === 'BTC' || name === 'ETH' || name === 'LBTC') return 8;
+  return 2;
+}
+
+/**
+ * Pontuação brasileira enquanto digita: 50002,35 vira 50.002,35.
+ * O ponto é milhar; a vírgula abre os centavos.
+ */
+export function maskDecimalInput(raw, maxDecimals = 2) {
+  let s = String(raw ?? '').replace(/\s/g, '');
+  if (!s) return '';
+  const hasComma = s.includes(',');
+  const hasDot = s.includes('.');
+  if (hasComma && hasDot) {
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '');
+    else s = s.replace(/,/g, '').replace(/\./g, ',');
+  } else if (hasDot) {
+    const parts = s.split('.');
+    const thousands = parts.length > 1
+      && parts[0].length >= 1
+      && parts[0].length <= 3
+      && parts.slice(1).every((part) => /^\d{3}$/.test(part));
+    if (!thousands) {
+      const dec = parts.pop();
+      s = `${parts.join('')},${dec}`;
+    }
+  }
+  s = s.replace(/[^\d,]/g, '');
+  const endsComma = maxDecimals > 0 && s.endsWith(',');
+  const [intRaw, ...rest] = s.split(',');
+  let intPart = (intRaw || '').replace(/^0+(?=\d)/, '');
+  if (!intPart && (rest.length || endsComma)) intPart = '0';
+  if (!intPart) return '';
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  if (!rest.length && !endsComma) return grouped;
+  const dec = rest.join('').replace(/\D/g, '').slice(0, maxDecimals);
+  if (!dec) return endsComma ? `${grouped},` : grouped;
+  return `${grouped},${dec}`;
+}
+
+export function formatDecimalInput(n, maxDecimals = 2) {
+  if (!Number.isFinite(n)) return '';
+  const places = Math.max(0, maxDecimals);
+  return n.toLocaleString('pt-BR', {
+    minimumFractionDigits: Math.min(2, places),
+    maximumFractionDigits: places,
+  });
 }
 
 export function isTerceiroParty(party) {
@@ -230,9 +282,8 @@ export function quoteWithoutTerceiro(quote) {
 }
 
 export function partyPct(party) {
-  const n = typeof party?.pct === 'number'
-    ? party.pct
-    : Number(String(party?.pct ?? '').replace(',', '.'));
+  if (typeof party?.pct === 'number') return Number.isFinite(party.pct) ? party.pct : 0;
+  const n = parseBrlInput(party?.pct);
   return Number.isFinite(n) ? n : 0;
 }
 
