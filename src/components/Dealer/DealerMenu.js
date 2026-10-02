@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Container from 'react-bootstrap/Container';
 import Button from 'react-bootstrap/Button';
 import {
-  TbChartCandle, TbChartLine, TbArrowsExchange, TbLogout, TbLock, TbSettings,
+  TbChartCandle, TbChartLine, TbArrowsExchange, TbLogout, TbLock, TbSettings, TbReceipt,
 } from 'react-icons/tb';
 import { clearSession, loadSession } from './config';
 import './Dealer.css';
@@ -14,6 +14,12 @@ const TOOLS = [
     title: 'Dealer',
     description: 'Console de operação — ordens, balances e agentes.',
     icon: TbChartCandle,
+  },
+  {
+    to: '/dealer/console?view=cotacoes',
+    title: 'Cotações',
+    description: 'Reais na conta, entrega em cripto e a divisão da mesa.',
+    icon: TbReceipt,
   },
   {
     to: '/dealer/analyses',

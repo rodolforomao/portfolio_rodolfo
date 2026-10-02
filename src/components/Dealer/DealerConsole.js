@@ -1661,7 +1661,9 @@ export default function DealerConsole() {
   const [showMessages, setShowMessages] = useState(false);
   const [orderRegistryTick, setOrderRegistryTick] = useState(0);
   const [updateRestartResult, setUpdateRestartResult] = useState(null);
-  const [mainView, setMainView] = useState('geral');
+  const [mainView, setMainView] = useState(() => (
+    new URLSearchParams(window.location.search).get('view') === 'cotacoes' ? 'cotacoes' : 'geral'
+  ));
   const [midTab, setMidTab] = useState('operacional');
   const [dealersExpanded, setDealersExpanded] = useState(true);
   const [mobilePanel, setMobilePanel] = useState('center');
