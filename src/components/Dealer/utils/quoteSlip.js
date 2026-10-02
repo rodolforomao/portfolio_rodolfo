@@ -1,4 +1,7 @@
-import { formatMoney, formatMoneyLabeled, moneyMeta } from './quoteOrders';
+import {
+  formatMoney, formatMoneyLabeled, moneyMeta, payoutOf, profitCurrencyOf,
+  settlementOf, snapshotAmounts,
+} from './quoteOrders';
 
 const SCALE = 2;
 const INK = '#1A2421';
@@ -101,7 +104,7 @@ export function drawClientSlip(quote, calc) {
     formatMoney(calc.brl, 'BRL'),
     moneyMeta('BRL').code,
   );
-  y = drawBlock(
+  drawBlock(
     ctx, x, y + 8,
     'Você recebe',
     formatMoney(calc.client, quote.asset),
@@ -115,9 +118,25 @@ export function drawClientSlip(quote, calc) {
   return canvas;
 }
 
+function snapshotText(split, asset, skipCode) {
+  return snapshotAmounts(split, asset)
+    .filter((part) => part.code !== skipCode)
+    .map((part) => (
+      part.code === 'BRL' ? formatMoney(part.amount, 'BRL') : formatMoneyLabeled(part.amount, part.code)
+    ))
+    .join('   ');
+}
+
+function divisionLabel(quote) {
+  const code = profitCurrencyOf(quote);
+  if (code === 'BRL') return 'reais';
+  if (code === (quote.asset || 'USDT')) return `${code}, a moeda do cliente`;
+  return code;
+}
+
 /** Visão da mesa: snapshot, enviado, recebido e a parte de cada um. */
 export function drawMesaSlip(quote, calc) {
-  const width = 640;
+  const width = 760;
   const rows = calc.splits.length;
   const height = 640 + rows * 28;
   const { canvas, ctx } = setup(width, height);
@@ -146,7 +165,10 @@ export function drawMesaSlip(quote, calc) {
   ctx.fillText(`1 ${quoteAsset.symbol} = ${brl.symbol} ${formatRate(calc.rate)}`, x, 188);
   setFont(ctx, 13, 500);
   ctx.fillStyle = MUTED;
-  ctx.fillText(`Binance · ${formatWhen(quote.createdAt)}`, x, 214);
+  const usdtSnap = quote.asset !== 'USDT' && calc.usdtRate
+    ? ` · 1 ₮ = R$ ${formatRate(calc.usdtRate)}`
+    : '';
+  ctx.fillText(`Binance · ${formatWhen(quote.createdAt)}${usdtSnap}`, x, 214);
   rule(ctx, x, 248, width - 96);
 
   let y = drawBlock(
@@ -166,13 +188,25 @@ export function drawMesaSlip(quote, calc) {
   rule(ctx, x, y, width - 96);
   setFont(ctx, 14, 600);
   ctx.fillStyle = INK;
-  ctx.fillText(`Porcentagem da mesa ${formatPct(calc.feePct)}`, x, y + 16);
+  const pay = payoutOf(quote) === 'efetivada' ? 'efetivada' : 'a pagar';
+  ctx.fillText(
+    `Mesa ${formatPct(calc.feePct)} · divisão em ${divisionLabel(quote)} · ${pay}`,
+    x,
+    y + 16,
+  );
 
   let rowY = y + 48;
   calc.splits.forEach((split) => {
     setFont(ctx, 15, 500);
     ctx.fillStyle = MUTED;
-    const right = `${formatPct(split.pct)}   ${formatMoneyLabeled(split.asset, quote.asset)}`;
+    const settlement = settlementOf(split, quote);
+    const main = settlement.amount == null
+      ? '—'
+      : settlement.code === 'BRL'
+        ? formatMoney(settlement.amount, 'BRL')
+        : formatMoneyLabeled(settlement.amount, settlement.code);
+    const rest = snapshotText(split, quote.asset, settlement.code);
+    const right = `${formatPct(split.pct)}   ${main}${rest ? `   ${rest}` : ''}`;
     const rightWidth = ctx.measureText(right).width;
     ctx.fillText(right, width - 48 - rightWidth, rowY);
     ctx.fillStyle = INK;

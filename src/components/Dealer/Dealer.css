@@ -8284,15 +8284,101 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-quote-profit {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   background: #0d1117;
   border: 1px solid #238636;
   border-radius: 8px;
   padding: 10px 12px;
   color: #8b949e;
   font-size: 0.78rem;
+}
+
+.dealer-quote-profit-assets {
+  color: #8b949e;
+}
+
+.dealer-quote-table thead td {
+  color: #8b949e;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dealer-quote-name {
+  width: 100%;
+  min-width: 0;
+}
+
+.dealer-quote-pct {
+  width: 72px;
+}
+
+.dealer-quote-xrays {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.dealer-quote-xray {
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: #0d1117;
+  padding: 8px 10px;
+}
+
+.dealer-quote-xray.mine {
+  border-color: rgba(63, 185, 80, 0.55);
+}
+
+.dealer-quote-xray h5 {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b949e;
+}
+
+.dealer-quote-xray p {
+  margin: 0 0 4px;
+  color: #c9d1d9;
+  font-size: 0.8rem;
+}
+
+.dealer-quote-xray p strong {
+  color: #e6edf3;
+  font-variant-numeric: tabular-nums;
+}
+
+.dealer-quote-xray.mine p strong {
+  color: #3fb950;
+}
+
+.dealer-quote-xray-tools,
+.dealer-quote-xray-party {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.dealer-quote-xray-tools label,
+.dealer-quote-xray-party {
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+
+.dealer-quote-xray-tools label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dealer-quote-mesa label:has(select) {
+  width: 220px;
 }
 
 .dealer-quote-profit strong {
@@ -8359,10 +8445,17 @@ body.dealer-route-active .App.app-ready {
   margin: 6px 0 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
+  flex-direction: column;
+  gap: 6px;
   font-size: 0.75rem;
   color: #c9d1d9;
+}
+
+.dealer-quote-row-splits li {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  gap: 8px;
+  align-items: center;
 }
 
 .dealer-quote-row-splits .mine { color: #3fb950; }

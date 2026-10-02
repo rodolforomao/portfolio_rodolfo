@@ -132,8 +132,28 @@ def init_db(conn: sqlite3.Connection) -> None:
           source_sheet TEXT,
           note TEXT,
           renewed_from TEXT,
-          renewed_to TEXT
+          renewed_to TEXT,
+          usdt_rate REAL,
+          profit_currency TEXT,
+          profit_rate REAL,
+          payout_status TEXT
         )
+        """
+    )
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(quote_orders)")}
+    if "usdt_rate" not in cols:
+        conn.execute("ALTER TABLE quote_orders ADD COLUMN usdt_rate REAL")
+    if "profit_currency" not in cols:
+        conn.execute("ALTER TABLE quote_orders ADD COLUMN profit_currency TEXT")
+    if "profit_rate" not in cols:
+        conn.execute("ALTER TABLE quote_orders ADD COLUMN profit_rate REAL")
+    if "payout_status" not in cols:
+        conn.execute("ALTER TABLE quote_orders ADD COLUMN payout_status TEXT")
+    conn.execute(
+        """
+        UPDATE quote_orders
+           SET usdt_rate = rate
+         WHERE usdt_rate IS NULL AND asset = 'USDT'
         """
     )
     conn.commit()
@@ -178,6 +198,7 @@ def _seed_quote(raw: dict) -> dict:
         "network": "",
         "symbol": "USDTBRL",
         "rate": brl / gross,
+        "usdtRate": brl / gross,
         "clientName": raw.get("clientName") or "",
         "mesaPct": mesa,
         "parties": raw.get("parties") or [{"name": "Mesa", "pct": mesa, "mine": False}],
@@ -196,8 +217,9 @@ def _upsert(conn: sqlite3.Connection, quote: dict) -> None:
         INSERT INTO quote_orders (
           id, created_at, expires_at, decided_at, status, brl_amount, asset,
           network, symbol, rate, client_name, mesa_pct, parties_json,
-          source_file, source_sheet, note, renewed_from, renewed_to
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          source_file, source_sheet, note, renewed_from, renewed_to, usdt_rate,
+          profit_currency, profit_rate, payout_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           created_at=excluded.created_at,
           expires_at=excluded.expires_at,
@@ -215,7 +237,11 @@ def _upsert(conn: sqlite3.Connection, quote: dict) -> None:
           source_sheet=excluded.source_sheet,
           note=excluded.note,
           renewed_from=excluded.renewed_from,
-          renewed_to=excluded.renewed_to
+          renewed_to=excluded.renewed_to,
+          usdt_rate=excluded.usdt_rate,
+          profit_currency=excluded.profit_currency,
+          profit_rate=excluded.profit_rate,
+          payout_status=excluded.payout_status
         """,
         (
             quote.get("id"),
@@ -236,6 +262,10 @@ def _upsert(conn: sqlite3.Connection, quote: dict) -> None:
             quote.get("note") or "",
             quote.get("renewedFrom"),
             quote.get("renewedTo"),
+            quote.get("usdtRate"),
+            quote.get("profitCurrency"),
+            quote.get("profitRate"),
+            quote.get("payoutStatus") or "a_pagar",
         ),
     )
 
@@ -256,6 +286,10 @@ def _row_to_quote(row: sqlite3.Row) -> dict:
         "network": row["network"] or "",
         "symbol": row["symbol"] or "",
         "rate": row["rate"],
+        "usdtRate": row["usdt_rate"],
+        "profitCurrency": row["profit_currency"],
+        "profitRate": row["profit_rate"],
+        "payoutStatus": row["payout_status"] or "a_pagar",
         "clientName": row["client_name"] or "",
         "mesaPct": row["mesa_pct"],
         "parties": parties,

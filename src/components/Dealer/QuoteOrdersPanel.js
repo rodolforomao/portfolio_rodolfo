@@ -18,7 +18,15 @@ import {
   moneyMeta,
   parseBrlInput,
   partyPct,
+  partyProfit,
+  payoutOf,
+  payoutProfit,
+  pctToField,
+  profitCurrencyChoices,
+  profitCurrencyOf,
   saveQuotes,
+  settlementOf,
+  snapshotAmounts,
   splitMesa,
 } from './utils/quoteOrders';
 import { drawClientSlip, drawMesaSlip, shareCanvas } from './utils/quoteSlip';
@@ -71,14 +79,74 @@ function newParty(mine = false) {
   return { name: '', pct: '0', locked: false, mine };
 }
 
+function PartyNameField({ value, onCommit, ariaLabel, title }) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  return (
+    <input
+      className="dealer-quote-name"
+      aria-label={ariaLabel}
+      title={title}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        const next = text.trim();
+        if (next && next !== value) onCommit(next);
+        else setText(value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+      }}
+    />
+  );
+}
+
+function moneyLine(amounts) {
+  return amounts
+    .filter((part) => part.amount != null && Number.isFinite(part.amount))
+    .map((part) => (part.code === 'BRL' ? formatBrl(part.amount) : formatAsset(part.amount, part.code)))
+    .join(' · ');
+}
+
+function formatSettlement(settlement) {
+  if (!settlement || settlement.amount == null || !Number.isFinite(settlement.amount)) return '—';
+  return settlement.code === 'BRL'
+    ? formatBrl(settlement.amount)
+    : formatAsset(settlement.amount, settlement.code);
+}
+
+function PctField({ value, onCommit, ariaLabel }) {
+  const [text, setText] = useState(pctToField(value));
+  useEffect(() => setText(pctToField(value)), [value]);
+  return (
+    <input
+      className="dealer-quote-pct"
+      inputMode="decimal"
+      aria-label={ariaLabel}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        const n = partyPct({ pct: text });
+        if (n >= 0 && String(text).trim()) onCommit(n);
+        else setText(pctToField(value));
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+      }}
+    />
+  );
+}
+
 export default function QuoteOrdersPanel() {
   const [asset, setAsset] = useState('USDT');
   const [network, setNetwork] = useState(DELIVERY_ASSETS[0].networks[0]);
   const [brlInput, setBrlInput] = useState('');
   const [clientName, setClientName] = useState('');
   const [mesaInput, setMesaInput] = useState('3');
+  const [profitCurrency, setProfitCurrency] = useState('USDT');
   const [parties, setParties] = useState(() => [{ ...newParty(true), pct: '3' }]);
   const [rate, setRate] = useState(null);
+  const [usdtRate, setUsdtRate] = useState(null);
   const [rateError, setRateError] = useState('');
   const [rateLoading, setRateLoading] = useState(false);
   const [quotes, setQuotes] = useState([]);
@@ -93,24 +161,31 @@ export default function QuoteOrdersPanel() {
   const mesaPct = partyPct({ pct: mesaInput });
   const partsSum = parties.reduce((sum, p) => sum + partyPct(p), 0);
   const mesaMatches = Math.abs(partsSum - mesaPct) < 0.0001;
+  const liveUsdt = asset === 'USDT' ? rate?.price : usdtRate?.price;
   const preview = useMemo(
-    () => computeQuote({ brlAmount, rate: rate?.price, parties, mesaPct }),
-    [brlAmount, rate, parties, mesaPct],
+    () => computeQuote({
+      brlAmount, rate: rate?.price, parties, mesaPct, asset, usdtRate: liveUsdt,
+    }),
+    [brlAmount, rate, parties, mesaPct, asset, liveUsdt],
   );
   const hasMine = parties.some((p) => p.mine);
   const profit = useMemo(() => accumulatedProfit(quotes), [quotes]);
+  const partiesProfit = useMemo(() => partyProfit(quotes), [quotes]);
+  const payouts = useMemo(() => payoutProfit(quotes), [quotes]);
   const mesaDone = useMemo(() => {
     let brl = 0;
+    let usdt = 0;
     const byAsset = {};
     for (const quote of quotes) {
       if (quote.status !== 'realizada') continue;
       const calc = computeQuote(quote);
       if (!calc) continue;
-      brl += calc.brl * calc.feePct / 100;
+      brl += calc.feeBrl;
+      if (calc.feeUsdt != null) usdt += calc.feeUsdt;
       const name = quote.asset || 'USDT';
-      byAsset[name] = (byAsset[name] || 0) + calc.fee;
+      if (name !== 'USDT') byAsset[name] = (byAsset[name] || 0) + calc.fee;
     }
-    return { brl, byAsset };
+    return { brl, usdt, byAsset };
   }, [quotes]);
 
   const persist = useCallback((next) => {
@@ -163,6 +238,22 @@ export default function QuoteOrdersPanel() {
   useEffect(() => {
     loadRate(meta.symbol).catch(() => {});
   }, [meta.symbol, loadRate]);
+
+  useEffect(() => {
+    const ids = profitCurrencyChoices(asset).map((choice) => choice.id);
+    if (!ids.includes(profitCurrency)) setProfitCurrency(asset);
+  }, [asset, profitCurrency]);
+
+  useEffect(() => {
+    if (asset === 'USDT') return undefined;
+    let cancelled = false;
+    fetchBinancePrice('USDTBRL')
+      .then((next) => {
+        if (!cancelled) setUsdtRate(next);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [asset]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -224,6 +315,7 @@ export default function QuoteOrdersPanel() {
     network: source.network,
     symbol: assetMeta(source.asset).symbol,
     rate: price,
+    usdtRate: source.asset === 'USDT' ? price : source.usdtRate,
     clientName: source.clientName.trim(),
     mesaPct: source.mesaPct,
     parties: source.parties.map((p) => ({
@@ -231,6 +323,9 @@ export default function QuoteOrdersPanel() {
       pct: partyPct(p),
       mine: !!p.mine,
     })),
+    profitCurrency: source.profitCurrency || source.asset,
+    profitRate: source.profitRate || null,
+    payoutStatus: 'a_pagar',
     renewedFrom: source.renewedFrom || null,
   });
 
@@ -260,8 +355,19 @@ export default function QuoteOrdersPanel() {
     setCreating(true);
     try {
       const fresh = await loadRate(meta.symbol);
+      let lockedUsdt = fresh.price;
+      if (asset !== 'USDT') {
+        const usdt = await fetchBinancePrice('USDTBRL');
+        setUsdtRate(usdt);
+        lockedUsdt = usdt.price;
+      }
+      let profitRate = null;
+      if (profitCurrency !== 'BRL' && profitCurrency !== 'USDT' && profitCurrency !== asset) {
+        profitRate = (await fetchBinancePrice(`${profitCurrency}BRL`)).price;
+      }
       const quote = buildSnapshot(fresh.price, {
         brlAmount, asset, network, clientName, mesaPct, parties,
+        usdtRate: lockedUsdt, profitCurrency, profitRate,
       });
       persist([quote, ...quotes]);
     } catch (err) {
@@ -283,6 +389,10 @@ export default function QuoteOrdersPanel() {
     try {
       const symbol = quote.symbol || assetMeta(quote.asset).symbol;
       const fresh = await fetchBinancePrice(symbol);
+      let lockedUsdt = fresh.price;
+      if ((quote.asset || 'USDT') !== 'USDT') {
+        lockedUsdt = (await fetchBinancePrice('USDTBRL')).price;
+      }
       const next = buildSnapshot(fresh.price, {
         brlAmount: quote.brlAmount,
         asset: quote.asset,
@@ -290,6 +400,9 @@ export default function QuoteOrdersPanel() {
         clientName: quote.clientName || '',
         mesaPct: quote.mesaPct,
         parties: quote.parties,
+        usdtRate: lockedUsdt,
+        profitCurrency: profitCurrencyOf(quote),
+        profitRate: quote.profitRate || null,
         renewedFrom: quote.id,
       });
       persist([
@@ -307,6 +420,53 @@ export default function QuoteOrdersPanel() {
     persist(quotes.filter((q) => q.id !== id));
   };
 
+  const renamePartyOnQuote = (id, index, name) => {
+    persist(quotes.map((q) => {
+      if (q.id !== id) return q;
+      return {
+        ...q,
+        parties: (q.parties || []).map((p, i) => (i === index ? { ...p, name } : p)),
+      };
+    }));
+  };
+
+  const patchQuote = (id, partial) => {
+    persist(quotes.map((q) => (q.id === id ? { ...q, ...partial } : q)));
+  };
+
+  const setPartyPct = (id, index, pct) => {
+    persist(quotes.map((q) => {
+      if (q.id !== id) return q;
+      return {
+        ...q,
+        parties: (q.parties || []).map((p, i) => (i === index ? { ...p, pct } : p)),
+      };
+    }));
+  };
+
+  const chooseProfitCurrency = async (quote, currency) => {
+    const delivery = quote.asset || 'USDT';
+    let profitRate = null;
+    if (currency !== 'BRL' && currency !== 'USDT' && currency !== delivery) {
+      try {
+        profitRate = (await fetchBinancePrice(`${currency}BRL`)).price;
+      } catch (err) {
+        setFormError(err?.message || 'Não foi possível travar a cotação dessa moeda.');
+        return;
+      }
+    }
+    patchQuote(quote.id, { profitCurrency: currency, profitRate });
+  };
+
+  const renamePartyEverywhere = (from, name) => {
+    persist(quotes.map((q) => ({
+      ...q,
+      parties: (q.parties || []).map((p) => (
+        String(p.name || '').trim() === from ? { ...p, name } : p
+      )),
+    })));
+  };
+
   const visible = quotes.filter((q) => {
     const status = effectiveStatus(q, now);
     if (filter === 'abertas') return status === 'aberta' || status === 'expirada';
@@ -314,7 +474,14 @@ export default function QuoteOrdersPanel() {
     return true;
   });
 
-  const profitBits = Object.entries(profit.byAsset);
+  const mineBits = snapshotAmounts(
+    { usdt: profit.usdt, brl: profit.brl, asset: null },
+    null,
+  );
+  const mesaBits = snapshotAmounts(
+    { usdt: mesaDone.usdt, brl: mesaDone.brl, asset: null },
+    null,
+  );
 
   return (
     <div className="dealer-quote">
@@ -406,6 +573,14 @@ export default function QuoteOrdersPanel() {
               placeholder="3"
             />
           </label>
+          <label>
+            Divisão do lucro
+            <select value={profitCurrency} onChange={(e) => setProfitCurrency(e.target.value)}>
+              {profitCurrencyChoices(asset).map((choice) => (
+                <option key={choice.id} value={choice.id}>{choice.label}</option>
+              ))}
+            </select>
+          </label>
           <button type="button" className="dealer-quote-add" onClick={splitEvenly}>
             Repartir igualmente
           </button>
@@ -475,16 +650,54 @@ export default function QuoteOrdersPanel() {
       </form>
 
       <div className="dealer-quote-profit">
-        <span>Lucro acumulado realizado</span>
-        <strong>{formatBrl(profit.brl)}</strong>
-        {profitBits.length > 0 && (
-          <span className="dealer-quote-profit-assets">
-            {profitBits.map(([name, amount]) => formatAsset(amount, name)).join(' · ')}
-          </span>
+        <span>Lucro das partes realizadas</span>
+        {partiesProfit.length === 0 ? (
+          <strong>{formatBrl(0)}</strong>
+        ) : (
+          <table className="dealer-quote-table">
+            <thead>
+              <tr>
+                <td>Parte</td>
+                <td>Snapshot</td>
+              </tr>
+            </thead>
+            <tbody>
+              {partiesProfit.map((row) => {
+                const extra = Object.entries(row.byAsset)
+                  .map(([code, amount]) => formatAsset(amount, code))
+                  .join(' · ');
+                const snap = moneyLine(snapshotAmounts({ usdt: row.usdt, brl: row.brl }, null));
+                return (
+                  <tr key={row.name} className={row.mine ? 'mine' : ''}>
+                    <td>
+                      <PartyNameField
+                        value={row.name}
+                        ariaLabel={`Nome da parte ${row.name}`}
+                        title="Vale para todas as ordens com este nome"
+                        onCommit={(name) => renamePartyEverywhere(row.name, name)}
+                      />
+                    </td>
+                    <td>{extra ? `${snap} · ${extra}` : snap}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
         <span className="dealer-quote-profit-assets">
-          Mesa das realizadas {formatBrl(mesaDone.brl)}
-          {Object.entries(mesaDone.byAsset).map(([name, amount]) => ` · ${formatAsset(amount, name)}`)}
+          Seu lucro {moneyLine(mineBits)}
+          {Object.entries(profit.byAsset).map(([code, amount]) => ` · ${formatAsset(amount, code)}`)}
+        </span>
+        <span className="dealer-quote-profit-assets">
+          A pagar {moneyLine(snapshotAmounts(payouts.a_pagar, null))}
+          {Object.entries(payouts.a_pagar.byAsset).map(([code, amount]) => ` · ${formatAsset(amount, code)}`)}
+          {' · '}
+          Efetivado {moneyLine(snapshotAmounts(payouts.efetivada, null))}
+          {Object.entries(payouts.efetivada.byAsset).map(([code, amount]) => ` · ${formatAsset(amount, code)}`)}
+        </span>
+        <span className="dealer-quote-profit-assets">
+          Mesa das realizadas {moneyLine(mesaBits)}
+          {Object.entries(mesaDone.byAsset).map(([code, amount]) => ` · ${formatAsset(amount, code)}`)}
         </span>
       </div>
 
@@ -520,6 +733,11 @@ export default function QuoteOrdersPanel() {
               onUndo={() => setStatus(quote.id, 'aberta')}
               onRenew={() => handleRenew(quote)}
               onRemove={() => handleRemove(quote.id)}
+              onRename={(index, name) => renamePartyOnQuote(quote.id, index, name)}
+              onPartyPct={(index, pct) => setPartyPct(quote.id, index, pct)}
+              onMesaPct={(pct) => patchQuote(quote.id, { mesaPct: pct })}
+              onProfitCurrency={(currency) => chooseProfitCurrency(quote, currency)}
+              onPayout={(status) => patchQuote(quote.id, { payoutStatus: status })}
             />
           ))}
         </div>
@@ -536,6 +754,7 @@ function QuoteMath({ calc, asset, network, rateLabel }) {
       </p>
     );
   }
+  const other = asset !== 'USDT';
   return (
     <div className="dealer-quote-preview">
       <div className="dealer-quote-preview-hero">
@@ -544,22 +763,33 @@ function QuoteMath({ calc, asset, network, rateLabel }) {
         <span>rede {network} · 1 {moneyMeta(asset).symbol} = {rateLabel}</span>
       </div>
       <table className="dealer-quote-table">
+        <thead>
+          <tr>
+            <td />
+            <td>₮ USDT</td>
+            <td>R$</td>
+            {other && <td>{moneyMeta(asset).symbol} {asset}</td>}
+          </tr>
+        </thead>
         <tbody>
           <tr>
             <td>Bruto na Binance</td>
-            <td>{formatAsset(calc.gross, asset)}</td>
+            <td>{calc.grossUsdt != null ? formatAsset(calc.grossUsdt, 'USDT') : '—'}</td>
             <td>{formatBrl(calc.brl)}</td>
+            {other && <td>{formatAsset(calc.gross, asset)}</td>}
           </tr>
           <tr>
             <td>Mesa {formatPct(calc.feePct)}</td>
-            <td>{formatAsset(calc.fee, asset)}</td>
-            <td>{formatBrl(calc.brl * calc.feePct / 100)}</td>
+            <td>{calc.feeUsdt != null ? formatAsset(calc.feeUsdt, 'USDT') : '—'}</td>
+            <td>{formatBrl(calc.feeBrl)}</td>
+            {other && <td>{formatAsset(calc.fee, asset)}</td>}
           </tr>
           {calc.splits.map((split, index) => (
             <tr key={`${split.name}-${index}`} className={split.mine ? 'mine' : ''}>
               <td>{split.name} {formatPct(split.pct)}{split.mine ? ' · seu' : ''}</td>
-              <td>{formatAsset(split.asset, asset)}</td>
+              <td>{split.usdt != null ? formatAsset(split.usdt, 'USDT') : '—'}</td>
               <td>{formatBrl(split.brl)}</td>
+              {other && <td>{formatAsset(split.asset, asset)}</td>}
             </tr>
           ))}
         </tbody>
@@ -574,7 +804,10 @@ function shareMessage(result, who) {
   return `Imagem ${who} baixada. Envie o arquivo.`;
 }
 
-function QuoteRow({ quote, now, busy, onRealize, onDecline, onUndo, onRenew, onRemove }) {
+function QuoteRow({
+  quote, now, busy, onRealize, onDecline, onUndo, onRenew, onRemove, onRename,
+  onPartyPct, onMesaPct, onProfitCurrency, onPayout,
+}) {
   const status = effectiveStatus(quote, now);
   const calc = computeQuote(quote);
   const open = status === 'aberta' || status === 'expirada';
@@ -620,19 +853,101 @@ function QuoteRow({ quote, now, busy, onRealize, onDecline, onUndo, onRenew, onR
       {calc && (
         <p className="dealer-quote-row-delivery">
           Entregar <strong>{formatAsset(calc.client, quote.asset)}</strong> na rede {quote.network || 'não informada'}.
-          Snapshot {moneyMeta(quote.asset).symbol}/{moneyMeta('BRL').symbol} {formatRate(quote.rate)}. Mesa {formatPct(calc.feePct)}.
+          {' '}Snapshot ₮/R$ {formatRate(calc.usdtRate || quote.rate)}
+          {quote.asset !== 'USDT' ? ` · ${moneyMeta(quote.asset).symbol}/R$ ${formatRate(quote.rate)}` : ''}.
+          {' '}Mesa {formatPct(calc.feePct)}.
         </p>
       )}
       {quote.note && <p className="dealer-quote-row-time">{quote.note}</p>}
       {calc && (
-        <ul className="dealer-quote-row-splits">
-          {calc.splits.map((split, index) => (
-            <li key={`${split.name}-${index}`} className={split.mine ? 'mine' : ''}>
-              {split.name} {formatPct(split.pct)}: {formatAsset(split.asset, quote.asset)}
-              {split.mine ? ' (seu)' : ''}
-            </li>
-          ))}
-        </ul>
+        <div className="dealer-quote-xrays">
+          <section className="dealer-quote-xray">
+            <h5>Raio-x do cliente</h5>
+            <p>Envia <strong>{formatBrl(calc.brl)}</strong></p>
+            <p>
+              Recebe <strong>{formatAsset(calc.client, quote.asset)}</strong>
+              {' '}na rede {quote.network || 'não informada'}
+            </p>
+            <p className="dealer-quote-row-time">
+              Snapshot ₮/R$ {formatRate(calc.usdtRate || quote.rate)}
+              {quote.asset !== 'USDT' ? ` · ${moneyMeta(quote.asset).symbol}/R$ ${formatRate(quote.rate)}` : ''}
+            </p>
+          </section>
+          <section className="dealer-quote-xray">
+            <h5>Raio-x da divisão</h5>
+            <div className="dealer-quote-xray-tools">
+              <label>
+                Dividir em
+                <select
+                  value={profitCurrencyOf(quote)}
+                  onChange={(e) => onProfitCurrency(e.target.value)}
+                >
+                  {profitCurrencyChoices(quote.asset).map((choice) => (
+                    <option key={choice.id} value={choice.id}>{choice.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Mesa
+                <PctField
+                  value={quote.mesaPct}
+                  ariaLabel="Porcentagem da mesa"
+                  onCommit={onMesaPct}
+                />
+              </label>
+              <span className={Math.abs(calc.partsPct - calc.feePct) < 0.0001 ? 'dealer-quote-mesa-ok' : 'dealer-quote-mesa-bad'}>
+                Partes {formatPct(calc.partsPct)}
+              </span>
+              {status === 'realizada' && (
+                payoutOf(quote) === 'efetivada' ? (
+                  <Button size="sm" variant="outline-secondary" onClick={() => onPayout('a_pagar')}>
+                    Deixar a pagar
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="success" onClick={() => onPayout('efetivada')}>
+                    <TbCheck /> Efetivar distribuição
+                  </Button>
+                )
+              )}
+              <span className={`dealer-quote-status status-${payoutOf(quote) === 'efetivada' ? 'realizada' : 'aberta'}`}>
+                {payoutOf(quote) === 'efetivada' ? 'Efetivada' : 'A pagar'}
+              </span>
+            </div>
+          </section>
+          {calc.splits.map((split, index) => {
+            const settlement = settlementOf(split, quote);
+            const others = snapshotAmounts(split, quote.asset)
+              .filter((part) => part.code !== settlement.code);
+            return (
+              <section
+                key={`${quote.id}-x-${index}`}
+                className={`dealer-quote-xray${split.mine ? ' mine' : ''}`}
+              >
+                <h5>Raio-x da parte</h5>
+                <div className="dealer-quote-xray-party">
+                  <PartyNameField
+                    value={split.name}
+                    ariaLabel={`Parte ${index + 1} de ${quote.clientName || 'cotação'}`}
+                    title="Nome só desta ordem"
+                    onCommit={(name) => onRename(index, name)}
+                  />
+                  <PctField
+                    value={split.pct}
+                    ariaLabel={`Percentual de ${split.name}`}
+                    onCommit={(pct) => onPartyPct(index, pct)}
+                  />
+                  <span>{split.mine ? 'seu' : ''}</span>
+                </div>
+                <p>
+                  <strong>{formatSettlement(settlement)}</strong>
+                  {others.length > 0 && (
+                    <span className="dealer-quote-row-time"> · {moneyLine(others)}</span>
+                  )}
+                </p>
+              </section>
+            );
+          })}
+        </div>
       )}
       <div className="dealer-quote-row-actions">
         {calc && (

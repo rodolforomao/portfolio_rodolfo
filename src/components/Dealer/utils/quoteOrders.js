@@ -126,36 +126,97 @@ export function splitMesa(parties, mesaPct) {
  * Converte o BRL no preço travado.
  * A porcentagem da mesa é o que sai do bruto; cada participante leva o seu percentual.
  */
-export function computeQuote({ brlAmount, rate, parties, mesaPct }) {
+export function computeQuote({ brlAmount, rate, parties, mesaPct, asset, usdtRate }) {
   const brl = Number(brlAmount);
   const px = Number(rate);
   if (!Number.isFinite(brl) || brl <= 0 || !Number.isFinite(px) || px <= 0) return null;
 
   const gross = brl / px;
+  const code = asset || 'USDT';
+  const pxUsdt = code === 'USDT' ? px : Number(usdtRate);
+  const usdtPx = Number.isFinite(pxUsdt) && pxUsdt > 0 ? pxUsdt : null;
   const rows = (parties || []).map((p) => {
     const pct = partyPct(p);
+    const partBrl = brl * pct / 100;
     return {
       name: String(p?.name || '').trim() || 'Sem nome',
       pct,
       mine: !!p?.mine,
       asset: gross * pct / 100,
-      brl: brl * pct / 100,
+      brl: partBrl,
+      usdt: usdtPx ? partBrl / usdtPx : null,
     };
   });
   const fromParts = rows.reduce((sum, row) => sum + row.pct, 0);
   const explicit = Number(mesaPct);
   const feePct = Number.isFinite(explicit) ? explicit : fromParts;
+  const feeBrl = brl * feePct / 100;
   const fee = gross * feePct / 100;
   return {
     brl,
     rate: px,
+    usdtRate: usdtPx,
     gross,
+    grossUsdt: usdtPx ? brl / usdtPx : null,
     feePct,
     fee,
+    feeBrl,
+    feeUsdt: usdtPx ? feeBrl / usdtPx : null,
     client: gross - fee,
+    clientUsdt: usdtPx ? (brl - feeBrl) / usdtPx : null,
     splits: rows,
     partsPct: fromParts,
   };
+}
+
+/** Moeda em que a mesa divide o lucro. Sem escolha gravada, vale a moeda paga ao cliente. */
+export function profitCurrencyOf(quote) {
+  const code = quote?.profitCurrency;
+  if (code && MONEY[code]) return code;
+  return quote?.asset || 'USDT';
+}
+
+export function profitCurrencyChoices(asset) {
+  const client = asset || 'USDT';
+  const choices = [{ id: 'BRL', label: 'Reais' }];
+  if (client !== 'USDT') choices.push({ id: 'USDT', label: 'USDT' });
+  choices.push({
+    id: client,
+    label: client === 'USDT' ? 'USDT · moeda do cliente' : `${client} · moeda do cliente`,
+  });
+  ['BTC', 'ETH'].forEach((other) => {
+    if (other !== client && other !== 'USDT') choices.push({ id: other, label: other });
+  });
+  return choices;
+}
+
+/** Valor da parte na moeda escolhida para dividir o lucro. */
+export function settlementOf(split, quote) {
+  const currency = profitCurrencyOf(quote);
+  if (!split) return { code: currency, amount: null };
+  if (currency === 'BRL') return { code: 'BRL', amount: split.brl };
+  if (currency === 'USDT') return { code: 'USDT', amount: split.usdt };
+  if (currency === (quote?.asset || 'USDT')) return { code: currency, amount: split.asset };
+  const px = Number(quote?.profitRate);
+  if (Number.isFinite(px) && px > 0 && Number.isFinite(split.brl)) {
+    return { code: currency, amount: split.brl / px };
+  }
+  return { code: currency, amount: null };
+}
+
+export function payoutOf(quote) {
+  return quote?.payoutStatus === 'efetivada' ? 'efetivada' : 'a_pagar';
+}
+
+/** USDT, reais e, se a entrega for outra, essa moeda também. */
+export function snapshotAmounts(split, asset) {
+  const parts = [];
+  if (split?.usdt != null) parts.push({ code: 'USDT', amount: split.usdt });
+  if (split?.brl != null) parts.push({ code: 'BRL', amount: split.brl });
+  if (asset && asset !== 'USDT' && asset !== 'BRL') {
+    parts.push({ code: asset, amount: split.asset });
+  }
+  return parts;
 }
 
 const API_URL = '/api/quote-orders';
@@ -200,20 +261,70 @@ export function effectiveStatus(quote, now = Date.now()) {
   return quote.status || 'aberta';
 }
 
-/** Lucro das cotações marcadas como realizadas, só nas linhas "meu". */
-export function accumulatedProfit(quotes) {
-  const byAsset = {};
-  let brl = 0;
+function addAsset(bucket, code, amount) {
+  if (!code || code === 'USDT' || code === 'BRL' || !Number.isFinite(amount)) return;
+  bucket[code] = (bucket[code] || 0) + amount;
+}
+
+/** Lucro das cotações realizadas, uma linha por nome de parte. */
+export function partyProfit(quotes) {
+  const rows = new Map();
   for (const quote of quotes || []) {
     if (quote.status !== 'realizada') continue;
     const calc = computeQuote(quote);
     if (!calc) continue;
+    const asset = quote.asset || 'USDT';
     for (const split of calc.splits) {
-      if (!split.mine) continue;
-      const asset = quote.asset || 'USDT';
-      byAsset[asset] = (byAsset[asset] || 0) + split.asset;
-      brl += split.brl;
+      const name = split.name || 'Sem nome';
+      const row = rows.get(name) || { name, brl: 0, usdt: 0, byAsset: {}, mine: false };
+      row.brl += split.brl;
+      if (split.usdt != null) row.usdt += split.usdt;
+      addAsset(row.byAsset, asset, split.asset);
+      if (split.mine) row.mine = true;
+      rows.set(name, row);
     }
   }
-  return { brl, byAsset };
+  return [...rows.values()];
+}
+
+/** Seu lucro realizado, separado entre o que ainda está a pagar e o que já foi efetivado. */
+export function payoutProfit(quotes) {
+  const buckets = {
+    a_pagar: { brl: 0, usdt: 0, byAsset: {} },
+    efetivada: { brl: 0, usdt: 0, byAsset: {} },
+  };
+  for (const quote of quotes || []) {
+    if (quote.status !== 'realizada') continue;
+    const calc = computeQuote(quote);
+    if (!calc) continue;
+    const bucket = buckets[payoutOf(quote)];
+    const asset = quote.asset || 'USDT';
+    for (const split of calc.splits) {
+      if (!split.mine) continue;
+      bucket.brl += split.brl;
+      if (split.usdt != null) bucket.usdt += split.usdt;
+      addAsset(bucket.byAsset, asset, split.asset);
+    }
+  }
+  return buckets;
+}
+
+/** Lucro das cotações marcadas como realizadas, só nas linhas "meu". */
+export function accumulatedProfit(quotes) {
+  const byAsset = {};
+  let brl = 0;
+  let usdt = 0;
+  for (const quote of quotes || []) {
+    if (quote.status !== 'realizada') continue;
+    const calc = computeQuote(quote);
+    if (!calc) continue;
+    const asset = quote.asset || 'USDT';
+    for (const split of calc.splits) {
+      if (!split.mine) continue;
+      addAsset(byAsset, asset, split.asset);
+      brl += split.brl;
+      if (split.usdt != null) usdt += split.usdt;
+    }
+  }
+  return { brl, usdt, byAsset };
 }
