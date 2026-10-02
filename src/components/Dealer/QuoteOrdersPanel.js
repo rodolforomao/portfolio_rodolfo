@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import {
   TbRefresh, TbPlus, TbTrash, TbCheck, TbX, TbShare,
@@ -16,9 +16,14 @@ import {
   RECEIVE_PRESETS,
   isBrlPeg,
   receiveCode,
+  receiveBinanceSymbol,
   receiveCurrencyOf,
   receivedOf,
   quoteRelation,
+  dollarRateOf,
+  mergePartyRows,
+  blankOtherPartyNames,
+  partiesWithoutTotal,
   quoteWithoutTerceiro,
   fetchBinancePrice,
   fetchQuotes,
@@ -43,6 +48,7 @@ import {
   snapshotAmounts,
   splitMesa,
 } from './utils/quoteOrders';
+import { paintAsset, paintPair } from './utils/quoteMarks';
 import { drawClientSlip, drawMesaSlip, shareCanvas } from './utils/quoteSlip';
 
 const STATUS_LABEL = {
@@ -93,7 +99,7 @@ function newParty(mine = false) {
   return { name: '', pct: '0', locked: false, mine };
 }
 
-function PartyNameField({ value, onCommit, ariaLabel, title }) {
+function PartyNameField({ value, onCommit, ariaLabel, title, placeholder }) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   return (
@@ -101,12 +107,13 @@ function PartyNameField({ value, onCommit, ariaLabel, title }) {
       className="dealer-quote-name"
       aria-label={ariaLabel}
       title={title}
+      placeholder={placeholder}
       value={text}
       onChange={(e) => setText(e.target.value)}
       onBlur={() => {
         const next = text.trim();
-        if (next && next !== value) onCommit(next);
-        else setText(value);
+        if (next !== String(value || '').trim()) onCommit(next);
+        else setText(value || '');
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur();
@@ -115,15 +122,45 @@ function PartyNameField({ value, onCommit, ariaLabel, title }) {
   );
 }
 
+function Mark({ code, network, size = 22, label }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const scale = 2;
+    canvas.width = size * scale;
+    canvas.height = size * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+    if (network) paintPair(ctx, code, network, 0, 0, size);
+    else paintAsset(ctx, code, 0, 0, size);
+  }, [code, network, size]);
+  return (
+    <canvas
+      ref={ref}
+      className="dealer-quote-mark"
+      width={size}
+      height={size}
+      aria-hidden={label ? undefined : true}
+      aria-label={label || undefined}
+      title={label || undefined}
+    />
+  );
+}
+
 function moneyParts(amounts, extras = []) {
   const parts = [];
   for (const part of amounts || []) {
     if (part.amount == null || !Number.isFinite(part.amount)) continue;
-    parts.push(part.code === 'BRL' ? formatBrl(part.amount) : formatAsset(part.amount, part.code));
+    parts.push({
+      code: part.code,
+      text: part.code === 'BRL' ? formatBrl(part.amount) : formatAsset(part.amount, part.code),
+    });
   }
   for (const [code, amount] of extras) {
     if (amount == null || !Number.isFinite(amount)) continue;
-    parts.push(formatAsset(amount, code));
+    parts.push({ code, text: formatAsset(amount, code) });
   }
   return parts;
 }
@@ -131,9 +168,15 @@ function moneyParts(amounts, extras = []) {
 function MoneyList({ amounts, extras, emphasize = false }) {
   const parts = moneyParts(amounts, extras);
   if (!parts.length) return <strong className="dealer-quote-zero">{formatBrl(0)}</strong>;
+  const mark = emphasize ? 22 : 16;
   return (
     <span className={`dealer-quote-figures${emphasize ? ' is-mine' : ''}`}>
-      {parts.map((text, index) => <strong key={`${text}-${index}`}>{text}</strong>)}
+      {parts.map((part, index) => (
+        <strong key={`${part.code}-${part.text}-${index}`}>
+          <Mark code={part.code} size={mark} />
+          {part.text}
+        </strong>
+      ))}
     </span>
   );
 }
@@ -176,7 +219,7 @@ function MoneyField({ amount, code, ariaLabel, onCommit }) {
   useEffect(() => setText(shown), [shown]);
   return (
     <span className="dealer-quote-amount">
-      <span className="dealer-quote-amount-code">{moneyMeta(code).symbol || code}</span>
+      <Mark code={code} size={22} label={moneyMeta(code).code || code} />
       <input
         inputMode="decimal"
         aria-label={ariaLabel}
@@ -341,7 +384,7 @@ export default function QuoteOrdersPanel() {
       return undefined;
     }
     let cancelled = false;
-    fetchBinancePrice(`${incomingCode}BRL`)
+    fetchBinancePrice(receiveBinanceSymbol(incomingCode))
       .then((next) => {
         if (!cancelled) setReceivePx(next.price);
       })
@@ -484,7 +527,7 @@ export default function QuoteOrdersPanel() {
       }
       const lockedReceive = isBrlPeg(incomingCode)
         ? 1
-        : (await fetchBinancePrice(`${incomingCode}BRL`)).price;
+        : (await fetchBinancePrice(receiveBinanceSymbol(incomingCode))).price;
       let profitRate = null;
       if (profitCurrency !== 'BRL' && profitCurrency !== 'USDT' && profitCurrency !== asset) {
         profitRate = (await fetchBinancePrice(`${profitCurrency}BRL`)).price;
@@ -525,7 +568,7 @@ export default function QuoteOrdersPanel() {
       const amountIn = quote.receiveAmount != null ? Number(quote.receiveAmount) : Number(quote.brlAmount);
       const lockedReceive = isBrlPeg(incoming)
         ? 1
-        : (await fetchBinancePrice(`${incoming}BRL`)).price;
+        : (await fetchBinancePrice(receiveBinanceSymbol(incoming))).price;
       const next = buildSnapshot(fresh.price, {
         brlAmount: amountIn * lockedReceive,
         receiveAmount: amountIn,
@@ -572,14 +615,14 @@ export default function QuoteOrdersPanel() {
     persist(quotes.map((q) => (q.id === id ? { ...q, ...partial } : q)));
   };
 
-  const replaceParties = (id, parties) => {
+  const replaceParties = (id, parties, extra = {}) => {
     persist(quotes.map((q) => {
       if (q.id !== id) return q;
       const flags = parties.map((party) => partyPaid(party, q));
       const payoutStatus = !flags.length || flags.every((paid) => !paid)
         ? 'a_pagar'
         : flags.every(Boolean) ? 'efetivada' : 'parcial';
-      return { ...q, parties, payoutStatus };
+      return { ...q, ...extra, parties, payoutStatus };
     }));
   };
 
@@ -602,15 +645,25 @@ export default function QuoteOrdersPanel() {
     ]);
   };
 
-  const removePartyFromQuote = (id, index) => {
+  const mergePartiesOnQuote = (id, indexes) => {
     const quote = quotes.find((q) => q.id === id);
     if (!quote || payoutOf(quote) === 'efetivada') return;
-    let parties = (quote.parties || []).filter((_, i) => i !== index);
-    if (!parties.length) return;
-    if (!parties.some((party) => party.mine)) {
-      parties = parties.map((party, i) => ({ ...party, mine: i === 0 }));
-    }
-    replaceParties(id, parties);
+    const parties = mergePartyRows(quote.parties, indexes);
+    if (parties) replaceParties(id, parties);
+  };
+
+  const blankOthersOnQuote = (id, indexes) => {
+    const quote = quotes.find((q) => q.id === id);
+    if (!quote || payoutOf(quote) === 'efetivada') return;
+    const parties = blankOtherPartyNames(quote.parties, indexes);
+    if (parties) replaceParties(id, parties);
+  };
+
+  const dropPartiesFromTotal = (id, indexes) => {
+    const quote = quotes.find((q) => q.id === id);
+    if (!quote || payoutOf(quote) === 'efetivada') return;
+    const next = partiesWithoutTotal(quote.parties, quote.mesaPct, indexes);
+    if (next) replaceParties(id, next.parties, { mesaPct: next.mesaPct });
   };
 
   const setPartyPct = (id, index, pct) => {
@@ -747,6 +800,7 @@ export default function QuoteOrdersPanel() {
           <label>
             Entra na conta
             <span className="dealer-quote-receive">
+              <Mark code={incomingCode || 'BRL'} size={28} label={incomingCode || 'BRL'} />
               <input
                 inputMode="decimal"
                 value={receiveInput}
@@ -774,7 +828,9 @@ export default function QuoteOrdersPanel() {
           </label>
             <label>
               Entregar
-              <select
+              <span className="dealer-quote-receive">
+                <Mark code={asset} size={28} label={asset} />
+                <select
                 value={asset}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -788,14 +844,18 @@ export default function QuoteOrdersPanel() {
                   </option>
                 ))}
               </select>
+              </span>
             </label>
           <label>
             Rede
-            <select value={network} onChange={(e) => setNetwork(e.target.value)}>
+            <span className="dealer-quote-receive">
+              <Mark code={asset} network={network} size={28} label={`${asset} na rede ${network}`} />
+              <select value={network} onChange={(e) => setNetwork(e.target.value)}>
               {meta.networks.map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
+            </span>
           </label>
           <label>
             Cliente
@@ -876,11 +936,14 @@ export default function QuoteOrdersPanel() {
           </label>
           <label>
             Divisão do lucro
-            <select value={profitCurrency} onChange={(e) => setProfitCurrency(e.target.value)}>
+            <span className="dealer-quote-receive">
+              <Mark code={profitCurrency} size={22} label={profitCurrency} />
+              <select value={profitCurrency} onChange={(e) => setProfitCurrency(e.target.value)}>
               {profitCurrencyChoices(asset).map((choice) => (
                 <option key={choice.id} value={choice.id}>{choice.label}</option>
               ))}
             </select>
+            </span>
           </label>
           <button type="button" className="dealer-quote-add" onClick={splitEvenly}>
             Repartir igualmente
@@ -945,13 +1008,13 @@ export default function QuoteOrdersPanel() {
               </label>
               <button
                 type="button"
-                className="dealer-quote-icon-btn"
-                aria-label="Retirar da mesa"
-                title="Retirar da mesa"
+                className="dealer-quote-remove"
+                aria-label="Excluir participante"
+                title="Excluir participante"
                 onClick={() => removeParty(index)}
                 disabled={parties.length <= 1}
               >
-                <TbTrash />
+                <TbX />
               </button>
             </div>
           ))}
@@ -1112,7 +1175,10 @@ export default function QuoteOrdersPanel() {
               }}
               onPartyPaid={(index, paid) => setPartyPaid(quote.id, index, paid)}
               onAddParty={() => addPartyToQuote(quote.id)}
-              onRemoveParty={(index) => removePartyFromQuote(quote.id, index)}
+              onClearName={(index) => renamePartyOnQuote(quote.id, index, '')}
+              onMergeParties={(indexes) => mergePartiesOnQuote(quote.id, indexes)}
+              onBlankOthers={(indexes) => blankOthersOnQuote(quote.id, indexes)}
+              onDropFromTotal={(indexes) => dropPartiesFromTotal(quote.id, indexes)}
               onClientAddress={(address) => patchQuote(quote.id, { clientAddress: address })}
               onNetwork={(networkName) => patchQuote(quote.id, { network: networkName })}
               onHops={(nextHops) => patchQuote(quote.id, { hops: nextHops })}
@@ -1265,7 +1331,8 @@ function shareMessage(result, who) {
 function QuoteRow({
   number, quote, now, busy, onRealize, onDecline, onUndo, onRenew, onRemove, onRename,
   onPartyPct, onMesaPct, onProfitCurrency, onPayout, onPartyTerceiro, onPartyPaid,
-  onClientAddress, onNetwork, onHops, onAddParty, onRemoveParty,
+  onClientAddress, onNetwork, onHops, onAddParty, onClearName, onMergeParties,
+  onBlankOthers, onDropFromTotal,
 }) {
   const status = effectiveStatus(quote, now);
   const calc = computeQuote(quote);
@@ -1275,6 +1342,9 @@ function QuoteRow({
   const [expanded, setExpanded] = useState(false);
   const [shareNote, setShareNote] = useState('');
   const [sharing, setSharing] = useState(false);
+  const [picked, setPicked] = useState(() => new Set());
+  const partyCount = (quote.parties || []).length;
+  useEffect(() => setPicked(new Set()), [quote.id, partyCount]);
   const mesaProfit = calc
     ? settlementOf({ brl: calc.feeBrl, usdt: calc.feeUsdt, asset: calc.fee }, quote)
     : null;
@@ -1311,6 +1381,16 @@ function QuoteRow({
     }
   };
   const assetCode = quote.asset || 'USDT';
+  const dollarPx = dollarRateOf(quote);
+  const pickedList = [...picked];
+  const togglePick = (index) => {
+    setPicked((current) => {
+      const next = new Set(current);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
   return (
     <article className={`dealer-quote-row status-${status}${expanded ? ' open' : ''}`}>
       <button
@@ -1322,7 +1402,11 @@ function QuoteRow({
         <span className="dealer-quote-num">#{number}</span>
         <span className="dealer-quote-who">
           <strong>{quoteRelation(quote)}</strong>
+          <span className="dealer-quote-dollar">
+            Dólar {dollarPx != null ? `R$ ${formatRate(dollarPx)}` : '—'}
+          </span>
           <span>
+            <Mark code={assetCode} network={quote.network} size={22} label={`${assetCode} na rede ${quote.network || ''}`} />
             {moneyMeta(assetCode).symbol} {assetCode}
             {quote.network ? `, ${quote.network}` : ''}
           </span>
@@ -1422,9 +1506,42 @@ function QuoteRow({
               </span>
             </div>
           </section>
+          {partiesOpen && partyCount > 1 && (
+            <div className="dealer-quote-party-tools">
+              <Button
+                size="sm"
+                variant="outline-primary"
+                disabled={picked.size < 2}
+                title="Soma as partes marcadas numa só"
+                onClick={() => onMergeParties(pickedList)}
+              >
+                Juntar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline-secondary"
+                disabled={picked.size < 1 || picked.size >= partyCount}
+                title="Quem não está marcado fica sem nome"
+                onClick={() => onBlankOthers(pickedList)}
+              >
+                Deletar outros
+              </Button>
+              <Button
+                size="sm"
+                variant="outline-secondary"
+                disabled={picked.size < 1 || picked.size >= partyCount}
+                title="Tira as partes marcadas da mesa"
+                onClick={() => onDropFromTotal(pickedList)}
+              >
+                Retirar do total
+              </Button>
+            </div>
+          )}
           {calc.splits.map((split, index) => {
             const settlement = settlementOf(split, quote);
-            const paid = partyPaid(quote.parties?.[index], quote);
+            const party = quote.parties?.[index];
+            const paid = partyPaid(party, quote);
+            const partyName = String(party?.name || '').trim();
             const others = snapshotAmounts(split, quote.asset)
               .filter((part) => part.code !== settlement.code);
             return (
@@ -1433,8 +1550,19 @@ function QuoteRow({
                 className={`dealer-quote-xray${split.mine ? ' mine' : ''}`}
               >
                 <div className="dealer-quote-xray-party">
+                  {partiesOpen && partyCount > 1 && (
+                    <label className="dealer-quote-pick">
+                      <input
+                        type="checkbox"
+                        checked={picked.has(index)}
+                        aria-label={`Marcar ${partyName || 'sem nome'}`}
+                        onChange={() => togglePick(index)}
+                      />
+                    </label>
+                  )}
                   <PartyNameField
-                    value={split.name}
+                    value={partyName}
+                    placeholder="Sem nome"
                     ariaLabel={`Parte ${index + 1} de ${quote.clientName || 'cotação'}`}
                     title="Nome só desta ordem"
                     onCommit={(name) => onRename(index, name)}
@@ -1463,20 +1591,20 @@ function QuoteRow({
                     />
                     terceiro
                   </label>
-                  {partiesOpen && (quote.parties || []).length > 1 && (
+                  {partiesOpen && partyName && (
                     <button
                       type="button"
-                      className="dealer-quote-icon-btn"
-                      title="Retirar parte"
-                      aria-label={`Retirar ${split.name || 'parte'}`}
-                      onClick={() => onRemoveParty(index)}
+                      className="dealer-quote-remove"
+                      title="Deletar o nome. A parte continua na ordem."
+                      aria-label={`Deletar nome de ${partyName}`}
+                      onClick={() => onClearName(index)}
                     >
-                      <TbTrash />
+                      <TbX />
                     </button>
                   )}
                 </div>
                 {others.length > 0 && (
-                  <p className="dealer-quote-row-time">{moneyParts(others).join(', ')}</p>
+                  <p className="dealer-quote-row-time">{moneyParts(others).map((part) => part.text).join(', ')}</p>
                 )}
                 {status === 'realizada' && (
                   <div className="dealer-quote-xray-party">

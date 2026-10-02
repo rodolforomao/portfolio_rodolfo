@@ -37,6 +37,7 @@ export const MONEY = {
   BRL: { code: 'BRL', symbol: 'R$' },
   DEPIX: { code: 'DEPIX', symbol: 'Depix' },
   USDT: { code: 'USDT', symbol: '₮' },
+  USD: { code: 'USD', symbol: 'US$' },
   BTC: { code: 'BTC', symbol: '₿' },
   ETH: { code: 'ETH', symbol: 'Ξ' },
 };
@@ -44,6 +45,7 @@ export const MONEY = {
 /** O que pode entrar na conta. Depix vale 1 real. Outra usa o par da Binance em BRL. */
 export const RECEIVE_PRESETS = [
   { id: 'BRL', label: 'Reais' },
+  { id: 'USD', label: 'Dólar' },
   { id: 'DEPIX', label: 'Depix' },
   { id: 'USDT', label: 'USDT' },
   { id: 'BTC', label: 'BTC' },
@@ -54,6 +56,13 @@ export const RECEIVE_PRESETS = [
 export function isBrlPeg(code) {
   const name = String(code || '').trim().toUpperCase();
   return name === 'BRL' || name === 'DEPIX';
+}
+
+/** Dólar entra pelo par USDT/BRL. As outras moedas usam o próprio par em reais. */
+export function receiveBinanceSymbol(code) {
+  const name = String(code || '').trim().toUpperCase();
+  if (name === 'USD' || name === 'USDT') return 'USDTBRL';
+  return `${name}BRL`;
 }
 
 export function receiveCode(choice, custom) {
@@ -130,14 +139,86 @@ export function isTerceiroParty(party) {
   return /^terceiro$/i.test(String(party?.name || '').trim());
 }
 
-/** Cotação John (cliente) <> Luiz + terceiro + Rodolfo. O nome Dealer fica de fora. */
+/** Cotação John (cliente) <> Luiz + terceiro + Rodolfo. O nome Dealer fica de fora. Sem nome, some da linha. */
 export function quoteRelation(quote) {
   const client = String(quote?.clientName || '').trim() || 'Cliente';
   const side = (quote?.parties || [])
-    .filter((party) => String(party?.name || '').trim().toLowerCase() !== 'dealer')
-    .map((party) => (isTerceiroParty(party) ? 'terceiro' : String(party?.name || '').trim()))
+    .map((party) => {
+      const name = String(party?.name || '').trim();
+      if (!name || name.toLowerCase() === 'dealer') return '';
+      return isTerceiroParty(party) ? 'terceiro' : name;
+    })
     .filter(Boolean);
   return `Cotação ${client} (cliente) <> ${side.join(' + ') || 'mesa'}`;
+}
+
+/** Reais por USDT travados na hora da ordem. Na entrega em USDT, é o próprio preço. */
+export function dollarRateOf(quote) {
+  const asset = quote?.asset || 'USDT';
+  const px = asset === 'USDT' ? Number(quote?.rate) : Number(quote?.usdtRate);
+  return Number.isFinite(px) && px > 0 ? px : null;
+}
+
+function roundPartyPct(n) {
+  return Math.round(n * 10000) / 10000;
+}
+
+function withMine(parties) {
+  if (!parties.length || parties.some((party) => party.mine)) return parties;
+  return parties.map((party, index) => ({ ...party, mine: index === 0 }));
+}
+
+/** As partes marcadas viram uma só: a porcentagem soma e o nome junta quem tinha nome. */
+export function mergePartyRows(parties, indexes) {
+  const pick = new Set(indexes);
+  const list = parties || [];
+  const chosen = list.filter((_, index) => pick.has(index));
+  if (chosen.length < 2) return null;
+  const names = [];
+  chosen.forEach((party) => {
+    const name = String(party?.name || '').trim();
+    if (name && !names.some((item) => item.toLowerCase() === name.toLowerCase())) names.push(name);
+  });
+  const merged = {
+    name: names.join(' + '),
+    pct: roundPartyPct(chosen.reduce((sum, party) => sum + partyPct(party), 0)),
+    mine: chosen.some((party) => party.mine),
+    terceiro: chosen.every((party) => isTerceiroParty(party)),
+    paid: chosen.every((party) => party.paid === true),
+  };
+  const next = [];
+  let placed = false;
+  list.forEach((party, index) => {
+    if (!pick.has(index)) next.push(party);
+    else if (!placed) {
+      next.push(merged);
+      placed = true;
+    }
+  });
+  return withMine(next);
+}
+
+/** Quem não foi marcado perde o nome e continua na ordem. */
+export function blankOtherPartyNames(parties, indexes) {
+  const keep = new Set(indexes);
+  const list = parties || [];
+  if (!keep.size || keep.size >= list.length) return null;
+  return list.map((party, index) => (keep.has(index) ? party : { ...party, name: '' }));
+}
+
+/** Tira as partes marcadas da mesa. A porcentagem da mesa cai o que era delas. */
+export function partiesWithoutTotal(parties, mesaPct, indexes) {
+  const drop = new Set(indexes);
+  const list = parties || [];
+  const next = list.filter((_, index) => !drop.has(index));
+  if (!next.length || next.length === list.length) return null;
+  const removed = list
+    .filter((_, index) => drop.has(index))
+    .reduce((sum, party) => sum + partyPct(party), 0);
+  return {
+    parties: withMine(next),
+    mesaPct: roundPartyPct(Math.max(0, partyPct({ pct: mesaPct }) - removed)),
+  };
 }
 
 /** Mesa sem o terceiro: a porcentagem cai o que era dele (3% vira 2,5%). */
