@@ -67,18 +67,22 @@ function formatPct(n) {
   return `${Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`;
 }
 
-/** Moeda na rede, e a moeda que entrou, no canto inferior direito. Cada marca ocupa 30% da largura. */
+/** Selo da rede e da moeda que entrou, no canto. Pequeno o bastante para não competir com o valor. */
+const MARK_BAND = 76;
+const PAIR_SIZE = 44;
+const COIN_SIZE = 36;
+
 function drawCornerMarks(ctx, width, height, quote) {
-  const size = width * 0.3;
   const pad = 18;
-  const gap = 10;
-  const y = height - pad - size;
-  const right = width - pad - size;
+  const gap = 8;
+  const y = height - pad - PAIR_SIZE;
+  const right = width - pad - PAIR_SIZE;
   const delivery = quote.asset || 'USDT';
   const incoming = receiveCurrencyOf(quote);
-  paintPair(ctx, delivery, quote.network, right, y, size);
+  paintPair(ctx, delivery, quote.network, right, y, PAIR_SIZE, '#F4F7F6');
   if (incoming && incoming !== delivery) {
-    paintAsset(ctx, incoming, right - gap - size, y, size);
+    const coinY = y + (PAIR_SIZE - COIN_SIZE);
+    paintAsset(ctx, incoming, right - gap - COIN_SIZE, coinY, COIN_SIZE);
   }
 }
 
@@ -101,7 +105,7 @@ function drawBlock(ctx, x, y, label, value, detail, valueColor) {
 /** Proposta do cliente: enviado, recebido, rede. Sem a mesa. */
 export function drawClientSlip(quote, calc) {
   const width = 640;
-  const mark = width * 0.3;
+  const mark = MARK_BAND;
   const address = String(quote.clientAddress || '').trim();
   const height = (address ? 590 : 520) + mark;
   const { canvas, ctx } = setup(width, height);
@@ -170,7 +174,7 @@ export function drawMesaSlip(quote, calc, title = 'Cotação da mesa') {
   const hops = normalizeHops(quote.hops);
   const clientAddress = String(quote.clientAddress || '').trim();
   const routeLines = hops.length + (clientAddress ? 1 : 0);
-  const mark = width * 0.3;
+  const mark = MARK_BAND;
   const height = 640 + rows * 28 + routeLines * 36 + mark;
   const { canvas, ctx } = setup(width, height);
   const x = 48;

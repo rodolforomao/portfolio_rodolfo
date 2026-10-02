@@ -8541,7 +8541,6 @@ body.dealer-route-active .App.app-ready {
 .dealer-quote-mark {
   display: block;
   flex: 0 0 auto;
-  border-radius: 50%;
 }
 
 .dealer-quote-remove {

@@ -48,7 +48,7 @@ import {
   snapshotAmounts,
   splitMesa,
 } from './utils/quoteOrders';
-import { paintAsset, paintPair } from './utils/quoteMarks';
+import { paintAsset, paintPair, whenMarksReady } from './utils/quoteMarks';
 import { drawClientSlip, drawMesaSlip, shareCanvas } from './utils/quoteSlip';
 
 const STATUS_LABEL = {
@@ -122,19 +122,24 @@ function PartyNameField({ value, onCommit, ariaLabel, title, placeholder }) {
   );
 }
 
-function Mark({ code, network, size = 22, label }) {
+function Mark({ code, network, size = 18, label }) {
   const ref = useRef(null);
   useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const scale = 2;
-    canvas.width = size * scale;
-    canvas.height = size * scale;
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    ctx.clearRect(0, 0, size, size);
-    if (network) paintPair(ctx, code, network, 0, 0, size);
-    else paintAsset(ctx, code, 0, 0, size);
+    let cancel = false;
+    if (!ref.current) return undefined;
+    const paint = () => {
+      if (cancel || !ref.current) return;
+      const scale = 2;
+      ref.current.width = size * scale;
+      ref.current.height = size * scale;
+      const ctx = ref.current.getContext('2d');
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.clearRect(0, 0, size, size);
+      if (network) paintPair(ctx, code, network, 0, 0, size);
+      else paintAsset(ctx, code, 0, 0, size);
+    };
+    whenMarksReady().then(paint);
+    return () => { cancel = true; };
   }, [code, network, size]);
   return (
     <canvas
@@ -168,7 +173,7 @@ function moneyParts(amounts, extras = []) {
 function MoneyList({ amounts, extras, emphasize = false }) {
   const parts = moneyParts(amounts, extras);
   if (!parts.length) return <strong className="dealer-quote-zero">{formatBrl(0)}</strong>;
-  const mark = emphasize ? 22 : 16;
+  const mark = emphasize ? 18 : 16;
   return (
     <span className={`dealer-quote-figures${emphasize ? ' is-mine' : ''}`}>
       {parts.map((part, index) => (
@@ -219,7 +224,7 @@ function MoneyField({ amount, code, ariaLabel, onCommit }) {
   useEffect(() => setText(shown), [shown]);
   return (
     <span className="dealer-quote-amount">
-      <Mark code={code} size={22} label={moneyMeta(code).code || code} />
+      <Mark code={code} size={18} label={moneyMeta(code).code || code} />
       <input
         inputMode="decimal"
         aria-label={ariaLabel}
@@ -800,7 +805,7 @@ export default function QuoteOrdersPanel() {
           <label>
             Entra na conta
             <span className="dealer-quote-receive">
-              <Mark code={incomingCode || 'BRL'} size={28} label={incomingCode || 'BRL'} />
+              <Mark code={incomingCode || 'BRL'} size={20} label={incomingCode || 'BRL'} />
               <input
                 inputMode="decimal"
                 value={receiveInput}
@@ -829,7 +834,7 @@ export default function QuoteOrdersPanel() {
             <label>
               Entregar
               <span className="dealer-quote-receive">
-                <Mark code={asset} size={28} label={asset} />
+                <Mark code={asset} size={20} label={asset} />
                 <select
                 value={asset}
                 onChange={(e) => {
@@ -849,7 +854,7 @@ export default function QuoteOrdersPanel() {
           <label>
             Rede
             <span className="dealer-quote-receive">
-              <Mark code={asset} network={network} size={28} label={`${asset} na rede ${network}`} />
+              <Mark code={asset} network={network} size={20} label={`${asset} na rede ${network}`} />
               <select value={network} onChange={(e) => setNetwork(e.target.value)}>
               {meta.networks.map((n) => (
                 <option key={n} value={n}>{n}</option>
@@ -937,7 +942,7 @@ export default function QuoteOrdersPanel() {
           <label>
             Divisão do lucro
             <span className="dealer-quote-receive">
-              <Mark code={profitCurrency} size={22} label={profitCurrency} />
+              <Mark code={profitCurrency} size={18} label={profitCurrency} />
               <select value={profitCurrency} onChange={(e) => setProfitCurrency(e.target.value)}>
               {profitCurrencyChoices(asset).map((choice) => (
                 <option key={choice.id} value={choice.id}>{choice.label}</option>
@@ -1354,6 +1359,7 @@ function QuoteRow({
     setSharing(true);
     setShareNote('');
     try {
+      await whenMarksReady();
       let canvas;
       let file;
       let who;
@@ -1406,7 +1412,7 @@ function QuoteRow({
             Dólar {dollarPx != null ? `R$ ${formatRate(dollarPx)}` : '—'}
           </span>
           <span>
-            <Mark code={assetCode} network={quote.network} size={22} label={`${assetCode} na rede ${quote.network || ''}`} />
+            <Mark code={assetCode} network={quote.network} size={18} label={`${assetCode} na rede ${quote.network || ''}`} />
             {moneyMeta(assetCode).symbol} {assetCode}
             {quote.network ? `, ${quote.network}` : ''}
           </span>
