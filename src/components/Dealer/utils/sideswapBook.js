@@ -194,13 +194,21 @@ export function formatBookPrice(price) {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 8 });
 }
 
+/** Amount do livro em unidades humanas. 999999 = ordem sem teto (máx). */
+export function bookAmountHuman(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n === 999999) return null;
+  if (Number.isInteger(n) && Math.abs(n) >= 1_000_000) return n / 1e8;
+  return n;
+}
+
 export function formatBookAmount(amount, baseAsset = null) {
   const n = Number(amount);
   if (!Number.isFinite(n)) return '—';
   if (n === 999999) return 'máx';
 
   const base = baseAsset ? canonicalAssetName(baseAsset) : null;
-  const asHuman = Number.isInteger(n) && Math.abs(n) >= 1_000_000 ? n / 1e8 : n;
+  const asHuman = bookAmountHuman(n);
 
   if (base) {
     const label = formatAssetBalance(base, asHuman);

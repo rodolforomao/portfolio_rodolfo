@@ -1573,6 +1573,82 @@ body.dealer-route-active .App.app-ready {
   margin-top: 2px;
 }
 
+.dealer-opp-grid-arbitragem {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+
+.dealer-opp-spread-action-kicker {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.dealer-opp-spread-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dealer-opp-spread-step {
+  font-size: 0.78rem;
+  color: #e6edf3;
+  line-height: 1.35;
+}
+
+.dealer-opp-spread-step-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  color: #8b949e;
+}
+
+.dealer-opp-spread-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.dealer-opp-spread-totals > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dealer-opp-spread-totals strong {
+  font-size: 0.82rem;
+  color: #e6edf3;
+  word-break: break-word;
+}
+
+.dealer-opp-spread-gain {
+  color: #3fb950 !important;
+}
+
+.dealer-opp-spread-limit {
+  font-size: 0.62rem;
+  color: #8b949e;
+  line-height: 1.3;
+}
+
+.dealer-opp-spread-equiv {
+  font-size: 0.68rem;
+  color: #8b949e;
+}
+
 /* ── Metas de conversão ── */
 .dealer-goal-form {
   display: flex;

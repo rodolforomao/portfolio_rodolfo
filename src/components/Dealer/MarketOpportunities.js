@@ -9,7 +9,12 @@ import { SideswapBadge } from './SourceBadge';
 import { sortBookSide, formatBookPrice } from './utils/sideswapBook';
 import { prepareDealerOrders } from './utils/orderMarketNormalize';
 import { findBelowMarketSells } from './utils/marketBargain';
-import { computeSpreadOpportunities, ROUTE_MIN_PCT } from './utils/spreadOpportunities';
+import {
+  computeSpreadOpportunities,
+  legCapacity,
+  ROUTE_MIN_PCT,
+  standaloneExecution,
+} from './utils/spreadOpportunities';
 import { bestConversionPath } from './utils/rebalanceGoals';
 import { formatAssetBalance } from './utils/dealerFormat';
 
@@ -322,12 +327,80 @@ function BelowMarketCard({ pair, hits, indPrice, marketUrl }) {
   );
 }
 
+function moneyLabel(asset, amount) {
+  if (amount == null || !Number.isFinite(amount)) return null;
+  return formatAssetBalance(asset, amount);
+}
+
+function SpreadTotals({ amountLabel, receiveLabel, profitLabel, limitNote }) {
+  return (
+    <div className="dealer-opp-spread-totals">
+      <div>
+        <span className="dealer-opp-price-label">Amount disponível</span>
+        <strong>{amountLabel || '—'}</strong>
+        {limitNote && <span className="dealer-opp-spread-limit">{limitNote}</span>}
+      </div>
+      <div>
+        <span className="dealer-opp-price-label">Você recebe</span>
+        <strong>{receiveLabel || '—'}</strong>
+      </div>
+      <div>
+        <span className="dealer-opp-price-label">Ganho total</span>
+        <strong className="dealer-opp-spread-gain">{profitLabel || '—'}</strong>
+      </div>
+    </div>
+  );
+}
+
+function RouteLegStep({ index, from, to, leg }) {
+  const cap = legCapacity(leg);
+  const bookAmt = cap.baseAmount != null
+    ? formatAssetBalance(leg.base, cap.baseAmount)
+    : (cap.unlimited ? 'máx' : '—');
+  return (
+    <li className="dealer-opp-spread-step">
+      <div>
+        {index}. Comprar no livro de ordem <strong>{from}</strong> por <strong>{to}</strong>
+      </div>
+      <div className="dealer-opp-spread-step-meta">
+        {leg.base}/{leg.quote} · ordem {leg.side} @ {formatBookPrice(leg.price)}
+        {' · '}amount {bookAmt}
+        {' · '}{leg.mmPct.toFixed(2)}%
+        {leg.marketUrl && (
+          <a
+            href={leg.marketUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="dealer-opp-link"
+          >
+            <TbExternalLink /> abrir livro
+          </a>
+        )}
+      </div>
+    </li>
+  );
+}
+
 function StandaloneOpportunityCard({ leg, age }) {
+  const exec = standaloneExecution(leg);
+  const gainPct = Math.abs(leg.mmPct);
+  const buying = leg.side === 'Sell';
+  const profitLabel = moneyLabel(exec.profitAsset, exec.profitAmount);
+  const amountLabel = exec.inputAmount != null
+    ? formatAssetBalance(exec.inputAsset, exec.inputAmount)
+    : (exec.unlimited ? 'máx' : null);
+  const receiveLabel = exec.outputAmount != null
+    ? formatAssetBalance(exec.outputAsset, exec.outputAmount)
+    : null;
+  const action = buying
+    ? <>Comprar no livro de ordem <strong>{leg.quote}</strong> por <strong>{leg.base}</strong>.</>
+    : <>Vender no livro <strong>{leg.base}</strong> por <strong>{leg.quote}</strong>.</>;
+
   return (
     <div className="dealer-opp-card dealer-opp-spread">
       <div className="dealer-opp-head">
         <div className="dealer-opp-pair">
-          <span className="dealer-opp-pair-name">{leg.label}</span>
+          <span className="dealer-opp-pair-name">{leg.base}/{leg.quote}</span>
           <Badge bg="danger" className="dealer-opp-spread-badge">
             <TbFlame /> deságio
           </Badge>
@@ -335,62 +408,88 @@ function StandaloneOpportunityCard({ leg, age }) {
         <span className="dealer-opp-spread-pct">{leg.mmPct.toFixed(2)}%</span>
       </div>
       <div className="dealer-opp-below-cta dealer-opp-spread-cta">
-        MM está pagando para trocar — {leg.side === 'Buy'
-          ? `venda ${leg.base} aqui, recebe mais ${leg.quote} que o justo.`
-          : `compre ${leg.base} aqui pagando menos ${leg.quote} que o justo.`}
+        <span className="dealer-opp-spread-action-kicker">Ação</span>
+        {action}
+        {' '}
+        {profitLabel
+          ? <>Assim você ganha <strong>{profitLabel}</strong> ({gainPct.toFixed(2)}%).</>
+          : <>Assim você ganha <strong>{gainPct.toFixed(2)}%</strong>.</>}
       </div>
-      <div className="dealer-opp-ref">
-        <span className="dealer-opp-ref-label">ind_price SideSwap</span>
-        <span className="dealer-opp-ref-val">{formatBookPrice(leg.indPrice)}</span>
-      </div>
-      <div className="dealer-opp-below-ref">
-        <span className="dealer-opp-price-label">Preço da posição</span>
-        <span className="dealer-opp-ref-val">{formatBookPrice(leg.price)}</span>
-      </div>
-      {age && <div className="dealer-opp-spread-age">Ativa {age}</div>}
-      {leg.marketUrl && (
-        <div className="dealer-opp-actions">
+      <div className="dealer-opp-spread-step-meta">
+        Ordem {leg.side} @ {formatBookPrice(leg.price)}
+        {' · '}justo {formatBookPrice(leg.indPrice)}
+        {leg.marketUrl && (
           <a href={leg.marketUrl} target="_blank" rel="noopener noreferrer" className="dealer-opp-link">
-            <TbExternalLink /> Ver livro
+            <TbExternalLink /> abrir livro
           </a>
-        </div>
-      )}
+        )}
+      </div>
+      <SpreadTotals
+        amountLabel={amountLabel}
+        receiveLabel={receiveLabel}
+        profitLabel={profitLabel}
+        limitNote={exec.unlimited ? 'ordem sem teto — o ganho escala com o que você colocar' : null}
+      />
+      {age && <div className="dealer-opp-spread-age">Ativa {age}</div>}
     </div>
   );
 }
 
 function RouteOpportunityCard({ route, age }) {
+  const exec = route.execution;
+  const [leg1, leg2] = route.legs;
+  const gainPct = Math.abs(route.combinedMmPct);
+  const profitLabel = moneyLabel(route.end, exec?.profitAmount);
+  const amountLabel = exec?.startAmount != null
+    ? formatAssetBalance(route.start, exec.startAmount)
+    : (exec?.unlimited ? 'máx' : null);
+  const receiveLabel = exec?.endAmount != null
+    ? formatAssetBalance(route.end, exec.endAmount)
+    : null;
+  const perUnit = exec?.profitPerStart != null && exec.startAmount == null
+    ? formatAssetBalance(route.end, exec.profitPerStart)
+    : null;
+
   return (
     <div className="dealer-opp-card dealer-opp-spread">
       <div className="dealer-opp-head">
         <div className="dealer-opp-pair">
-          <span className="dealer-opp-pair-name">{route.equivalentLabel}</span>
+          <span className="dealer-opp-pair-name">{route.start} → {route.mid} → {route.end}</span>
           <Badge bg="danger" className="dealer-opp-spread-badge">
             <TbFlame /> rota
           </Badge>
         </div>
-        <span className="dealer-opp-spread-pct">{route.combinedMmPct.toFixed(2)}%</span>
+        <span className="dealer-opp-spread-pct">+{gainPct.toFixed(2)}%</span>
       </div>
 
       <div className="dealer-opp-below-cta dealer-opp-spread-cta">
-        Rende mais que bater direto na posição <strong>{route.equivalentLabel}</strong>.
+        <span className="dealer-opp-spread-action-kicker">Ação</span>
+        Comprar no livro de ordem <strong>{route.start}</strong> por <strong>{route.mid}</strong>
+        {' '}e depois <strong>{route.mid}</strong> por <strong>{route.end}</strong>.
+        {' '}
+        {profitLabel
+          ? <>Assim você ganha <strong>{profitLabel}</strong> ({gainPct.toFixed(2)}%).</>
+          : <>Assim você ganha <strong>{gainPct.toFixed(2)}%</strong>{perUnit ? <> — {perUnit} a cada 1 {route.start}</> : null}.</>}
       </div>
 
-      <div className="dealer-opp-ref">
-        <span className="dealer-opp-ref-label">Caminho</span>
-        <span className="dealer-opp-ref-val">{route.start} → {route.mid} → {route.end}</span>
-      </div>
+      <ol className="dealer-opp-spread-steps">
+        <RouteLegStep index={1} from={route.start} to={route.mid} leg={leg1} />
+        <RouteLegStep index={2} from={route.mid} to={route.end} leg={leg2} />
+      </ol>
 
-      <div className="dealer-opp-spread-legs-title">Spread de cada perna</div>
-      <div className="dealer-opp-below-hits">
-        {route.legs.map((leg, idx) => (
-          <div key={leg.id} className="dealer-opp-below-hit-row">
-            <span className="dealer-opp-price-val">{idx + 1}. {leg.label}</span>
-            <span className={leg.mmPct < 0 ? 'dealer-opp-below-hit-discount' : ''}>
-              {leg.mmPct.toFixed(2)}%
-            </span>
-          </div>
-        ))}
+      <SpreadTotals
+        amountLabel={amountLabel}
+        receiveLabel={receiveLabel}
+        profitLabel={profitLabel || (perUnit ? `${perUnit} / 1 ${route.start}` : null)}
+        limitNote={
+          exec?.limitedBy != null
+            ? `limitado pela perna ${exec.limitedBy + 1}`
+            : (exec?.unlimited ? 'ordem sem teto — o ganho escala com o que você colocar' : null)
+        }
+      />
+
+      <div className="dealer-opp-spread-equiv">
+        Rende mais que a posição direta {route.equivalentLabel}.
       </div>
       {age && <div className="dealer-opp-spread-age">Ativa {age}</div>}
     </div>
@@ -739,7 +838,7 @@ export default function MarketOpportunities({
           {spreadOpp.total === 0 && status === 'connected' && (
             <p className="dealer-empty">Nenhuma Spread Opportunity no momento.</p>
           )}
-          <div className="dealer-opp-grid">
+          <div className="dealer-opp-grid dealer-opp-grid-arbitragem">
             {spreadOpp.standalone.map((leg) => (
               <StandaloneOpportunityCard key={leg.id} leg={leg} age={formatAge(spreadOppAge.get(leg.id))} />
             ))}

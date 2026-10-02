@@ -72,3 +72,4 @@ venv/
 # .cursor/
 vault_data.db
 build/
+claude.md
