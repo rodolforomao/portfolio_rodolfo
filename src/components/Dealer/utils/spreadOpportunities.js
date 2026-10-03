@@ -17,11 +17,41 @@ import { bookAmountHuman, sortBookSide } from './sideswapBook';
  *            está entre STANDALONE_MIN_PCT e STANDALONE_MAX_PCT (sinal de
  *            desespero para vender — fora dessa faixa é spread normal ou
  *            ordem podre/parada).
+ *
+ * Inventário: DePix não é destino. Receber DePix, ou passar por DePix no meio
+ * da rota, não é oportunidade. Vender DePix (começar em DePix e sair em USDt
+ * ou L-BTC) só entra quando o ganho passa de DEPIX_SELL_MIN_PCT.
  */
 
 export const STANDALONE_MIN_PCT = 6;
 export const STANDALONE_MAX_PCT = 20;
 export const ROUTE_MIN_PCT = 0.5;
+export const DEPIX_SELL_MIN_PCT = 4;
+
+function takerGainPct(mmPct) {
+  const n = Number(mmPct);
+  return Number.isFinite(n) ? -n : null;
+}
+
+/** Venda de DePix com ganho acima de 4%. Receber DePix fica de fora. */
+export function legMatchesInventory(leg) {
+  const gain = takerGainPct(leg?.mmPct);
+  if (gain == null) return false;
+  if (leg.give === 'DePix') {
+    return gain > DEPIX_SELL_MIN_PCT && gain <= STANDALONE_MAX_PCT;
+  }
+  if (leg.get === 'DePix') return false;
+  return gain >= STANDALONE_MIN_PCT && gain <= STANDALONE_MAX_PCT;
+}
+
+/** Rota que sai de DePix acima de 4%. Rota que entrega ou atravessa DePix fica de fora. */
+export function routeMatchesInventory(route) {
+  const gain = takerGainPct(route?.combinedMmPct);
+  if (gain == null) return false;
+  if (route.start === 'DePix') return gain > DEPIX_SELL_MIN_PCT;
+  if (route.mid === 'DePix' || route.end === 'DePix') return false;
+  return gain >= ROUTE_MIN_PCT;
+}
 
 function bestOrder(book, tradeDir) {
   return sortBookSide(book, tradeDir)[0] || null;
@@ -81,11 +111,9 @@ export function computeLegs(pairs, books, indPrices) {
   return legs;
 }
 
-/** Camada C: perna isolada com deságio entre 6% e 20% (sinal de desespero). */
+/** Camada C: perna isolada que respeita o inventário (DePix só na venda acima de 4%). */
 export function findStandaloneOpportunities(legs) {
-  return (legs || []).filter(
-    (l) => l.mmPct <= -STANDALONE_MIN_PCT && l.mmPct >= -STANDALONE_MAX_PCT,
-  );
+  return (legs || []).filter(legMatchesInventory);
 }
 
 /**
@@ -131,6 +159,7 @@ export function findRouteOpportunities(legs, { minPct = ROUTE_MIN_PCT, canonical
           equivalentLabel,
           label: `Spread Opportunity — ${equivalentLabel} (${combinedMmPct.toFixed(2)}%)`,
         };
+        if (!routeMatchesInventory(route)) continue;
         route.execution = routeExecution(route);
         routes.push(route);
       }

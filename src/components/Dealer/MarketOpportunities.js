@@ -11,7 +11,7 @@ import { prepareDealerOrders } from './utils/orderMarketNormalize';
 import { findBelowMarketSells } from './utils/marketBargain';
 import {
   computeSpreadOpportunities,
-  ROUTE_MIN_PCT,
+  DEPIX_SELL_MIN_PCT,
   standaloneExecution,
 } from './utils/spreadOpportunities';
 import { bestConversionPath } from './utils/rebalanceGoals';
@@ -402,9 +402,10 @@ function StandaloneOpportunityCard({ leg, age }) {
         <span className="dealer-opp-spread-pct">{gainPct.toFixed(2)}% abaixo</span>
       </div>
       <p className="dealer-opp-spread-lead">
+        {leg.give === 'DePix' ? <>Venda DePix. </> : null}
         {profitLabel
-          ? <>Você economiza <strong className="dealer-opp-spread-gain-inline">{profitLabel}</strong>.</>
-          : <>Desconto de <strong>{gainPct.toFixed(2)}%</strong> em relação ao preço de mercado.</>}
+          ? <>Você ganha <strong className="dealer-opp-spread-gain-inline">{profitLabel}</strong> ({gainPct.toFixed(2)}%).</>
+          : <>Ganho de <strong>{gainPct.toFixed(2)}%</strong> em relação ao preço de mercado.</>}
         {exec.unlimited ? ' A ordem não tem limite.' : null}
       </p>
       <ol className="dealer-opp-spread-steps">
@@ -456,7 +457,9 @@ function RouteOpportunityCard({ route, age }) {
 
       <p className="dealer-opp-spread-lead">
         {payLabel && receiveLabel
-          ? <>Pague <strong>{payLabel}</strong> e receba <strong>{receiveLabel}</strong>.</>
+          ? (route.start === 'DePix'
+            ? <>Venda <strong>{payLabel}</strong> e receba <strong>{receiveLabel}</strong>.</>
+            : <>Pague <strong>{payLabel}</strong> e receba <strong>{receiveLabel}</strong>.</>)
           : <>Troque {route.start} por {route.end} em dois passos.</>}
         {' '}
         {profitLabel
@@ -826,12 +829,11 @@ export default function MarketOpportunities({
       ) : viewMode === 'arbitragem' ? (
         <>
           <p className="dealer-opp-below-hint">
-            Duas trocas seguidas entre L-BTC, USDt e DePix que rendem pelo menos {ROUTE_MIN_PCT}% a mais
-            que a troca direta. Uma ordem sozinha aparece quando o desconto está entre 6% e 20%.
-            O Telegram repete o alerta a cada 1h enquanto a oportunidade durar.
+            DePix só aparece quando dá para vender com mais de {DEPIX_SELL_MIN_PCT}% de ganho.
+            Troca que entrega DePix fica de fora. O Telegram repete o alerta a cada 1h enquanto a oportunidade durar.
           </p>
           {spreadOpp.total === 0 && status === 'connected' && (
-            <p className="dealer-empty">Nenhuma Spread Opportunity no momento.</p>
+            <p className="dealer-empty">Nenhuma venda de DePix acima de {DEPIX_SELL_MIN_PCT}% no momento.</p>
           )}
           <div className="dealer-opp-grid dealer-opp-grid-arbitragem">
             {spreadOpp.standalone.map((leg) => (

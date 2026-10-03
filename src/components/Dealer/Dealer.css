@@ -1410,9 +1410,11 @@ body.dealer-route-active .App.app-ready {
 }
 
 .dealer-opp-below-hint {
-  font-size: 0.82rem;
+  font-size: 0.98rem;
   color: #8b949e;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+  max-width: 78ch;
 }
 
 .dealer-opp-card.dealer-opp-below-market {
@@ -1547,7 +1549,9 @@ body.dealer-route-active .App.app-ready {
 .dealer-opp-spread-pct {
   color: #f85149;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 1.35rem;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .dealer-opp-spread-cta {
@@ -1557,7 +1561,7 @@ body.dealer-route-active .App.app-ready {
 }
 
 .dealer-opp-spread-age {
-  font-size: 0.68rem;
+  font-size: 0.95rem;
   color: #f85149;
   font-weight: 600;
 }
@@ -1576,7 +1580,8 @@ body.dealer-route-active .App.app-ready {
 }
 
 .dealer-opp-grid-arbitragem {
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: 1fr;
+  gap: 16px;
 }
 
 .dealer-opp-spread-action-kicker {
@@ -1588,25 +1593,41 @@ body.dealer-route-active .App.app-ready {
   margin-bottom: 4px;
 }
 
+.dealer-opp-card.dealer-opp-spread {
+  padding: 20px 22px;
+  gap: 14px;
+}
+
+.dealer-opp-card.dealer-opp-spread .dealer-opp-pair-name {
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
 .dealer-opp-route-name {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
 }
 
 .dealer-opp-route-name svg {
-  width: 12px;
-  height: 12px;
+  width: 18px;
+  height: 18px;
   color: #8b949e;
   flex: 0 0 auto;
 }
 
+.dealer-opp-route-name .dealer-opp-step-mark {
+  width: 22px;
+  height: 22px;
+}
+
 .dealer-opp-spread-lead {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.4;
+  font-size: 1.05rem;
+  line-height: 1.55;
   color: #e6edf3;
+  max-width: 68ch;
 }
 
 .dealer-opp-spread-gain-inline {
@@ -1619,28 +1640,29 @@ body.dealer-route-active .App.app-ready {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 
 .dealer-opp-spread-step {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 10px 12px;
   min-width: 0;
-  padding: 6px 8px;
+  padding: 14px 16px;
   background: #0d1117;
   border: 1px solid #30363d;
   border-radius: 8px;
-  font-size: 0.78rem;
+  font-size: 1.05rem;
   color: #e6edf3;
-  white-space: nowrap;
-  overflow-x: auto;
+  white-space: normal;
+  overflow: visible;
 }
 
 .dealer-opp-step-num {
   flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -1648,46 +1670,51 @@ body.dealer-route-active .App.app-ready {
   background: #f85149;
   color: #fff;
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 1rem;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
 .dealer-opp-step-flow {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px 12px;
   min-width: 0;
+  flex: 1 1 240px;
 }
 
 .dealer-opp-step-amt {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   font-weight: 600;
+  font-size: 1.08rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .dealer-opp-step-mark {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   display: block;
   flex: 0 0 auto;
 }
 
 .dealer-opp-step-arrow {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   color: #8b949e;
   flex: 0 0 auto;
 }
 
 .dealer-opp-step-price {
-  color: #8b949e;
-  font-size: 0.72rem;
+  color: #c9d1d9;
+  font-size: 1rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .dealer-opp-step-book {
@@ -1742,9 +1769,9 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-opp-spread-limit {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.98rem;
   color: #8b949e;
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 .dealer-opp-spread-equiv {
