@@ -11,12 +11,14 @@ import { prepareDealerOrders } from './utils/orderMarketNormalize';
 import { findBelowMarketSells } from './utils/marketBargain';
 import {
   computeSpreadOpportunities,
-  legCapacity,
   ROUTE_MIN_PCT,
   standaloneExecution,
 } from './utils/spreadOpportunities';
 import { bestConversionPath } from './utils/rebalanceGoals';
 import { formatAssetBalance } from './utils/dealerFormat';
+import depixUrl from './assets/marks/depix.png';
+import usdtUrl from './assets/marks/usdt.png';
+import lbtcUrl from './assets/marks/lbtc.png';
 
 const GOAL_ASSETS = ['L-BTC', 'USDt', 'DePix'];
 
@@ -332,51 +334,53 @@ function moneyLabel(asset, amount) {
   return formatAssetBalance(asset, amount);
 }
 
-function SpreadTotals({ amountLabel, receiveLabel, profitLabel, limitNote }) {
+function assetMarkUrl(asset) {
+  const key = String(asset || '').toLowerCase().replace(/-/g, '');
+  if (key === 'usdt') return usdtUrl;
+  if (key === 'lbtc') return lbtcUrl;
+  if (key === 'depix') return depixUrl;
+  return null;
+}
+
+function AssetMark({ asset }) {
+  const url = assetMarkUrl(asset);
+  if (!url) return null;
+  return <img className="dealer-opp-step-mark" src={url} alt="" />;
+}
+
+function AssetAmount({ asset, amount }) {
+  const label = moneyLabel(asset, amount) || '—';
   return (
-    <div className="dealer-opp-spread-totals">
-      <div>
-        <span className="dealer-opp-price-label">Amount disponível</span>
-        <strong>{amountLabel || '—'}</strong>
-        {limitNote && <span className="dealer-opp-spread-limit">{limitNote}</span>}
-      </div>
-      <div>
-        <span className="dealer-opp-price-label">Você recebe</span>
-        <strong>{receiveLabel || '—'}</strong>
-      </div>
-      <div>
-        <span className="dealer-opp-price-label">Ganho total</span>
-        <strong className="dealer-opp-spread-gain">{profitLabel || '—'}</strong>
-      </div>
-    </div>
+    <span className="dealer-opp-step-amt">
+      <AssetMark asset={asset} />
+      {label}
+    </span>
   );
 }
 
-function RouteLegStep({ index, from, to, leg }) {
-  const cap = legCapacity(leg);
-  const bookAmt = cap.baseAmount != null
-    ? formatAssetBalance(leg.base, cap.baseAmount)
-    : (cap.unlimited ? 'máx' : '—');
+function RouteLegStep({ index, giveAsset, giveAmount, getAsset, getAmount, leg }) {
+  const price = formatBookPrice(leg.price);
+  const title = `${leg.base}/${leg.quote} · ordem ${leg.side} a ${price}`;
   return (
-    <li className="dealer-opp-spread-step">
-      <div>
-        {index}. Comprar no livro de ordem <strong>{from}</strong> por <strong>{to}</strong>
-      </div>
-      <div className="dealer-opp-spread-step-meta">
-        {leg.base}/{leg.quote} · ordem {leg.side} @ {formatBookPrice(leg.price)}
-        {' · '}amount {bookAmt}
-        {' · '}{leg.mmPct.toFixed(2)}%
-        {leg.marketUrl && (
-          <a
-            href={leg.marketUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="dealer-opp-link"
-          >
-            <TbExternalLink /> abrir livro
-          </a>
-        )}
-      </div>
+    <li className="dealer-opp-spread-step" title={title}>
+      <span className="dealer-opp-step-num">{index}</span>
+      <span className="dealer-opp-step-flow">
+        <AssetAmount asset={giveAsset} amount={giveAmount} />
+        <TbArrowRight className="dealer-opp-step-arrow" aria-hidden="true" />
+        <AssetAmount asset={getAsset} amount={getAmount} />
+        <span className="dealer-opp-step-price">a {price}</span>
+      </span>
+      {leg.marketUrl && (
+        <a
+          href={leg.marketUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="dealer-opp-step-book"
+          title={`Abrir livro ${leg.base}/${leg.quote}`}
+        >
+          <TbExternalLink />
+        </a>
+      )}
     </li>
   );
 }
@@ -384,17 +388,7 @@ function RouteLegStep({ index, from, to, leg }) {
 function StandaloneOpportunityCard({ leg, age }) {
   const exec = standaloneExecution(leg);
   const gainPct = Math.abs(leg.mmPct);
-  const buying = leg.side === 'Sell';
   const profitLabel = moneyLabel(exec.profitAsset, exec.profitAmount);
-  const amountLabel = exec.inputAmount != null
-    ? formatAssetBalance(exec.inputAsset, exec.inputAmount)
-    : (exec.unlimited ? 'máx' : null);
-  const receiveLabel = exec.outputAmount != null
-    ? formatAssetBalance(exec.outputAsset, exec.outputAmount)
-    : null;
-  const action = buying
-    ? <>Comprar no livro de ordem <strong>{leg.quote}</strong> por <strong>{leg.base}</strong>.</>
-    : <>Vender no livro <strong>{leg.base}</strong> por <strong>{leg.quote}</strong>.</>;
 
   return (
     <div className="dealer-opp-card dealer-opp-spread">
@@ -402,34 +396,27 @@ function StandaloneOpportunityCard({ leg, age }) {
         <div className="dealer-opp-pair">
           <span className="dealer-opp-pair-name">{leg.base}/{leg.quote}</span>
           <Badge bg="danger" className="dealer-opp-spread-badge">
-            <TbFlame /> deságio
+            <TbFlame /> desconto
           </Badge>
         </div>
-        <span className="dealer-opp-spread-pct">{leg.mmPct.toFixed(2)}%</span>
+        <span className="dealer-opp-spread-pct">{gainPct.toFixed(2)}% abaixo</span>
       </div>
-      <div className="dealer-opp-below-cta dealer-opp-spread-cta">
-        <span className="dealer-opp-spread-action-kicker">Ação</span>
-        {action}
-        {' '}
+      <p className="dealer-opp-spread-lead">
         {profitLabel
-          ? <>Assim você ganha <strong>{profitLabel}</strong> ({gainPct.toFixed(2)}%).</>
-          : <>Assim você ganha <strong>{gainPct.toFixed(2)}%</strong>.</>}
-      </div>
-      <div className="dealer-opp-spread-step-meta">
-        Ordem {leg.side} @ {formatBookPrice(leg.price)}
-        {' · '}justo {formatBookPrice(leg.indPrice)}
-        {leg.marketUrl && (
-          <a href={leg.marketUrl} target="_blank" rel="noopener noreferrer" className="dealer-opp-link">
-            <TbExternalLink /> abrir livro
-          </a>
-        )}
-      </div>
-      <SpreadTotals
-        amountLabel={amountLabel}
-        receiveLabel={receiveLabel}
-        profitLabel={profitLabel}
-        limitNote={exec.unlimited ? 'ordem sem teto — o ganho escala com o que você colocar' : null}
-      />
+          ? <>Você economiza <strong className="dealer-opp-spread-gain-inline">{profitLabel}</strong>.</>
+          : <>Desconto de <strong>{gainPct.toFixed(2)}%</strong> em relação ao preço de mercado.</>}
+        {exec.unlimited ? ' A ordem não tem limite.' : null}
+      </p>
+      <ol className="dealer-opp-spread-steps">
+        <RouteLegStep
+          index={1}
+          giveAsset={exec.inputAsset}
+          giveAmount={exec.inputAmount}
+          getAsset={exec.outputAsset}
+          getAmount={exec.outputAmount}
+          leg={leg}
+        />
+      </ol>
       {age && <div className="dealer-opp-spread-age">Ativa {age}</div>}
     </div>
   );
@@ -440,57 +427,65 @@ function RouteOpportunityCard({ route, age }) {
   const [leg1, leg2] = route.legs;
   const gainPct = Math.abs(route.combinedMmPct);
   const profitLabel = moneyLabel(route.end, exec?.profitAmount);
-  const amountLabel = exec?.startAmount != null
-    ? formatAssetBalance(route.start, exec.startAmount)
-    : (exec?.unlimited ? 'máx' : null);
-  const receiveLabel = exec?.endAmount != null
-    ? formatAssetBalance(route.end, exec.endAmount)
-    : null;
-  const perUnit = exec?.profitPerStart != null && exec.startAmount == null
+  const payLabel = moneyLabel(route.start, exec?.startAmount);
+  const receiveLabel = moneyLabel(route.end, exec?.endAmount);
+  const perUnit = exec?.profitPerStart != null && exec?.startAmount == null
     ? formatAssetBalance(route.end, exec.profitPerStart)
     : null;
+  const limitNote = exec?.limitedBy != null
+    ? `O tamanho cabe na ordem ${exec.limitedBy + 1}.`
+    : (exec?.unlimited ? 'A ordem não tem limite. O ganho acompanha o valor que você colocar.' : null);
 
   return (
     <div className="dealer-opp-card dealer-opp-spread">
       <div className="dealer-opp-head">
         <div className="dealer-opp-pair">
-          <span className="dealer-opp-pair-name">{route.start} → {route.mid} → {route.end}</span>
-          <Badge bg="danger" className="dealer-opp-spread-badge">
-            <TbFlame /> rota
-          </Badge>
+          <span className="dealer-opp-pair-name dealer-opp-route-name">
+            <AssetMark asset={route.start} />
+            {route.start}
+            <TbArrowRight aria-hidden="true" />
+            <AssetMark asset={route.mid} />
+            {route.mid}
+            <TbArrowRight aria-hidden="true" />
+            <AssetMark asset={route.end} />
+            {route.end}
+          </span>
         </div>
         <span className="dealer-opp-spread-pct">+{gainPct.toFixed(2)}%</span>
       </div>
 
-      <div className="dealer-opp-below-cta dealer-opp-spread-cta">
-        <span className="dealer-opp-spread-action-kicker">Ação</span>
-        Comprar no livro de ordem <strong>{route.start}</strong> por <strong>{route.mid}</strong>
-        {' '}e depois <strong>{route.mid}</strong> por <strong>{route.end}</strong>.
+      <p className="dealer-opp-spread-lead">
+        {payLabel && receiveLabel
+          ? <>Pague <strong>{payLabel}</strong> e receba <strong>{receiveLabel}</strong>.</>
+          : <>Troque {route.start} por {route.end} em dois passos.</>}
         {' '}
         {profitLabel
-          ? <>Assim você ganha <strong>{profitLabel}</strong> ({gainPct.toFixed(2)}%).</>
-          : <>Assim você ganha <strong>{gainPct.toFixed(2)}%</strong>{perUnit ? <> — {perUnit} a cada 1 {route.start}</> : null}.</>}
-      </div>
+          ? <>Ganho de <strong className="dealer-opp-spread-gain-inline">{profitLabel}</strong> (+{gainPct.toFixed(2)}%).</>
+          : <>Ganho de <strong>+{gainPct.toFixed(2)}%</strong>{perUnit ? <> — {perUnit} a cada 1 {route.start}</> : null}.</>}
+        {' '}
+        Melhor que trocar {route.start} por {route.end} numa ordem só.
+      </p>
+      {limitNote && <p className="dealer-opp-spread-limit">{limitNote}</p>}
 
       <ol className="dealer-opp-spread-steps">
-        <RouteLegStep index={1} from={route.start} to={route.mid} leg={leg1} />
-        <RouteLegStep index={2} from={route.mid} to={route.end} leg={leg2} />
+        <RouteLegStep
+          index={1}
+          giveAsset={route.start}
+          giveAmount={exec?.startAmount}
+          getAsset={route.mid}
+          getAmount={exec?.midAmount}
+          leg={leg1}
+        />
+        <RouteLegStep
+          index={2}
+          giveAsset={route.mid}
+          giveAmount={exec?.midAmount}
+          getAsset={route.end}
+          getAmount={exec?.endAmount}
+          leg={leg2}
+        />
       </ol>
 
-      <SpreadTotals
-        amountLabel={amountLabel}
-        receiveLabel={receiveLabel}
-        profitLabel={profitLabel || (perUnit ? `${perUnit} / 1 ${route.start}` : null)}
-        limitNote={
-          exec?.limitedBy != null
-            ? `limitado pela perna ${exec.limitedBy + 1}`
-            : (exec?.unlimited ? 'ordem sem teto — o ganho escala com o que você colocar' : null)
-        }
-      />
-
-      <div className="dealer-opp-spread-equiv">
-        Rende mais que a posição direta {route.equivalentLabel}.
-      </div>
       {age && <div className="dealer-opp-spread-age">Ativa {age}</div>}
     </div>
   );
@@ -831,9 +826,9 @@ export default function MarketOpportunities({
       ) : viewMode === 'arbitragem' ? (
         <>
           <p className="dealer-opp-below-hint">
-            Arbitragem triangular L-BTC / USDt / DePix — deságio isolado (6%–20%, sinal de
-            desespero para vender) ou rota combinada de 2 pernas (≥ {ROUTE_MIN_PCT}% combinado).
-            Mesmo alerta é enviado ao Telegram a cada 1h enquanto a oportunidade seguir ativa.
+            Duas trocas seguidas entre L-BTC, USDt e DePix que rendem pelo menos {ROUTE_MIN_PCT}% a mais
+            que a troca direta. Uma ordem sozinha aparece quando o desconto está entre 6% e 20%.
+            O Telegram repete o alerta a cada 1h enquanto a oportunidade durar.
           </p>
           {spreadOpp.total === 0 && status === 'connected' && (
             <p className="dealer-empty">Nenhuma Spread Opportunity no momento.</p>
