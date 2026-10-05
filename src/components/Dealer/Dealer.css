@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,560;8..60,650&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,560;8..60,650&display=swap");
 
 .dealer-root {
   min-height: 100dvh;
@@ -1628,6 +1628,42 @@ body.dealer-route-active .App.app-ready {
   line-height: 1.55;
   color: #e6edf3;
   max-width: 68ch;
+}
+
+.dealer-opp-resources {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: #8b949e;
+  max-width: 68ch;
+}
+
+.dealer-opp-resources strong {
+  color: #e6edf3;
+  font-weight: 600;
+}
+
+.dealer-opp-spread-kicker {
+  font-size: 0.85rem;
+  color: #8b949e;
+}
+
+.dealer-opp-trade {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.dealer-opp-trade-note {
+  font-size: 0.92rem;
+  color: #8b949e;
+}
+
+.dealer-goal-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .dealer-opp-spread-gain-inline {
@@ -8153,56 +8189,64 @@ body.dealer-route-active .App.app-ready {
   gap: 8px;
 }
 
-/* ── Cotações: página própria, fora do console ── */
+/* ── Cotações: ticket de swap, fora do console ── */
 .quote-page {
   min-height: 100dvh;
-  background: #12161c;
-  padding: 18px 22px 48px;
+  background: #0f1412;
+  color: #e8eee9;
+}
+
+.quote-page-frame {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 22px 28px 64px;
 }
 
 .quote-page-back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 16px;
-  color: #a39e94;
+  margin-bottom: 18px;
+  color: #93a199;
   text-decoration: none;
-  font-family: "Source Sans 3", "Segoe UI", sans-serif;
+  font-family: "IBM Plex Sans", "Source Sans 3", sans-serif;
   font-size: 0.85rem;
 }
 
-.quote-page-back:hover { color: #e2c27a; }
+.quote-page-back:hover { color: #e8eee9; }
+.quote-page-back:focus-visible {
+  outline: 2px solid #c4843e;
+  outline-offset: 3px;
+}
 
 .dealer-quote {
-  --q-ink: #ebe7df;
-  --q-muted: #a39e94;
-  --q-faint: #6f6a62;
-  --q-line: #2c3340;
-  --q-sheet: #171c24;
-  --q-brass: #e2c27a;
-  --q-brass-deep: #c6a15a;
-  --q-sage: #9ec9a8;
-  --q-steel: #8eb4d4;
-  --q-rose: #e7a09a;
+  --q-ink: #e8eee9;
+  --q-muted: #93a199;
+  --q-faint: #6d7a73;
+  --q-line: #2c3833;
+  --q-sheet: #171e1b;
+  --q-brass: #e3a15a;
+  --q-brass-deep: #c4843e;
+  --q-sage: #b7d4c3;
+  --q-steel: #9bb8c9;
+  --q-rose: #e3a8a2;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  font-family: "Source Sans 3", "Segoe UI", sans-serif;
+  font-family: "IBM Plex Sans", "Source Sans 3", sans-serif;
   color: var(--q-ink);
 }
 
 .dealer-quote-head {
   display: flex;
-  justify-content: space-between;
   align-items: flex-end;
-  gap: 20px;
 }
 
 .dealer-quote-title {
   margin: 0;
-  font-size: 1.45rem;
+  font-size: 1.55rem;
   font-weight: 600;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   color: var(--q-ink);
 }
 
@@ -8236,9 +8280,8 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-quote-ticker strong {
   grid-area: price;
-  font-family: "Source Serif 4", Palatino, "Palatino Linotype", Georgia, serif;
   font-size: 2rem;
-  font-weight: 560;
+  font-weight: 600;
   line-height: 1;
   letter-spacing: -0.03em;
   color: var(--q-brass);
@@ -8304,6 +8347,147 @@ body.dealer-route-active .App.app-ready {
   border: 1px solid var(--q-line);
   padding: 16px;
   min-width: 0;
+}
+
+.dealer-quote-form {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.dealer-quote-swap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8.6rem minmax(0, 1fr);
+  align-items: stretch;
+  background: #121916;
+}
+
+.dealer-quote-leg {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 16px 14px;
+}
+
+.dealer-quote-leg-out {
+  background: rgba(227, 161, 90, 0.045);
+  border-left: 1px solid var(--q-line);
+}
+
+.dealer-quote-leg-name {
+  color: var(--q-muted);
+  font-size: 0.84rem;
+}
+
+.dealer-quote-leg-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dealer-quote-leg-out .dealer-quote-leg-main {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.dealer-quote input.dealer-quote-leg-amount {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0 0 2px;
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  color: var(--q-ink);
+}
+
+.dealer-quote input.dealer-quote-leg-amount::placeholder {
+  color: #4e5a54;
+  font-weight: 500;
+}
+
+.dealer-quote input.dealer-quote-leg-amount:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: inset 0 -2px 0 var(--q-brass-deep);
+}
+
+.dealer-quote-leg-select {
+  align-self: flex-start;
+  width: auto;
+}
+
+.dealer-quote-receive-figure {
+  min-width: 0;
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--q-ink);
+  overflow-wrap: anywhere;
+}
+
+.dealer-quote-leg-picks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.dealer-quote-leg-net {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dealer-quote-bridge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 12px 8px;
+  border-left: 1px solid var(--q-line);
+  text-align: center;
+}
+
+.dealer-quote-bridge-pair {
+  color: var(--q-muted);
+  font-size: 0.75rem;
+}
+
+.dealer-quote-bridge strong {
+  font-size: 1.28rem;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--q-brass);
+  font-variant-numeric: tabular-nums;
+}
+
+.dealer-quote-bridge-meta {
+  color: var(--q-faint);
+  font-size: 0.68rem;
+  line-height: 1.3;
+  max-width: 7.4rem;
+}
+
+.dealer-quote-bridge .dealer-quote-icon-btn {
+  margin-top: 6px;
+}
+
+.dealer-quote-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
 }
 
 .dealer-quote-sheet-title,
@@ -8443,6 +8627,17 @@ body.dealer-route-active .App.app-ready {
   gap: 8px;
 }
 
+.dealer-quote-route-form {
+  display: grid;
+  grid-template-columns: minmax(11rem, 16rem) minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: end;
+}
+
+.dealer-quote-route-form > .dealer-quote-hops {
+  grid-column: 1 / -1;
+}
+
 .dealer-quote-route-form > label,
 .dealer-quote-hops > span {
   display: flex;
@@ -8486,14 +8681,11 @@ body.dealer-route-active .App.app-ready {
   font-size: 0.8rem;
 }
 
-.dealer-quote-preview-hero strong {
-  font-family: "Source Serif 4", Palatino, "Palatino Linotype", Georgia, serif;
-  color: var(--q-brass);
-  font-size: 1.7rem;
-  font-weight: 560;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
+.dealer-quote-preview-note {
+  margin: 0;
+  color: var(--q-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
 }
 
 .dealer-quote-preview-empty {
@@ -8696,7 +8888,7 @@ body.dealer-route-active .App.app-ready {
 .dealer-quote-figures.is-mine { justify-content: flex-start; }
 
 .dealer-quote-figures.is-mine strong {
-  font-size: 1.35rem;
+  font-size: 1.15rem;
   color: var(--q-sage);
   letter-spacing: -0.02em;
 }
@@ -8794,7 +8986,7 @@ body.dealer-route-active .App.app-ready {
 .dealer-quote-row.status-nao_realizada { background: rgba(231, 160, 154, 0.04); }
 
 .dealer-quote-num {
-  color: var(--q-brass);
+  color: var(--q-ink);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -8923,12 +9115,6 @@ body.dealer-route-active .App.app-ready {
 
 .dealer-quote-route { margin: 0 0 8px; }
 
-.dealer-quote-route-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .dealer-quote-route-form > label,
 .dealer-quote-hops > span {
   display: flex;
@@ -9021,6 +9207,19 @@ body.dealer-route-active .App.app-ready {
 
 @media (max-width: 980px) {
   .dealer-quote-workspace { grid-template-columns: 1fr; }
+  .dealer-quote-swap { grid-template-columns: 1fr; }
+  .dealer-quote-bridge {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px 12px;
+    border-left: none;
+    border-top: 1px solid var(--q-line);
+    text-align: left;
+  }
+  .dealer-quote-bridge-meta { max-width: none; }
+  .dealer-quote-bridge .dealer-quote-icon-btn { margin-top: 0; margin-left: auto; }
+  .dealer-quote-leg-out { border-left: none; border-top: 1px solid var(--q-line); }
 }
 
 @media (max-width: 760px) {
@@ -9071,8 +9270,13 @@ body.dealer-route-active .App.app-ready {
 }
 
 @media (max-width: 520px) {
+  .quote-page-frame { padding: 16px 14px 48px; }
   .dealer-quote-head { flex-direction: column; align-items: stretch; }
   .dealer-quote-ticker { justify-items: start; text-align: left; }
+  .dealer-quote-route-form { grid-template-columns: 1fr; }
+  .dealer-quote-leg-main { grid-template-columns: auto minmax(0, 1fr); }
+  .dealer-quote input.dealer-quote-leg-amount,
+  .dealer-quote-receive-figure { font-size: 1.4rem; }
   .dealer-quote-fields { grid-template-columns: 1fr; }
   .dealer-quote-mesa label,
   .dealer-quote-mesa label:has(select) { width: 100%; }

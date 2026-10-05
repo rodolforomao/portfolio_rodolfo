@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
 import {
-  TbRefresh, TbExternalLink, TbAlertTriangle, TbCircleCheck, TbMinus, TbTag, TbFlame,
+  TbRefresh, TbExternalLink, TbAlertTriangle, TbCircleCheck, TbMinus, TbTag,
   TbTarget, TbTrash, TbArrowRight,
 } from 'react-icons/tb';
 import { SideswapBadge } from './SourceBadge';
@@ -11,11 +11,13 @@ import { prepareDealerOrders } from './utils/orderMarketNormalize';
 import { findBelowMarketSells } from './utils/marketBargain';
 import {
   computeSpreadOpportunities,
-  DEPIX_SELL_MIN_PCT,
-  standaloneExecution,
+  chainExecution,
+  tradeSentence,
 } from './utils/spreadOpportunities';
 import { bestConversionPath } from './utils/rebalanceGoals';
-import { formatAssetBalance } from './utils/dealerFormat';
+import { canonicalAssetName, enrichBalancesWithReserve, formatAssetBalance } from './utils/dealerFormat';
+import { normalizeSendParams } from './utils/orderMarketNormalize';
+import { describeSendOrderResult } from './utils/commandResult';
 import depixUrl from './assets/marks/depix.png';
 import usdtUrl from './assets/marks/usdt.png';
 import lbtcUrl from './assets/marks/lbtc.png';
@@ -334,6 +336,66 @@ function moneyLabel(asset, amount) {
   return formatAssetBalance(asset, amount);
 }
 
+function sumHoldings(dealers) {
+  const held = {};
+  const free = {};
+  for (const dealer of dealers || []) {
+    if (dealer?.dealerStatus === 'morto') continue;
+    for (const row of enrichBalancesWithReserve(dealer.balances, dealer.reserve_balance)) {
+      held[row.asset] = (held[row.asset] || 0) + row.value;
+      free[row.asset] = (free[row.asset] || 0) + row.available;
+    }
+  }
+  return { held, free };
+}
+
+function bestWallet(dealers, asset) {
+  const name = canonicalAssetName(asset);
+  let best = null;
+  for (const dealer of dealers || []) {
+    if (!dealer?.pid || dealer.dealerStatus === 'morto') continue;
+    const row = enrichBalancesWithReserve(dealer.balances, dealer.reserve_balance)
+      .find((item) => item.asset === name);
+    if (!row || row.available <= 0) continue;
+    if (!best || row.available > best.available) {
+      best = { pid: dealer.pid, wallet: dealer.wallet_name, available: row.available };
+    }
+  }
+  return best;
+}
+
+function takerOrder(leg, spendAmount) {
+  const price = Number(leg?.price);
+  const spend = Number(spendAmount);
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(spend) || spend <= 0) return null;
+  if (leg.side === 'Sell') {
+    return { base: leg.base, quote: leg.quote, trade_dir: 'Buy', price, amount: spend / price };
+  }
+  return { base: leg.base, quote: leg.quote, trade_dir: 'Sell', price, amount: spend };
+}
+
+function sizedChain(legs, free) {
+  const book = chainExecution(legs);
+  if (free > 0) return { book, sized: chainExecution(legs, free), usingOurs: true };
+  return { book, sized: book, usingOurs: false };
+}
+
+function OpportunityNarrative({ hops, profitAsset, profitAmount, spendAsset, held, free, bookAmount }) {
+  const profitLabel = profitAmount > 0 ? moneyLabel(profitAsset, profitAmount) : null;
+  return (
+    <>
+      <p className="dealer-opp-spread-lead">{tradeSentence(hops, profitLabel)}</p>
+      <p className="dealer-opp-resources">
+        Temos <strong>{formatAssetBalance(spendAsset, held ?? 0)}</strong>.
+        {' '}Disponível <strong>{formatAssetBalance(spendAsset, free ?? 0)}</strong>.
+        {bookAmount != null && (
+          <> Na ordem cabe <strong>{formatAssetBalance(spendAsset, bookAmount)}</strong>.</>
+        )}
+      </p>
+    </>
+  );
+}
+
 function assetMarkUrl(asset) {
   const key = String(asset || '').toLowerCase().replace(/-/g, '');
   if (key === 'usdt') return usdtUrl;
@@ -385,110 +447,91 @@ function RouteLegStep({ index, giveAsset, giveAmount, getAsset, getAmount, leg }
   );
 }
 
-function StandaloneOpportunityCard({ leg, age }) {
-  const exec = standaloneExecution(leg);
-  const gainPct = Math.abs(leg.mmPct);
-  const profitLabel = moneyLabel(exec.profitAsset, exec.profitAmount);
-
+function TradeButton({ label, busy, note, onClick }) {
   return (
-    <div className="dealer-opp-card dealer-opp-spread">
-      <div className="dealer-opp-head">
-        <div className="dealer-opp-pair">
-          <span className="dealer-opp-pair-name">{leg.base}/{leg.quote}</span>
-          <Badge bg="danger" className="dealer-opp-spread-badge">
-            <TbFlame /> desconto
-          </Badge>
-        </div>
-        <span className="dealer-opp-spread-pct">{gainPct.toFixed(2)}% abaixo</span>
-      </div>
-      <p className="dealer-opp-spread-lead">
-        {leg.give === 'DePix' ? <>Venda DePix. </> : null}
-        {profitLabel
-          ? <>Você ganha <strong className="dealer-opp-spread-gain-inline">{profitLabel}</strong> ({gainPct.toFixed(2)}%).</>
-          : <>Ganho de <strong>{gainPct.toFixed(2)}%</strong> em relação ao preço de mercado.</>}
-        {exec.unlimited ? ' A ordem não tem limite.' : null}
-      </p>
-      <ol className="dealer-opp-spread-steps">
-        <RouteLegStep
-          index={1}
-          giveAsset={exec.inputAsset}
-          giveAmount={exec.inputAmount}
-          getAsset={exec.outputAsset}
-          getAmount={exec.outputAmount}
-          leg={leg}
-        />
-      </ol>
-      {age && <div className="dealer-opp-spread-age">Ativa {age}</div>}
+    <div className="dealer-opp-trade">
+      <Button size="sm" variant="success" disabled={busy} onClick={onClick}>
+        {busy ? 'Enviando…' : label}
+      </Button>
+      {note && <span className="dealer-opp-trade-note">{note}</span>}
     </div>
   );
 }
 
-function RouteOpportunityCard({ route, age }) {
-  const exec = route.execution;
-  const [leg1, leg2] = route.legs;
-  const gainPct = Math.abs(route.combinedMmPct);
-  const profitLabel = moneyLabel(route.end, exec?.profitAmount);
-  const payLabel = moneyLabel(route.start, exec?.startAmount);
-  const receiveLabel = moneyLabel(route.end, exec?.endAmount);
-  const perUnit = exec?.profitPerStart != null && exec?.startAmount == null
-    ? formatAssetBalance(route.end, exec.profitPerStart)
-    : null;
-  const limitNote = exec?.limitedBy != null
-    ? `O tamanho cabe na ordem ${exec.limitedBy + 1}.`
-    : (exec?.unlimited ? 'A ordem não tem limite. O ganho acompanha o valor que você colocar.' : null);
+function ChainOpportunityCard({
+  title,
+  gainPct,
+  legs,
+  holdings,
+  age,
+  tradeKey,
+  execState,
+  onTrade,
+}) {
+  const start = legs[0]?.give;
+  const free = holdings?.free?.[start] ?? 0;
+  const held = holdings?.held?.[start] ?? 0;
+  const { book, sized, usingOurs } = sizedChain(legs, free);
+  const shown = usingOurs ? sized : book;
+  const canTrade = usingOurs && shown?.profitAmount > 0 && shown.startAmount > 0;
+  const state = execState?.[tradeKey];
 
   return (
     <div className="dealer-opp-card dealer-opp-spread">
       <div className="dealer-opp-head">
         <div className="dealer-opp-pair">
           <span className="dealer-opp-pair-name dealer-opp-route-name">
-            <AssetMark asset={route.start} />
-            {route.start}
+            {legs.map((leg, index) => (
+              <span key={`${leg.id}-${index}`}>
+                {index > 0 && <TbArrowRight aria-hidden="true" />}
+                <AssetMark asset={leg.give} />
+                {leg.give}
+              </span>
+            ))}
             <TbArrowRight aria-hidden="true" />
-            <AssetMark asset={route.mid} />
-            {route.mid}
-            <TbArrowRight aria-hidden="true" />
-            <AssetMark asset={route.end} />
-            {route.end}
+            <AssetMark asset={legs[legs.length - 1]?.get} />
+            {legs[legs.length - 1]?.get}
           </span>
         </div>
-        <span className="dealer-opp-spread-pct">+{gainPct.toFixed(2)}%</span>
+        {gainPct != null && (
+          <span className="dealer-opp-spread-pct">+{gainPct.toFixed(2)}%</span>
+        )}
       </div>
-
-      <p className="dealer-opp-spread-lead">
-        {payLabel && receiveLabel
-          ? (route.start === 'DePix'
-            ? <>Venda <strong>{payLabel}</strong> e receba <strong>{receiveLabel}</strong>.</>
-            : <>Pague <strong>{payLabel}</strong> e receba <strong>{receiveLabel}</strong>.</>)
-          : <>Troque {route.start} por {route.end} em dois passos.</>}
-        {' '}
-        {profitLabel
-          ? <>Ganho de <strong className="dealer-opp-spread-gain-inline">{profitLabel}</strong> (+{gainPct.toFixed(2)}%).</>
-          : <>Ganho de <strong>+{gainPct.toFixed(2)}%</strong>{perUnit ? <> — {perUnit} a cada 1 {route.start}</> : null}.</>}
-        {' '}
-        Melhor que trocar {route.start} por {route.end} numa ordem só.
-      </p>
-      {limitNote && <p className="dealer-opp-spread-limit">{limitNote}</p>}
-
+      {title && <div className="dealer-opp-spread-kicker">{title}</div>}
+      <OpportunityNarrative
+        hops={shown?.hops || legs}
+        profitAsset={shown?.profitAsset}
+        profitAmount={shown?.profitAmount}
+        spendAsset={start}
+        held={held}
+        free={free}
+        bookAmount={book?.bookAmount}
+      />
       <ol className="dealer-opp-spread-steps">
-        <RouteLegStep
-          index={1}
-          giveAsset={route.start}
-          giveAmount={exec?.startAmount}
-          getAsset={route.mid}
-          getAmount={exec?.midAmount}
-          leg={leg1}
-        />
-        <RouteLegStep
-          index={2}
-          giveAsset={route.mid}
-          giveAmount={exec?.midAmount}
-          getAsset={route.end}
-          getAmount={exec?.endAmount}
-          leg={leg2}
-        />
+        {(shown?.hops || []).map((hop, index) => (
+          <RouteLegStep
+            key={`${hop.leg.id}-${index}`}
+            index={index + 1}
+            giveAsset={hop.give}
+            giveAmount={hop.giveAmount}
+            getAsset={hop.get}
+            getAmount={hop.getAmount}
+            leg={hop.leg}
+          />
+        ))}
       </ol>
-
+      {canTrade && (
+        <TradeButton
+          busy={state?.busy}
+          note={state?.message || (shown.hops.length > 1
+            ? 'Esta ordem faz o primeiro passo. O seguinte usa a moeda que chegar.'
+            : null)}
+          label={shown.hops[0].leg?.side === 'Sell' || shown.hops[0].side === 'Sell'
+            ? `Comprar ${shown.hops[0].get} com ${formatAssetBalance(start, shown.startAmount)}`
+            : `Vender ${formatAssetBalance(start, shown.startAmount)}`}
+          onClick={() => onTrade(tradeKey, shown.hops[0].leg, shown.startAmount, start)}
+        />
+      )}
       {age && <div className="dealer-opp-spread-age">Ativa {age}</div>}
     </div>
   );
@@ -576,15 +619,47 @@ function GoalPathBadge({ path }) {
   );
 }
 
-function GoalCard({ goal, legs, onRemove }) {
-  const balance = goal.balance ?? 0;
+function normalizeGoal(goal) {
+  if (!goal || typeof goal !== 'object') return goal;
+  return {
+    ...goal,
+    fromAsset: goal.fromAsset || goal.from_asset,
+  };
+}
+
+function goalCommandError(res, fallback) {
+  const raw = res?.data?.error || res?.error || res?.message;
+  if (typeof raw === 'string' && /ação desconhecida/i.test(raw)) {
+    return 'O manager conectado ainda está numa versão sem metas de conversão. Atualize o manager_dealer e reinicie para a meta ser salva.';
+  }
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  return fallback;
+}
+
+function budgetOf(free, pct) {
+  return free * (Number(pct) || 0) / 100;
+}
+
+function GoalCard({ goal, legs, holdings, execState, onRemove, onTrade }) {
+  const fromAsset = goal.fromAsset || goal.from_asset;
+  const balance = goal.balance ?? holdings?.held?.[fromAsset] ?? 0;
+  const free = holdings?.free?.[fromAsset] ?? 0;
+
+  const plans = (goal.targets || []).map((target) => {
+    const path = bestConversionPath(fromAsset, target.asset, legs, GOAL_ASSETS);
+    const budget = budgetOf(free, target.pct);
+    const profitable = Boolean(path && path.mmPct < 0);
+    const plan = profitable ? chainExecution(path.legs, budget) : null;
+    const canTrade = Boolean(plan?.profitAmount > 0 && plan.startAmount > 0);
+    return { target, path, plan, canTrade };
+  });
 
   return (
     <div className="dealer-opp-card dealer-goal-card">
       <div className="dealer-opp-head">
         <div className="dealer-opp-pair">
           <span className="dealer-opp-pair-name">
-            {goal.fromAsset} <TbArrowRight /> {goal.targets.map((t) => `${t.asset}${goal.targets.length > 1 ? ` (${t.pct}%)` : ''}`).join(' + ')}
+            {fromAsset} <TbArrowRight /> {goal.targets.map((t) => `${t.asset}${goal.targets.length > 1 ? ` (${t.pct}%)` : ''}`).join(' + ')}
           </span>
         </div>
         <Button size="sm" variant="outline-danger" className="dealer-goal-remove" onClick={() => onRemove(goal.id)} title="Remover meta">
@@ -592,17 +667,43 @@ function GoalCard({ goal, legs, onRemove }) {
         </Button>
       </div>
       <div className="dealer-opp-ref">
-        <span className="dealer-opp-ref-label">Saldo atual de {goal.fromAsset}</span>
-        <span className="dealer-opp-ref-val">{formatAssetBalance(goal.fromAsset, balance)}</span>
+        <span className="dealer-opp-ref-label">Temos {fromAsset}</span>
+        <span className="dealer-opp-ref-val">{formatAssetBalance(fromAsset, balance)}</span>
       </div>
-      <div className="dealer-opp-spread-legs-title">Melhor rota agora</div>
+      <p className="dealer-opp-resources">
+        Disponível <strong>{formatAssetBalance(fromAsset, free)}</strong> para aumentar as moedas da meta.
+      </p>
       <div className="dealer-goal-paths">
-        {goal.targets.map((t) => {
-          const path = bestConversionPath(goal.fromAsset, t.asset, legs, GOAL_ASSETS);
+        {plans.map(({ target, path, plan, canTrade }) => {
+          const key = `${goal.id}:${target.asset}`;
+          const state = execState?.[key];
           return (
-            <div key={t.asset} className="dealer-goal-path-row">
-              <span className="dealer-opp-price-label">{goal.fromAsset} → {t.asset}</span>
-              <GoalPathBadge path={path} />
+            <div key={target.asset} className="dealer-goal-plan">
+              {plan ? (
+                <OpportunityNarrative
+                  hops={plan.hops}
+                  profitAsset={plan.profitAsset}
+                  profitAmount={plan.profitAmount}
+                  spendAsset={fromAsset}
+                  held={holdings?.held?.[fromAsset] ?? 0}
+                  free={budgetOf(free, target.pct)}
+                  bookAmount={chainExecution(path.legs)?.bookAmount}
+                />
+              ) : (
+                <div className="dealer-goal-path-row">
+                  <span className="dealer-opp-price-label">{fromAsset} → {target.asset}</span>
+                  <GoalPathBadge path={path} />
+                  <span className="dealer-goal-path-na">Essa rota ainda não rende mais do que o mercado.</span>
+                </div>
+              )}
+              {canTrade && (
+                <TradeButton
+                  busy={state?.busy}
+                  note={state?.message}
+                  label={`Trocar ${formatAssetBalance(fromAsset, plan.startAmount)} por ${plan.hops[0].get}`}
+                  onClick={() => onTrade(key, plan.hops[0].leg, plan.startAmount, fromAsset)}
+                />
+              )}
             </div>
           );
         })}
@@ -627,15 +728,19 @@ export default function MarketOpportunities({
   const [viewMode, setViewMode] = useState('spread');
   const [goals, setGoals] = useState([]);
   const [goalsError, setGoalsError] = useState(null);
+  const [execState, setExecState] = useState({});
+  const reservedRef = React.useRef({});
+
+  const holdings = useMemo(() => sumHoldings(dealers), [dealers]);
 
   const refreshGoals = React.useCallback(() => {
     if (!sendCommand) return;
     sendCommand('get_rebalance_goals', {}).then((res) => {
       if (res?.ok && res.data) {
-        setGoals(res.data.goals || []);
+        setGoals((res.data.goals || []).map(normalizeGoal));
         setGoalsError(null);
       } else {
-        setGoalsError(res?.error || 'Falha ao carregar metas');
+        setGoalsError(goalCommandError(res, 'Falha ao carregar metas'));
       }
     }).catch((err) => setGoalsError(err.message));
   }, [sendCommand]);
@@ -648,15 +753,56 @@ export default function MarketOpportunities({
 
   const handleAddGoal = async (fromAsset, targets) => {
     if (!sendCommand) return;
-    const res = await sendCommand('add_rebalance_goal', { from_asset: fromAsset, targets });
-    if (res?.ok) refreshGoals();
-    else setGoalsError(res?.error || 'Falha ao criar meta');
+    setGoalsError(null);
+    try {
+      const res = await sendCommand('add_rebalance_goal', { from_asset: fromAsset, targets });
+      if (res?.ok) refreshGoals();
+      else setGoalsError(goalCommandError(res, 'Falha ao criar meta'));
+    } catch (err) {
+      setGoalsError(err?.message || 'Falha ao criar meta');
+    }
   };
   const handleRemoveGoal = async (id) => {
     if (!sendCommand) return;
-    const res = await sendCommand('remove_rebalance_goal', { id });
-    if (res?.ok) refreshGoals();
-    else setGoalsError(res?.error || 'Falha ao remover meta');
+    try {
+      const res = await sendCommand('remove_rebalance_goal', { id });
+      if (res?.ok) refreshGoals();
+      else setGoalsError(goalCommandError(res, 'Falha ao remover meta'));
+    } catch (err) {
+      setGoalsError(err?.message || 'Falha ao remover meta');
+    }
+  };
+
+  const handleTrade = async (key, leg, spendAmount, asset) => {
+    if (!sendCommand) return;
+    const wallet = bestWallet(dealers, asset);
+    const reserved = reservedRef.current[asset] || 0;
+    const room = (wallet?.available ?? 0) - reserved;
+    if (!wallet || room <= 0) {
+      setExecState((prev) => ({
+        ...prev,
+        [key]: { busy: false, message: `Sem ${asset} disponível para trocar.` },
+      }));
+      return;
+    }
+    const spend = Math.min(spendAmount, room);
+    const order = takerOrder(leg, spend);
+    if (!order) return;
+    reservedRef.current[asset] = reserved + spend;
+    setExecState((prev) => ({ ...prev, [key]: { busy: true, message: null } }));
+    try {
+      const params = normalizeSendParams({ pid: wallet.pid, ...order });
+      const res = await sendCommand('send_order', params);
+      const message = describeSendOrderResult(res);
+      setExecState((prev) => ({ ...prev, [key]: { busy: false, message } }));
+    } catch (err) {
+      setExecState((prev) => ({
+        ...prev,
+        [key]: { busy: false, message: err?.message || 'Falha ao enviar a troca.' },
+      }));
+    } finally {
+      reservedRef.current[asset] = Math.max(0, (reservedRef.current[asset] || 0) - spend);
+    }
   };
   /* Coleta todos os order_ids das nossas ordens (para verificar cobertura no livro) */
   const dealerOrderIds = useMemo(() => {
@@ -712,7 +858,11 @@ export default function MarketOpportunities({
     [pairs, books, indPrices],
   );
   const spreadOppIds = useMemo(
-    () => [...spreadOpp.standalone.map((l) => l.id), ...spreadOpp.routes.map((r) => r.id)],
+    () => [
+      ...(spreadOpp.cycles || []).map((cycle) => cycle.id),
+      ...spreadOpp.standalone.map((leg) => leg.id),
+      ...spreadOpp.routes.map((route) => route.id),
+    ],
     [spreadOpp],
   );
   const spreadOppAge = useOpportunityAge(spreadOppIds);
@@ -829,27 +979,56 @@ export default function MarketOpportunities({
       ) : viewMode === 'arbitragem' ? (
         <>
           <p className="dealer-opp-below-hint">
-            DePix só aparece quando dá para vender com mais de {DEPIX_SELL_MIN_PCT}% de ganho.
-            Troca que entrega DePix fica de fora. O Telegram repete o alerta a cada 1h enquanto a oportunidade durar.
+            Só entra o que deixa mais moeda do que o preço de mercado.
+            A frase diz a compra, a volta e o ganho. Embaixo, o que temos e o que cabe na ordem.
           </p>
           {spreadOpp.total === 0 && status === 'connected' && (
-            <p className="dealer-empty">Nenhuma venda de DePix acima de {DEPIX_SELL_MIN_PCT}% no momento.</p>
+            <p className="dealer-empty">Nenhuma troca com ganho no momento.</p>
           )}
           <div className="dealer-opp-grid dealer-opp-grid-arbitragem">
-            {spreadOpp.standalone.map((leg) => (
-              <StandaloneOpportunityCard key={leg.id} leg={leg} age={formatAge(spreadOppAge.get(leg.id))} />
+            {(spreadOpp.cycles || []).map((cycle) => (
+              <ChainOpportunityCard
+                key={cycle.id}
+                gainPct={cycle.gainPct}
+                legs={cycle.legs}
+                holdings={holdings}
+                age={formatAge(spreadOppAge.get(cycle.id))}
+                tradeKey={cycle.id}
+                execState={execState}
+                onTrade={handleTrade}
+              />
             ))}
             {spreadOpp.routes.map((route) => (
-              <RouteOpportunityCard key={route.id} route={route} age={formatAge(spreadOppAge.get(route.id))} />
+              <ChainOpportunityCard
+                key={route.id}
+                gainPct={Math.abs(route.combinedMmPct)}
+                legs={route.legs}
+                holdings={holdings}
+                age={formatAge(spreadOppAge.get(route.id))}
+                tradeKey={route.id}
+                execState={execState}
+                onTrade={handleTrade}
+              />
+            ))}
+            {spreadOpp.standalone.map((leg) => (
+              <ChainOpportunityCard
+                key={leg.id}
+                gainPct={Math.abs(leg.mmPct)}
+                legs={[leg]}
+                holdings={holdings}
+                age={formatAge(spreadOppAge.get(leg.id))}
+                tradeKey={leg.id}
+                execState={execState}
+                onTrade={handleTrade}
+              />
             ))}
           </div>
         </>
       ) : viewMode === 'metas' ? (
         <>
           <p className="dealer-opp-below-hint">
-            Preferência estrutural de inventário — "tenho X e quero estar em Y", independente de
-            haver arbitragem agora. Roda no backend (não precisa do navegador aberto) e avisa no
-            Telegram quando a rota ficar favorável, a cada 1h enquanto durar.
+            A meta diz quais moedas queremos ter em maior quantidade.
+            A troca só sai quando rende mais do que o mercado, no tamanho do saldo disponível.
           </p>
           {!sendCommand ? (
             <p className="dealer-empty">Conecte-se ao manager para configurar metas.</p>
@@ -866,7 +1045,10 @@ export default function MarketOpportunities({
                       key={goal.id}
                       goal={goal}
                       legs={spreadOpp.legs}
+                      holdings={holdings}
+                      execState={execState}
                       onRemove={handleRemoveGoal}
+                      onTrade={handleTrade}
                     />
                   ))}
                 </div>

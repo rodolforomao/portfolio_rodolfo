@@ -199,6 +199,135 @@ export function legCapacity(leg) {
 }
 
 /**
+ * Frase da troca, no formato:
+ * "Compre DePix agora e compre L-BTC e volte para o USDt. Você ganhará X."
+ * hops: pernas em ordem, cada uma com give/get.
+ */
+export function tradeSentence(hops, profitLabel) {
+  if (!hops?.length) return '';
+  const acquired = hops.slice(0, -1).map((hop) => hop.get);
+  const back = hops[hops.length - 1].get;
+  let action;
+  if (acquired.length === 0) {
+    const side = hops[0].leg?.side || hops[0].side;
+    action = side === 'Sell'
+      ? `Compre ${back} agora`
+      : `Venda ${hops[0].give} e volte para o ${back}`;
+  } else if (acquired.length === 1) {
+    action = `Compre ${acquired[0]} agora e volte para o ${back}`;
+  } else {
+    const rest = acquired.slice(1).map((asset) => `compre ${asset}`).join(' e ');
+    action = `Compre ${acquired[0]} agora e ${rest} e volte para o ${back}`;
+  }
+  if (profitLabel) return `${action}. Você ganhará ${profitLabel}.`;
+  return `${action}.`;
+}
+
+/**
+ * Executa uma cadeia de pernas. spendCap limita o quanto do ativo inicial
+ * podemos usar (saldo disponível). bookAmount é o teto do livro, sem saldo.
+ */
+export function chainExecution(legs, spendCap = null) {
+  if (!legs?.length || legs.some((leg) => !leg?.rate)) return null;
+
+  let divisor = 1;
+  let bookAmount = null;
+  let limitedBy = null;
+  legs.forEach((leg, index) => {
+    const cap = legCapacity(leg);
+    if (cap.giveAmount == null) return;
+    const startLimit = cap.giveAmount / divisor;
+    if (bookAmount == null || startLimit < bookAmount) {
+      bookAmount = startLimit;
+      limitedBy = index;
+    }
+    divisor *= leg.rate;
+  });
+
+  let startAmount = bookAmount;
+  if (spendCap != null && Number.isFinite(spendCap)) {
+    const cap = Math.max(0, spendCap);
+    startAmount = startAmount == null ? cap : Math.min(startAmount, cap);
+  }
+  if (startAmount == null) {
+    return {
+      startAmount: null,
+      bookAmount: null,
+      endAmount: null,
+      profitAmount: null,
+      profitAsset: legs[legs.length - 1].get,
+      startAsset: legs[0].give,
+      unlimited: true,
+      limitedBy,
+      hops: legs.map((leg) => ({ give: leg.give, get: leg.get, giveAmount: null, getAmount: null, leg })),
+    };
+  }
+
+  const amounts = [startAmount];
+  let cursor = startAmount;
+  legs.forEach((leg) => {
+    cursor *= leg.rate;
+    amounts.push(cursor);
+  });
+
+  let fairEnd = startAmount;
+  legs.forEach((leg) => {
+    fairEnd *= leg.fairRate || 0;
+  });
+  const endAmount = amounts[amounts.length - 1];
+  const profitAmount = fairEnd > 0 ? endAmount - fairEnd : null;
+
+  return {
+    startAmount,
+    bookAmount,
+    endAmount,
+    profitAmount,
+    profitAsset: legs[legs.length - 1].get,
+    startAsset: legs[0].give,
+    unlimited: false,
+    limitedBy,
+    hops: legs.map((leg, index) => ({
+      give: leg.give,
+      get: leg.get,
+      giveAmount: amounts[index],
+      getAmount: amounts[index + 1],
+      leg,
+    })),
+  };
+}
+
+const CYCLE_ASSETS = ['L-BTC', 'USDt', 'DePix'];
+
+/** Ciclo de 3 pernas que devolve mais do ativo inicial do que o preço justo. */
+export function findProfitCycles(legs) {
+  const cycles = [];
+  for (const start of CYCLE_ASSETS) {
+    const rest = CYCLE_ASSETS.filter((asset) => asset !== start);
+    for (const mid of rest) {
+      const third = rest.find((asset) => asset !== mid);
+      const leg1 = (legs || []).find((leg) => leg.give === start && leg.get === mid);
+      const leg2 = (legs || []).find((leg) => leg.give === mid && leg.get === third);
+      const leg3 = (legs || []).find((leg) => leg.give === third && leg.get === start);
+      if (!leg1 || !leg2 || !leg3) continue;
+      if (![leg1, leg2, leg3].every((leg) => leg.fairRate && leg.rate)) continue;
+      const achieved = leg1.rate * leg2.rate * leg3.rate;
+      const fair = leg1.fairRate * leg2.fairRate * leg3.fairRate;
+      if (!fair || achieved <= fair) continue;
+      const gainPct = ((achieved - fair) / fair) * 100;
+      const chain = [leg1, leg2, leg3];
+      cycles.push({
+        id: `cycle:${start}>${mid}>${third}>${start}`,
+        start,
+        legs: chain,
+        gainPct,
+        execution: chainExecution(chain),
+      });
+    }
+  }
+  return cycles.sort((a, b) => b.gainPct - a.gainPct);
+}
+
+/**
  * Quanto a rota inteira comporta (limitado pela perna mais rasa) e o ganho
  * absoluto no ativo final, acima do preço justo, se executar esse amount.
  */
@@ -277,5 +406,12 @@ export function computeSpreadOpportunities(pairs, books, indPrices, options = {}
   const legs = computeLegs(pairs, books, indPrices);
   const standalone = findStandaloneOpportunities(legs);
   const routes = findRouteOpportunities(legs, { ...options, canonicalPairs: pairs || [] });
-  return { legs, standalone, routes, total: standalone.length + routes.length };
+  const cycles = findProfitCycles(legs);
+  return {
+    legs,
+    standalone,
+    routes,
+    cycles,
+    total: standalone.length + routes.length + cycles.length,
+  };
 }

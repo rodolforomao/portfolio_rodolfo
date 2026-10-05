@@ -17,7 +17,7 @@ const TOOLS = [
   },
   {
     to: '/dealer/cotacoes',
-    title: 'Cotações',
+    title: 'Swap Dex',
     description: 'O que entra na conta, a entrega em cripto e a divisão da mesa.',
     icon: TbReceipt,
   },

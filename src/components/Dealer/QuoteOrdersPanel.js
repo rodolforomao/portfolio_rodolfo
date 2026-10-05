@@ -813,28 +813,10 @@ export default function QuoteOrdersPanel() {
     <div className="dealer-quote">
       <header className="dealer-quote-head">
         <div>
-          <h4 className="dealer-quote-title">Cotações</h4>
+          <h4 className="dealer-quote-title">Swap Dex</h4>
           <p className="dealer-quote-lede">
-            O preço da Binance fica travado por uma hora. A mesa se reparte entre quem entra na ordem.
+            O preço trava na hora da ordem e vale uma hora. A mesa se reparte entre quem entra.
           </p>
-        </div>
-        <div className="dealer-quote-ticker" aria-live="polite">
-          <span className="dealer-quote-ticker-pair">
-            {asset}/{moneyMeta('BRL').code || 'BRL'}
-          </span>
-          <strong>{rate ? formatRate(rate.price) : '—'}</strong>
-          <span className="dealer-quote-rate-meta">
-            {rateLoading ? 'Lendo a Binance' : rate ? `Binance, ${formatWhen(rate.fetchedAt)}` : 'Sem preço'}
-          </span>
-          <button
-            type="button"
-            className="dealer-quote-icon-btn"
-            onClick={() => loadRate(meta.symbol).catch(() => {})}
-            aria-label="Atualizar cotação da Binance"
-            title="Atualizar cotação da Binance"
-          >
-            <TbRefresh />
-          </button>
         </div>
       </header>
 
@@ -844,13 +826,13 @@ export default function QuoteOrdersPanel() {
 
       <div className="dealer-quote-workspace">
       <form className="dealer-quote-form" onSubmit={handleCreate}>
-        <h5 className="dealer-quote-sheet-title">Nova ordem</h5>
-        <div className="dealer-quote-fields">
-          <label>
-            Entra na conta
-            <span className="dealer-quote-receive">
-              <Mark code={incomingCode || 'BRL'} size={20} label={incomingCode || 'BRL'} />
+        <div className="dealer-quote-swap" aria-label="Troca">
+          <div className="dealer-quote-leg">
+            <span className="dealer-quote-leg-name">Entra na conta</span>
+            <div className="dealer-quote-leg-main">
+              <Mark code={incomingCode || 'BRL'} size={28} label={incomingCode || 'BRL'} />
               <DecimalInput
+                className="dealer-quote-leg-amount"
                 aria-label="Valor que entra"
                 decimals={decimalPlaces(isBrlPeg(incomingCode) ? 'BRL' : incomingCode)}
                 value={receiveInput}
@@ -862,39 +844,65 @@ export default function QuoteOrdersPanel() {
                   if (Number.isFinite(n)) setReceiveInput(formatDecimalInput(n, places));
                 }}
               />
-              <select
-                aria-label="Moeda que entra"
-                value={receiveChoice}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setReceiveChoice(next);
-                  const code = receiveCode(next, receiveCustom);
-                  const places = decimalPlaces(isBrlPeg(code) ? 'BRL' : code);
-                  setReceiveInput((prev) => {
-                    const n = parseBrlInput(prev);
-                    return Number.isFinite(n) ? formatDecimalInput(n, places) : maskDecimalInput(prev, places);
-                  });
-                }}
-              >
-                {RECEIVE_PRESETS.map((item) => (
-                  <option key={item.id} value={item.id}>{item.label}</option>
-                ))}
-              </select>
-              {receiveChoice === 'OUTRA' && (
-                <input
-                  aria-label="Código da moeda"
-                  value={receiveCustom}
-                  onChange={(e) => setReceiveCustom(e.target.value.toUpperCase())}
-                  placeholder="SOL"
-                />
-              )}
+            </div>
+            <select
+              className="dealer-quote-leg-select"
+              aria-label="Moeda que entra"
+              value={receiveChoice}
+              onChange={(e) => {
+                const next = e.target.value;
+                setReceiveChoice(next);
+                const code = receiveCode(next, receiveCustom);
+                const places = decimalPlaces(isBrlPeg(code) ? 'BRL' : code);
+                setReceiveInput((prev) => {
+                  const n = parseBrlInput(prev);
+                  return Number.isFinite(n) ? formatDecimalInput(n, places) : maskDecimalInput(prev, places);
+                });
+              }}
+            >
+              {RECEIVE_PRESETS.map((item) => (
+                <option key={item.id} value={item.id}>{item.label}</option>
+              ))}
+            </select>
+            {receiveChoice === 'OUTRA' && (
+              <input
+                aria-label="Código da moeda"
+                value={receiveCustom}
+                onChange={(e) => setReceiveCustom(e.target.value.toUpperCase())}
+                placeholder="SOL"
+              />
+            )}
+          </div>
+
+          <div className="dealer-quote-bridge" aria-live="polite">
+            <span className="dealer-quote-bridge-pair">1 {moneyMeta(asset).symbol}</span>
+            <strong>{rate ? formatRate(rate.price) : '—'}</strong>
+            <span className="dealer-quote-bridge-pair">reais</span>
+            <span className="dealer-quote-bridge-meta">
+              {rateLoading ? 'Lendo a Binance' : rate ? `Binance, ${formatWhen(rate.fetchedAt)}` : 'Sem preço'}
             </span>
-          </label>
-            <label>
-              Entregar
-              <span className="dealer-quote-receive">
-                <Mark code={asset} size={20} label={asset} />
-                <select
+            <button
+              type="button"
+              className="dealer-quote-icon-btn"
+              onClick={() => loadRate(meta.symbol).catch(() => {})}
+              aria-label="Atualizar cotação da Binance"
+              title="Atualizar cotação da Binance"
+            >
+              <TbRefresh />
+            </button>
+          </div>
+
+          <div className="dealer-quote-leg dealer-quote-leg-out">
+            <span className="dealer-quote-leg-name">Cliente recebe</span>
+            <div className="dealer-quote-leg-main">
+              <Mark code={asset} size={28} label={asset} />
+              <strong className="dealer-quote-receive-figure">
+                {preview ? formatMoney(preview.client, asset) : '—'}
+              </strong>
+            </div>
+            <div className="dealer-quote-leg-picks">
+              <select
+                aria-label="Ativo a entregar"
                 value={asset}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -908,19 +916,20 @@ export default function QuoteOrdersPanel() {
                   </option>
                 ))}
               </select>
+              <span className="dealer-quote-leg-net">
+                <Mark code={asset} network={network} size={18} label={`${asset} na rede ${network}`} />
+                <select aria-label="Rede de entrega" value={network} onChange={(e) => setNetwork(e.target.value)}>
+                  {meta.networks.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
               </span>
-            </label>
-          <label>
-            Rede
-            <span className="dealer-quote-receive">
-              <Mark code={asset} network={network} size={20} label={`${asset} na rede ${network}`} />
-              <select value={network} onChange={(e) => setNetwork(e.target.value)}>
-              {meta.networks.map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-            </span>
-          </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="dealer-quote-body">
+        <div className="dealer-quote-route-form">
           <label>
             Cliente
             <input
@@ -929,9 +938,6 @@ export default function QuoteOrdersPanel() {
               placeholder="Nome do cliente"
             />
           </label>
-        </div>
-
-        <div className="dealer-quote-route-form">
           <label>
             Endereço de recebimento do cliente
             <input
@@ -1109,6 +1115,7 @@ export default function QuoteOrdersPanel() {
             </span>
           )}
         </div>
+        </div>
       </form>
 
       <aside className="dealer-quote-ledger" aria-label="Ordens realizadas">
@@ -1266,14 +1273,10 @@ function QuoteMath({ calc, asset, network, rateLabel, received }) {
   const other = asset !== 'USDT';
   return (
     <div className="dealer-quote-preview">
-      <div className="dealer-quote-preview-hero">
-        <span>Cliente recebe</span>
-        <strong>{formatAsset(calc.client, asset)}</strong>
-        <span>
-          {received ? `Entra ${formatMoney(received.amount, received.code)}. ` : ''}
-          Rede {network}. 1 {moneyMeta(asset).symbol} = {rateLabel}
-        </span>
-      </div>
+      <p className="dealer-quote-preview-note">
+        {received ? `Entra ${formatMoney(received.amount, received.code)}. ` : ''}
+        Rede {network}. 1 {moneyMeta(asset).symbol} = {rateLabel}. Vale uma hora.
+      </p>
       <table className="dealer-quote-table">
         <thead>
           <tr>
