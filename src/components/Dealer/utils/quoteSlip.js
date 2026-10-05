@@ -1,3 +1,4 @@
+import swapDexMark from '../../../Assets/swap-dex-mark.png';
 import { paintAsset, paintPair } from './quoteMarks';
 import {
   formatMoney, formatMoneyLabeled, moneyMeta, normalizeHops, partyPaid, payoutLabel, payoutOf, profitCurrencyOf,
@@ -5,6 +6,29 @@ import {
   receivedOf,
   settlementOf, snapshotAmounts,
 } from './quoteOrders';
+
+const brandMark = new Image();
+brandMark.src = swapDexMark;
+
+export function whenBrandReady() {
+  const font = document.fonts?.load?.('600 26px "IBM Plex Sans"')?.catch?.(() => {}) || Promise.resolve();
+  const image = brandMark.complete && brandMark.naturalWidth
+    ? Promise.resolve()
+    : new Promise((resolve) => {
+      brandMark.addEventListener('load', () => resolve(), { once: true });
+      brandMark.addEventListener('error', () => resolve(), { once: true });
+    });
+  return Promise.all([font, image]);
+}
+
+function drawBrand(ctx, width) {
+  const size = 58;
+  const pad = 44;
+  if (brandMark.complete && brandMark.naturalWidth) {
+    ctx.drawImage(brandMark, width - pad - size, 26, size, size);
+  }
+  return pad + size + 12;
+}
 
 const SCALE = 2;
 const INK = '#1A2421';
@@ -24,9 +48,27 @@ function setup(width, height) {
   return { canvas, ctx };
 }
 
+const FACE = '"IBM Plex Sans", "Segoe UI", sans-serif';
+
 function setFont(ctx, size, weight) {
-  ctx.font = `${weight} ${size}px "Segoe UI", "Helvetica Neue", sans-serif`;
+  ctx.font = `${weight} ${size}px ${FACE}`;
   ctx.textBaseline = 'top';
+}
+
+function wrapMeasured(ctx, text, maxWidth) {
+  const lines = [];
+  let line = '';
+  for (const ch of String(text)) {
+    const next = line + ch;
+    if (line && ctx.measureText(next).width > maxWidth) {
+      lines.push(line);
+      line = ch;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [''];
 }
 
 function fillFit(ctx, text, x, y, size, weight, maxWidth, minSize = 16) {
@@ -104,50 +146,113 @@ function drawBlock(ctx, x, y, label, value, detail, valueColor) {
 
 /** Proposta do cliente: enviado, recebido, rede. Sem a mesa. */
 export function drawClientSlip(quote, calc) {
-  const width = 640;
-  const mark = MARK_BAND;
+  const width = 720;
+  const x = 36;
   const address = String(quote.clientAddress || '').trim();
-  const height = (address ? 590 : 520) + mark;
-  const { canvas, ctx } = setup(width, height);
-  const x = 48;
-
-  ctx.fillStyle = RECEIVE;
-  ctx.fillRect(0, 0, 8, height);
-
-  setFont(ctx, 26, 600);
-  ctx.fillText('Cotação do cliente', x, 40);
-  setFont(ctx, 14, 500);
-  ctx.fillStyle = MUTED;
-  const who = quote.clientName ? `Para ${quote.clientName} · ` : '';
-  ctx.fillText(`${who}válida até ${formatWhen(quote.expiresAt)}`, x, 76);
-  rule(ctx, x, 112, width - 96);
-
+  const name = String(quote.clientName || '').trim();
   const sent = receivedOf(quote);
-  let y = drawBlock(
-    ctx, x, 136,
-    'Você envia',
-    formatMoney(sent.amount, sent.code),
-    sent.code === 'BRL' ? 'BRL' : `equivale a ${formatMoney(calc.brl, 'BRL')}`,
-  );
-  y = drawBlock(
-    ctx, x, y + 8,
-    'Você recebe',
-    formatMoney(calc.client, quote.asset),
-    `${moneyMeta(quote.asset).code} · rede ${quote.network}`,
-    RECEIVE,
-  );
-  if (address) {
-    setFont(ctx, 13, 500);
-    ctx.fillStyle = MUTED;
-    ctx.fillText('Endereço de recebimento', x, y);
-    ctx.fillStyle = INK;
-    fillFit(ctx, address, x, y + 20, 15, 500, width - 96, 11);
+  const asset = quote.asset || 'USDT';
+  const meta = moneyMeta(asset);
+  const network = quote.network || '';
+  const showEquiv = sent.code !== 'BRL' && Number.isFinite(Number(calc?.brl));
+
+  const measure = document.createElement('canvas').getContext('2d');
+  measure.font = `500 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+  const addressLines = address ? wrapMeasured(measure, address, width - x * 2) : [];
+
+  const headerH = name ? 150 : 124;
+  const height = headerH
+    + 36
+    + 24 + 44 + (showEquiv ? 26 : 0) + 22
+    + 24 + 54 + 52
+    + (addressLines.length ? 26 + addressLines.length * 22 + 18 : 0)
+    + 72;
+
+  const { canvas, ctx } = setup(width, height);
+  ctx.fillStyle = '#101614';
+  ctx.fillRect(0, 0, width, headerH);
+
+  const markSize = 68;
+  if (brandMark.complete && brandMark.naturalWidth) {
+    ctx.drawImage(brandMark, x, 28, markSize, markSize);
   }
 
+  ctx.fillStyle = '#F4F7F5';
+  setFont(ctx, 26, 600);
+  ctx.fillText('SWAP DEX', 120, 34);
+  ctx.fillStyle = '#8FB3A8';
+  setFont(ctx, 15, 500);
+  ctx.fillText('OTC trading desk', 120, 68);
+  if (name) {
+    ctx.fillStyle = '#D7E6DF';
+    fillFit(ctx, `Para ${name}`, 120, 100, 16, 500, width - 300, 13);
+  }
+
+  const until = formatWhen(quote.expiresAt);
   setFont(ctx, 13, 500);
+  ctx.fillStyle = '#8EA89F';
+  const validLabel = 'Válida até';
+  ctx.fillText(validLabel, width - x - ctx.measureText(validLabel).width, 36);
+  setFont(ctx, 16, 600);
+  ctx.fillStyle = '#F4F7F5';
+  ctx.fillText(until, width - x - ctx.measureText(until).width, 58);
+
+  let y = headerH + 32;
   ctx.fillStyle = MUTED;
-  ctx.fillText('O valor a receber usa a cotação travada nesta proposta.', x, height - mark - 52);
-  drawCornerMarks(ctx, width, height, quote);
+  setFont(ctx, 15, 500);
+  ctx.fillText('Você envia', x, y);
+  y += 24;
+  ctx.fillStyle = INK;
+  fillFit(ctx, formatMoney(sent.amount, sent.code), x, y, 32, 600, width - x * 2, 20);
+  y += 44;
+  if (showEquiv) {
+    ctx.fillStyle = MUTED;
+    setFont(ctx, 15, 500);
+    ctx.fillText(`Equivale a ${formatMoney(calc.brl, 'BRL')}`, x, y);
+    y += 26;
+  }
+  y += 18;
+
+  ctx.fillStyle = MUTED;
+  setFont(ctx, 15, 500);
+  ctx.fillText('Você recebe', x, y);
+  y += 24;
+  ctx.fillStyle = '#0C7A64';
+  fillFit(ctx, formatMoney(calc.client, asset), x, y, 40, 600, width - x * 2, 22);
+  y += 52;
+
+  const pairSize = 40;
+  paintPair(ctx, asset, network, x, y, pairSize, PAPER);
+  ctx.fillStyle = INK;
+  setFont(ctx, 16, 500);
+  ctx.fillText(network ? `${meta.code} na rede ${network}` : meta.code, x + pairSize + 12, y + 11);
+  y += pairSize + 20;
+
+  if (addressLines.length) {
+    ctx.fillStyle = MUTED;
+    setFont(ctx, 15, 500);
+    ctx.fillText('Recebe neste endereço', x, y);
+    y += 26;
+    ctx.fillStyle = INK;
+    ctx.font = '500 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    ctx.textBaseline = 'top';
+    addressLines.forEach((line) => {
+      ctx.fillText(line, x, y);
+      y += 22;
+    });
+    y += 16;
+  }
+
+  rule(ctx, x, y, width - x * 2);
+  y += 18;
+  ctx.fillStyle = INK;
+  setFont(ctx, 16, 600);
+  ctx.fillText(`1 ${meta.symbol} = R$ ${formatRate(calc.rate)}`, x, y);
+  y += 28;
+  ctx.fillStyle = MUTED;
+  setFont(ctx, 14, 500);
+  ctx.fillText('Preço travado nesta proposta.', x, y);
+
   return canvas;
 }
 
@@ -183,13 +288,15 @@ export function drawMesaSlip(quote, calc, title = 'Cotação da mesa') {
 
   ctx.fillStyle = '#1A2421';
   ctx.fillRect(0, 0, 8, height);
+  const brand = drawBrand(ctx, width);
 
   setFont(ctx, 26, 600);
-  ctx.fillText(title, x, 40);
+  ctx.fillStyle = INK;
+  fillFit(ctx, title, x, 40, 26, 600, width - x - brand);
   setFont(ctx, 14, 500);
   ctx.fillStyle = MUTED;
   const who = quote.clientName ? `Cliente ${quote.clientName}` : 'Cliente';
-  ctx.fillText(who, x, 76);
+  fillFit(ctx, who, x, 76, 14, 500, width - x - brand, 11);
   rule(ctx, x, 112, width - 96);
 
   setFont(ctx, 13, 500);

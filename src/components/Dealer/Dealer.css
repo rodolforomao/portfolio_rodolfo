@@ -147,6 +147,12 @@ body.dealer-route-active .App.app-ready {
   color: #c770f0;
 }
 
+.dealer-hub-tile-mark {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
 .dealer-hub-tile-title {
   font-size: 1.05rem;
   font-weight: 700;
@@ -8248,6 +8254,12 @@ body.dealer-route-active .App.app-ready {
   font-weight: 600;
   letter-spacing: -0.035em;
   color: var(--q-ink);
+}
+
+.dealer-quote-logo {
+  display: block;
+  width: min(240px, 72vw);
+  height: auto;
 }
 
 .dealer-quote-lede {

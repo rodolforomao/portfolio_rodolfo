@@ -52,7 +52,8 @@ import {
   splitMesa,
 } from './utils/quoteOrders';
 import { paintAsset, paintPair, whenMarksReady } from './utils/quoteMarks';
-import { drawClientSlip, drawMesaSlip, shareCanvas } from './utils/quoteSlip';
+import { drawClientSlip, drawMesaSlip, shareCanvas, whenBrandReady } from './utils/quoteSlip';
+import swapDexLogo from '../../Assets/swap-dex-lockup.png';
 
 const STATUS_LABEL = {
   aberta: 'Aberta',
@@ -813,7 +814,9 @@ export default function QuoteOrdersPanel() {
     <div className="dealer-quote">
       <header className="dealer-quote-head">
         <div>
-          <h4 className="dealer-quote-title">Swap Dex</h4>
+          <h4 className="dealer-quote-title">
+            <img className="dealer-quote-logo" src={swapDexLogo} alt="Swap Dex" />
+          </h4>
           <p className="dealer-quote-lede">
             O preço trava na hora da ordem e vale uma hora. A mesa se reparte entre quem entra.
           </p>
@@ -1421,7 +1424,7 @@ function QuoteRow({
     setSharing(true);
     setShareNote('');
     try {
-      await whenMarksReady();
+      await Promise.all([whenMarksReady(), whenBrandReady()]);
       let canvas;
       let file;
       let who;

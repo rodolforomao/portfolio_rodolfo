@@ -6,6 +6,7 @@ import {
   TbChartCandle, TbChartLine, TbArrowsExchange, TbLogout, TbLock, TbSettings, TbReceipt,
 } from 'react-icons/tb';
 import { clearSession, loadSession } from './config';
+import swapDexMark from '../../Assets/swap-dex-mark.png';
 import './Dealer.css';
 
 const TOOLS = [
@@ -20,6 +21,7 @@ const TOOLS = [
     title: 'Swap Dex',
     description: 'O que entra na conta, a entrega em cripto e a divisão da mesa.',
     icon: TbReceipt,
+    mark: swapDexMark,
   },
   {
     to: '/dealer/analyses',
@@ -65,9 +67,11 @@ export default function DealerMenu() {
           </div>
 
           <div className="dealer-hub-grid">
-            {TOOLS.map(({ to, title, description, icon: Icon }) => (
+            {TOOLS.map(({ to, title, description, icon: Icon, mark }) => (
               <Link key={to} to={to} className="dealer-hub-tile">
-                <Icon className="dealer-hub-tile-icon" />
+                {mark
+                  ? <img className="dealer-hub-tile-mark" src={mark} alt="" />
+                  : <Icon className="dealer-hub-tile-icon" />}
                 <span className="dealer-hub-tile-title">{title}</span>
                 <span className="dealer-hub-tile-desc">{description}</span>
               </Link>
