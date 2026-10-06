@@ -446,7 +446,11 @@ const CommandPanel = React.memo(function CommandPanel({
   const handleStopDealer = async () => {
     if (!selectedPid) return;
     const live = findLiveDealer(activeDealers, selectedPid);
-    if (!live) {
+    // dealerStatus 'error' ainda manda state_update via WS (processo vivo) —
+    // só está marcado por um crash_error velho do work_dir. Diferente de
+    // enviar ordem, parar é seguro mesmo nesse estado, então não bloqueamos.
+    const same = (activeDealers || []).find((d) => String(d.pid) === String(selectedPid));
+    if (!live && same?.dealerStatus !== 'error') {
       setFeedback({ ok: false, data: { error: `PID ${selectedPid} não está ativo no backend (zumbi/morto).` } });
       return;
     }

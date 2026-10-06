@@ -12,8 +12,8 @@ if [[ -f "$ROOT/.env" ]]; then
 fi
 
 # Defaults apontando pro workspace termux_blockchain (se existir)
-if [[ -z "${TERMUX_SSH_PASS_FILE:-}" && -f /home/black/enviroment/tmp/termux_blockchain/.ssh_pass_tmp ]]; then
-  export TERMUX_SSH_PASS_FILE=/home/black/enviroment/tmp/termux_blockchain/.ssh_pass_tmp
+if [[ -z "${TERMUX_SSH_PASS_FILE:-}" && -f /home/black/dev/studies/crypto-scratch/termux_blockchain/.ssh_pass_tmp ]]; then
+  export TERMUX_SSH_PASS_FILE=/home/black/dev/studies/crypto-scratch/termux_blockchain/.ssh_pass_tmp
 fi
 
 PORT="${TERMUX_HTTP_PORT:-8768}"
