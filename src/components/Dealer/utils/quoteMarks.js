@@ -211,7 +211,7 @@ export function paintNetwork(ctx, network, x, y, size) {
   glyph(ctx, x, y, size, (network || '?').slice(0, 1).toUpperCase());
 }
 
-/** Rede em tamanho cheio, moeda sobreposta no canto. O anel acompanha o fundo. */
+/** Moeda em tamanho cheio, rede pequena no canto. O anel acompanha o fundo. */
 export function paintPair(ctx, asset, network, x, y, size, ring = '#171c24') {
   if (!network) {
     paintAsset(ctx, asset, x, y, size);
@@ -219,16 +219,16 @@ export function paintPair(ctx, asset, network, x, y, size, ring = '#171c24') {
   }
   const networkKey = NETWORK_KEY[network];
   const coinKey = assetKey(asset);
-  const overlay = size >= 36 && coinKey && coinKey !== networkKey;
-  const badge = overlay ? Math.max(8, size * 0.4) : 0;
-  const disc = overlay ? size - badge * 0.42 : size;
-  paintNetwork(ctx, network, x, y, disc);
+  const overlay = size >= 36 && networkKey && coinKey !== networkKey;
+  const badge = overlay ? Math.max(10, Math.round(size * 0.38)) : 0;
+  const disc = overlay ? size - badge * 0.36 : size;
+  paintAsset(ctx, asset, x, y, disc);
   if (!overlay) return;
   const bx = x + size - badge;
   const by = y + size - badge;
   ctx.beginPath();
-  ctx.arc(bx + badge / 2, by + badge / 2, badge / 2 + Math.max(1, size * 0.045), 0, Math.PI * 2);
+  ctx.arc(bx + badge / 2, by + badge / 2, badge / 2 + Math.max(1, size * 0.04), 0, Math.PI * 2);
   ctx.fillStyle = ring;
   ctx.fill();
-  paintAsset(ctx, asset, bx, by, badge);
+  paintNetwork(ctx, network, bx, by, badge);
 }

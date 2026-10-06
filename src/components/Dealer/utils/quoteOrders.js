@@ -154,11 +154,16 @@ export function maskDecimalInput(raw, maxDecimals = 2) {
     else s = s.replace(/,/g, '').replace(/\./g, ',');
   } else if (hasDot) {
     const parts = s.split('.');
-    const thousands = parts.length > 1
-      && parts[0].length >= 1
-      && parts[0].length <= 3
-      && parts.slice(1).every((part) => /^\d{3}$/.test(part));
-    if (!thousands) {
+    const last = parts[parts.length - 1];
+    const head = parts.slice(0, -1);
+    const headIsThousands = head.length >= 1
+      && head[0].length >= 1
+      && head[0].length <= 3
+      && head.slice(1).every((part) => /^\d{3}$/.test(part));
+    const completeThousands = headIsThousands && /^\d{3}$/.test(last);
+    // "5.000" + mais um dígito vira "5.0000". O ponto ainda é milhar, não centavos.
+    const extendedThousands = headIsThousands && last.length > 3;
+    if (!completeThousands && !extendedThousands) {
       const dec = parts.pop();
       s = `${parts.join('')},${dec}`;
     }

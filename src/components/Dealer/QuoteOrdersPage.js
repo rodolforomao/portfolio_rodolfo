@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { TbArrowLeft } from 'react-icons/tb';
 import { loadSession } from './config';
 import QuoteOrdersPanel from './QuoteOrdersPanel';
+import swapDexMark from '../../Assets/swap-dex-mark.png';
 import './Dealer.css';
 
 /** Swap Dex fora do console. O único acesso é o botão do menu. */
@@ -23,9 +24,13 @@ export default function QuoteOrdersPage() {
   return (
     <div className="quote-page">
       <div className="quote-page-frame">
-        <Link to="/dealer/menu" className="quote-page-back">
-          <TbArrowLeft /> Menu
-        </Link>
+        <header className="quote-page-top">
+          <img className="quote-page-mark" src={swapDexMark} alt="" />
+          <h1>Swap Dex</h1>
+          <Link to="/dealer/menu" className="quote-page-back">
+            <TbArrowLeft /> Menu
+          </Link>
+        </header>
         <QuoteOrdersPanel />
       </div>
     </div>

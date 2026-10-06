@@ -31,11 +31,14 @@ function drawBrand(ctx, width) {
 }
 
 const SCALE = 2;
-const INK = '#1A2421';
-const MUTED = '#5E6D68';
-const LINE = '#D5E0DC';
-const PAPER = '#F4F7F6';
-const RECEIVE = '#0F6E56';
+const DESK = '#0C2430';
+const TEAL = '#1AA8A4';
+const CYAN = '#1A9BB8';
+const MIST = '#8FB4B0';
+const INK = '#122028';
+const MUTED = '#5A7174';
+const LINE = '#D0E0DC';
+const PAPER = '#F3F7F6';
 
 function setup(width, height) {
   const canvas = document.createElement('canvas');
@@ -169,7 +172,7 @@ export function drawClientSlip(quote, calc) {
     + 72;
 
   const { canvas, ctx } = setup(width, height);
-  ctx.fillStyle = '#101614';
+  ctx.fillStyle = DESK;
   ctx.fillRect(0, 0, width, headerH);
 
   const markSize = 68;
@@ -217,7 +220,7 @@ export function drawClientSlip(quote, calc) {
   setFont(ctx, 15, 500);
   ctx.fillText('Você recebe', x, y);
   y += 24;
-  ctx.fillStyle = '#0C7A64';
+  ctx.fillStyle = TEAL;
   fillFit(ctx, formatMoney(calc.client, asset), x, y, 40, 600, width - x * 2, 22);
   y += 52;
 
@@ -285,19 +288,21 @@ export function drawMesaSlip(quote, calc, title = 'Cotação da mesa') {
   const x = 48;
   const quoteAsset = moneyMeta(quote.asset);
   const brl = moneyMeta('BRL');
+  const headerH = 112;
 
-  ctx.fillStyle = '#1A2421';
+  ctx.fillStyle = DESK;
+  ctx.fillRect(0, 0, width, headerH);
+  ctx.fillStyle = CYAN;
   ctx.fillRect(0, 0, 8, height);
   const brand = drawBrand(ctx, width);
 
   setFont(ctx, 26, 600);
-  ctx.fillStyle = INK;
-  fillFit(ctx, title, x, 40, 26, 600, width - x - brand);
-  setFont(ctx, 14, 500);
-  ctx.fillStyle = MUTED;
+  ctx.fillStyle = '#F4F7F5';
+  fillFit(ctx, title, x, 32, 26, 600, width - x - brand);
+  setFont(ctx, 15, 500);
+  ctx.fillStyle = MIST;
   const who = quote.clientName ? `Cliente ${quote.clientName}` : 'Cliente';
-  fillFit(ctx, who, x, 76, 14, 500, width - x - brand, 11);
-  rule(ctx, x, 112, width - 96);
+  fillFit(ctx, who, x, 68, 15, 500, width - x - brand, 12);
 
   setFont(ctx, 13, 500);
   ctx.fillStyle = MUTED;
@@ -327,7 +332,7 @@ export function drawMesaSlip(quote, calc, title = 'Cotação da mesa') {
     'Cliente recebe',
     formatMoneyLabeled(calc.client, quote.asset),
     `rede ${quote.network}`,
-    RECEIVE,
+    TEAL,
   );
   if (routeLines) {
     hops.forEach((hop) => {

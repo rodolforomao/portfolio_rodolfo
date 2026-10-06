@@ -53,7 +53,6 @@ import {
 } from './utils/quoteOrders';
 import { paintAsset, paintPair, whenMarksReady } from './utils/quoteMarks';
 import { drawClientSlip, drawMesaSlip, shareCanvas, whenBrandReady } from './utils/quoteSlip';
-import swapDexLogo from '../../Assets/swap-dex-lockup.png';
 
 const STATUS_LABEL = {
   aberta: 'Aberta',
@@ -813,14 +812,9 @@ export default function QuoteOrdersPanel() {
   return (
     <div className="dealer-quote">
       <header className="dealer-quote-head">
-        <div>
-          <h4 className="dealer-quote-title">
-            <img className="dealer-quote-logo" src={swapDexLogo} alt="Swap Dex" />
-          </h4>
-          <p className="dealer-quote-lede">
-            O preço trava na hora da ordem e vale uma hora. A mesa se reparte entre quem entra.
-          </p>
-        </div>
+        <p className="dealer-quote-lede">
+          O preço trava na hora da ordem e vale uma hora. A mesa se reparte entre quem entra.
+        </p>
       </header>
 
       {(rateError || formError) && (
