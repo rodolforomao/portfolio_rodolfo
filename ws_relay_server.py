@@ -637,35 +637,17 @@ async def handler(ws: websockets.WebSocketServerProtocol):
         await ws.close(4004, f"Role desconhecida: {role}")
 
 
-async def heartbeat():
-    """Pinga browsers em paralelo (30s timeout) — não bloqueia o event loop."""
-    while True:
-        await asyncio.sleep(30)
-        if not browser_clients:
-            continue
-
-        dead: set = set()
-        clients = list(browser_clients)
-
-        async def _ping_one(client):
-            try:
-                await asyncio.wait_for(client.ping(), timeout=30.0)
-            except Exception:
-                dead.add(client)
-
-        tasks = [asyncio.create_task(_ping_one(c)) for c in clients]
-        await asyncio.gather(*tasks, return_exceptions=True)
-        if dead:
-            browser_clients.difference_update(dead)
-            log(f"Heartbeat removeu {len(dead)} browser(s) morto(s) (restam: {len(browser_clients)})")
-
-
 async def main():
     log(f"Relay iniciando em {HOST}:{PORT}")
     log(f"Token configurado: {'SIM' if TOKEN != 'change-me' else 'NÃO (use WS_BRIDGE_TOKEN=...)'}")
     log(f"Bridge SSH (bridge_agent/bridge_client): {'HABILITADO' if SSH_BRIDGE_TOKEN else 'desabilitado (defina SSH_BRIDGE_TOKEN=...)'}")
 
-    asyncio.create_task(heartbeat())
+    # Keepalive/limpeza de conexões mortas já é feito pelo ping_interval/
+    # ping_timeout nativos do websockets.serve abaixo (fecha a conexão, que
+    # cai no ConnectionClosed → finally: browser_clients.discard(ws) em
+    # handle_browser). Um heartbeat manual redundante existia aqui antes e
+    # só gerava tráfego de ping extra sem remover nada que o nativo não
+    # removesse.
 
     async with websockets.serve(
         handler,

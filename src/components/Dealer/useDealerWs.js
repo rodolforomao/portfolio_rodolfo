@@ -145,13 +145,17 @@ export default function useDealerWs(wsUrl, token, enabled) {
       lastDealerSnapshotRef.current = dealerPids;
       lastStateUpdateRef.current = now;
 
-      // Log diagnóstico a cada state_update com resumo dos dealers
-      log.debug(
-        'state_update recebido',
-        'dealers:', dealerSummary,
-        'log_summary:', data.log_summary || null,
-        'ts:', data.ts,
-      );
+      // Log diagnóstico a cada state_update com resumo dos dealers — só em
+      // dev; em produção isso dispara a cada poucos segundos pra sempre,
+      // sem consumidor (DevTools fechado), e custa JSON.stringify indireto.
+      if (process.env.NODE_ENV !== 'production') {
+        log.debug(
+          'state_update recebido',
+          'dealers:', dealerSummary,
+          'log_summary:', data.log_summary || null,
+          'ts:', data.ts,
+        );
+      }
       // ─────────────────────────────────────────────────────────────────────
 
       setState(data);
@@ -225,6 +229,15 @@ export default function useDealerWs(wsUrl, token, enabled) {
         clearTermuxState();
         addLog(`[${msg.ts || ''}] Termux agent desconectado`);
       }
+      return;
+    }
+
+    if (type === 'termux_command_result') {
+      // O relay repassa isso bruto do agent Termux; hoje não há um formato
+      // confirmado de req_id/ok pra resolver via pendingRef com segurança,
+      // então só registramos pra visibilidade em vez de descartar em
+      // silêncio (era isso que acontecia antes, sem nenhum case aqui).
+      addLog(`[termux] comando ${msg.action || ''} → ${JSON.stringify(msg.data ?? msg.result ?? msg)}`);
       return;
     }
 

@@ -12,8 +12,14 @@ import { canonicalAssetName } from './utils/dealerFormat';
 const RECONNECT_BASE_MS = 15000;
 const RECONNECT_MAX_MS = 90000;
 
-/** Assina TODOS os pares canônicos para varredura de mercado (sem precisar de ownOrders). */
-export default function useMarketScan(assets, enabled = true) {
+/**
+ * Assina TODOS os pares canônicos para varredura de mercado (sem precisar de
+ * ownOrders), mais qualquer par extra (ex.: ordens do dealer selecionado) que
+ * eventualmente não esteja entre os canônicos — hoje isso nunca acontece na
+ * prática (o dealer só opera nos 3 pares canônicos), mas evita perder
+ * cobertura se isso mudar. `extraPairs` no formato de buildPairSubscriptions().
+ */
+export default function useMarketScan(assets, enabled = true, extraPairs = []) {
   const [books, setBooks] = useState({});
   const [indPrices, setIndPrices] = useState({});
   const [status, setStatus] = useState('idle');
@@ -38,24 +44,53 @@ export default function useMarketScan(assets, enabled = true) {
     [assets],
   );
 
-  /* Resolve pares canônicos com asset IDs */
-  const buildPairs = useCallback(() => {
-    if (!assets?.length) return [];
-    return SIDESWAP_CANONICAL_PAIRS.flatMap(({ base, quote }) => {
+  const canonicalKeySet = useMemo(() => {
+    const set = new Set();
+    if (!assets?.length) return set;
+    SIDESWAP_CANONICAL_PAIRS.forEach(({ base, quote }) => {
       const baseId = assetIdForName(canonicalAssetName(base), assets);
       const quoteId = assetIdForName(canonicalAssetName(quote), assets);
-      if (!baseId || !quoteId) return [];
+      if (baseId && quoteId) set.add(pairKeyFromIds(baseId, quoteId));
+    });
+    return set;
+  }, [assets]);
+
+  /* Só os pares extras que de fato não estão nos canônicos — mantém a chave
+     abaixo estável (string vazia) no caso comum, sem reconectar o WS
+     compartilhado por nada. */
+  const novelExtraPairs = useMemo(
+    () => (extraPairs || []).filter((p) => p?.key && !canonicalKeySet.has(p.key)),
+    [extraPairs, canonicalKeySet],
+  );
+
+  const extraPairsKey = useMemo(
+    () => (novelExtraPairs.length ? [...new Set(novelExtraPairs.map((p) => p.key))].sort().join(',') : ''),
+    [novelExtraPairs],
+  );
+
+  /* Resolve pares canônicos com asset IDs + extras novos (dedup por key) */
+  const buildPairs = useCallback(() => {
+    if (!assets?.length) return [];
+    const byKey = new Map();
+    SIDESWAP_CANONICAL_PAIRS.forEach(({ base, quote }) => {
+      const baseId = assetIdForName(canonicalAssetName(base), assets);
+      const quoteId = assetIdForName(canonicalAssetName(quote), assets);
+      if (!baseId || !quoteId) return;
       const key = pairKeyFromIds(baseId, quoteId);
-      return [{
+      byKey.set(key, {
         key,
         base: canonicalAssetName(base),
         quote: canonicalAssetName(quote),
         baseId,
         quoteId,
         marketUrl: sideswapMarketUrl(baseId, quoteId),
-      }];
+      });
     });
-  }, [assets]);
+    novelExtraPairs.forEach((p) => {
+      if (!byKey.has(p.key)) byKey.set(p.key, p);
+    });
+    return [...byKey.values()];
+  }, [assets, novelExtraPairs]);
 
   const clearTimer = useCallback(() => {
     if (reconnectRef.current) { clearTimeout(reconnectRef.current); reconnectRef.current = null; }
@@ -190,7 +225,7 @@ export default function useMarketScan(assets, enabled = true) {
     const pairs = buildPairs();
     openSocket(pairs);
     return () => closeSocket(true);
-  }, [enabled, assetsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enabled, assetsKey, extraPairsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     status,

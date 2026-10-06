@@ -39,7 +39,7 @@ import OrderPlacementPanel from './OrderPlacementPanel';
 import TransactionsPanel from './TransactionsPanel';
 import OrderBookPresenceBadge from './OrderBookPresenceBadge';
 import OrderBooksPanel from './OrderBooksPanel';
-import { formatBookAmount, marketPairKeyFromNames } from './utils/sideswapBook';
+import { buildPairSubscriptions, formatBookAmount, marketPairKeyFromNames } from './utils/sideswapBook';
 import { computeSpreadOpportunities } from './utils/spreadOpportunities';
 import {
   resolveOrderBookPresence,
@@ -1852,6 +1852,32 @@ export default function DealerConsole() {
     return all;
   }, [selectedDealer, dealers]);
 
+  // Pares das ordens do dealer selecionado que eventualmente não estejam
+  // entre os 3 canônicos já assinados por useMarketScan (hoje nunca ocorre
+  // na prática, mas mantém a cobertura garantida).
+  const scanExtraPairs = useMemo(
+    () => buildPairSubscriptions(selectedDealerSentOrders, marketData.assets, marketData.combinations),
+    [selectedDealerSentOrders, marketData.assets, marketData.combinations],
+  );
+
+  const {
+    status: scanStatus,
+    error: scanError,
+    lastUpdate: scanLastUpdate,
+    pairs: scanPairs,
+    books: scanBooks,
+    indPrices: scanIndPrices,
+    reconnect: reconnectScan,
+  } = useMarketScan(
+    marketData.assets,
+    !!marketData.assets?.length,
+    scanExtraPairs,
+  );
+
+  // Deriva a posição das ordens do dealer selecionado no livro público a
+  // partir da MESMA conexão WS do useMarketScan acima — SideSwap só expõe os
+  // 3 pares canônicos, que são superset de qualquer par que o dealer opera,
+  // então não há motivo para uma segunda conexão à parte.
   const {
     status: bookStatus,
     error: bookError,
@@ -1864,8 +1890,15 @@ export default function DealerConsole() {
   } = useSideswapBook(
     selectedDealerSentOrders,
     marketData.assets,
-    selectedDealerSentOrders.length > 0,
     marketData.combinations,
+    {
+      books: scanBooks,
+      indPrices: scanIndPrices,
+      status: scanStatus,
+      error: scanError,
+      lastUpdate: scanLastUpdate,
+      reconnect: reconnectScan,
+    },
   );
 
   const { getCompetitorMap } = useCompetitorTracking(bookData, bookPlacements, bookStatus);
@@ -1886,19 +1919,6 @@ export default function DealerConsole() {
     }
     return map;
   }, [bookPlacements]);
-
-  const {
-    status: scanStatus,
-    error: scanError,
-    lastUpdate: scanLastUpdate,
-    pairs: scanPairs,
-    books: scanBooks,
-    indPrices: scanIndPrices,
-    reconnect: reconnectScan,
-  } = useMarketScan(
-    marketData.assets,
-    !!marketData.assets?.length,
-  );
 
   const spreadOpportunityCount = useMemo(
     () => computeSpreadOpportunities(scanPairs, scanBooks, scanIndPrices).total,
