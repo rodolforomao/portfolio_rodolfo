@@ -11,6 +11,13 @@ import { canonicalAssetName } from './utils/dealerFormat';
 
 const RECONNECT_BASE_MS = 15000;
 const RECONNECT_MAX_MS = 90000;
+// Resubscribe periódico de segurança: antes havia 2 conexões independentes
+// com a SideSwap (useSideswapBook + useMarketScan) assinando os mesmos
+// pares — se uma perdesse um public_order_created pontual, a outra
+// normalmente cobria. Unificadas numa só conexão, essa redundância some;
+// isso garante que o book nunca fique preso por mais que isso, sem precisar
+// de F5, mesmo que uma atualização incremental pontual se perca.
+const RESUBSCRIBE_INTERVAL_MS = 45000;
 
 /**
  * Assina TODOS os pares canônicos para varredura de mercado (sem precisar de
@@ -226,6 +233,30 @@ export default function useMarketScan(assets, enabled = true, extraPairs = []) {
     openSocket(pairs);
     return () => closeSocket(true);
   }, [enabled, assetsKey, extraPairsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refs sempre com a versão mais recente — o setInterval abaixo roda numa
+  // única montagem (deps só [enabled]) pra não ficar reiniciando a cada
+  // render e nunca disparar de fato.
+  const buildPairsRef = useRef(buildPairs);
+  buildPairsRef.current = buildPairs;
+  const openSocketRef = useRef(openSocket);
+  openSocketRef.current = openSocket;
+  const closeSocketRef = useRef(closeSocket);
+  closeSocketRef.current = closeSocket;
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const id = setInterval(() => {
+      const pairs = buildPairsRef.current();
+      if (!pairs.length) return;
+      // Fecha e reabre pra forçar um subscribe novo (snapshot fresco) —
+      // mesmo efeito de um F5, só que automático e sem perder o resto do
+      // estado da página.
+      closeSocketRef.current(true);
+      openSocketRef.current(pairs);
+    }, RESUBSCRIBE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [enabled]);
 
   return {
     status,
