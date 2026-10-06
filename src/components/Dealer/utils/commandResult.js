@@ -108,8 +108,9 @@ export function normalizeCommandResult(action, result) {
 }
 
 export function findLiveDealer(dealers, pid) {
+  const want = String(pid);
   return (dealers || []).find((d) => (
-    d.pid === pid
-    && (d.dealerStatus === 'online' || d.dealerStatus === 'unused')
+    String(d.pid) === want
+    && (d.isLive || d.dealerStatus === 'online' || d.dealerStatus === 'unused')
   ));
 }

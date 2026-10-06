@@ -3782,6 +3782,20 @@ body.dealer-route-active .App.app-ready {
 .dealer-order-form {
   border-top: 1px solid #30363d;
   padding-top: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.dealer-order-send-notice {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #ffa198;
+  white-space: pre-wrap;
+}
+
+.dealer-order-send-notice.ok {
+  color: #7ee787;
 }
 
 .dealer-order-chip-meta {

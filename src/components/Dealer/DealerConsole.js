@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
@@ -325,6 +325,8 @@ const CommandPanel = React.memo(function CommandPanel({
   const [spreadPick, setSpreadPick] = useState(null);
   const [orderPick, setOrderPick] = useState(null);
   const [lossSendConfirm, setLossSendConfirm] = useState({ signature: null, step: 0 });
+  const [orderSendNotice, setOrderSendNotice] = useState(null);
+  const orderSendNoticeRef = useRef(null);
   const [direction, setDirection] = useState('Buy');
   const [histDest, setHistDest] = useState(defaultHistoryDestination);
   const [pairDefaults, setPairDefaults] = useState([]);
@@ -335,6 +337,11 @@ const CommandPanel = React.memo(function CommandPanel({
   const [clearTomlArmed, setClearTomlArmed] = useState(false);
   const [keepToml, setKeepToml] = useState(false);
   const [removeTomlArmedKey, setRemoveTomlArmedKey] = useState(null);
+
+  useEffect(() => {
+    if (!orderSendNotice) return;
+    orderSendNoticeRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [orderSendNotice]);
 
   useEffect(() => {
     setClearTomlArmed(false);
@@ -744,101 +751,126 @@ const CommandPanel = React.memo(function CommandPanel({
 
   const isOrderHistorySelected = (entry) => orderPick?.registryId === entry.registryId;
 
+  const reportOrderSend = (ok, message) => {
+    setOrderSendNotice({ ok: !!ok, message });
+    setFeedback({
+      ok: !!ok,
+      data: {
+        error: ok ? undefined : message,
+        summary: message,
+      },
+    });
+  };
+
   const handleSendOrder = async () => {
-    const pid = orderTargetPid;
-    if (!pid) return;
-    const live = findLiveDealer(activeDealers, pid);
-    if (!live) {
-      setFeedback({
-        ok: false,
-        data: { error: `PID ${pid} não está ativo. Selecione um dealer online ou inicie um novo (Run).` },
+    try {
+      const pid = orderTargetPid;
+      if (!pid) {
+        reportOrderSend(false, 'Selecione um dealer ou uma ordem do histórico.');
+        return;
+      }
+      const live = findLiveDealer(activeDealers, pid);
+      if (!live) {
+        const same = (activeDealers || []).find((d) => String(d.pid) === String(pid));
+        reportOrderSend(
+          false,
+          same
+            ? `PID ${pid} está ${same.statusLabel || same.dealerStatus || 'inativo'}. O envio só segue com dealer online.`
+            : `PID ${pid} não está ativo. Selecione um dealer online ou inicie um novo (Run).`,
+        );
+        return;
+      }
+      const priceFields = buildPriceParams({
+        price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
       });
-      return;
-    }
-    const priceFields = buildPriceParams({
-      price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
-    });
-    const validation = validatePriceForm({
-      price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
-    });
-    if (!validation.ok) {
-      setFeedback({
-        ok: false,
-        data: { error: validation.error },
+      const validation = validatePriceForm({
+        price, pricePorc, priceMin, followTarget, followTargetOrderId, followTargetPosition,
       });
-      return;
-    }
-    const qtyRaw = parseFloat(String(amount).replace(',', '.'));
-    let finalAmount;
-    if (amountAsset === 'quote' && qtyRaw > 0) {
-      const pairKey = marketPairKeyFromNames(base, quote, marketData?.assets, marketData?.combinations);
-      const indPrice = pairKey ? Number(marketIndPrices[pairKey]?.indPrice) : NaN;
-      if (!Number.isFinite(indPrice) || indPrice <= 0) {
+      if (!validation.ok) {
+        reportOrderSend(false, validation.error);
+        return;
+      }
+      const qtyRaw = parseFloat(String(amount).replace(',', '.'));
+      let finalAmount;
+      if (amountAsset === 'quote' && qtyRaw > 0) {
+        const pairKey = marketPairKeyFromNames(base, quote, marketData?.assets, marketData?.combinations);
+        const indPrice = pairKey ? Number(marketIndPrices[pairKey]?.indPrice) : NaN;
+        if (!Number.isFinite(indPrice) || indPrice <= 0) {
+          reportOrderSend(false, `Preço de mercado indisponível para converter ${amount} ${quote} em ${base}.`);
+          return;
+        }
+        finalAmount = qtyRaw / indPrice;
+      } else {
+        finalAmount = qtyRaw > 0 ? qtyRaw : 999999;
+      }
+      const rawParams = {
+        pid: live.pid,
+        base,
+        quote,
+        trade_dir: tradeDir,
+        amount: finalAmount,
+        ...priceFields,
+      };
+      const params = normalizeSendParams(rawParams);
+      const lossCheck = assessOrderLoss({
+        base: params.base,
+        quote: params.quote,
+        trade_dir: params.trade_dir,
+        price: params.price,
+        price_porc: params.price_porc,
+        price_min: params.price_min,
+        follow_target: params.follow_target,
+        original_price: params.original_price,
+      });
+
+      if (lossCheck.hasLoss && pendingLossStep < LOSS_SEND_CONFIRM_STEPS) {
+        const nextStep = pendingLossStep + 1;
+        const message = nextStep < LOSS_SEND_CONFIRM_STEPS
+          ? `Operação com ${lossCheck.label}. Clique em Enviar novamente para confirmar (${nextStep}/${LOSS_SEND_CONFIRM_STEPS}).`
+          : `Última confirmação: ${lossCheck.label}. Clique em Enviar mais uma vez para enviar com perda.`;
+        setLossSendConfirm({ signature: sendFormSignature, step: nextStep });
+        setOrderSendNotice({ ok: false, message });
         setFeedback({
           ok: false,
-          data: { error: `Preço de mercado indisponível para converter ${amount} ${quote} em ${base}.` },
+          data: {
+            error: message,
+            summary: message,
+            lossConfirm: { step: nextStep, total: LOSS_SEND_CONFIRM_STEPS, label: lossCheck.label },
+          },
         });
         return;
       }
-      finalAmount = qtyRaw / indPrice;
-    } else {
-      finalAmount = qtyRaw > 0 ? qtyRaw : 999999;
-    }
-    const rawParams = {
-      pid,
-      base,
-      quote,
-      trade_dir: tradeDir,
-      amount: finalAmount,
-      ...priceFields,
-    };
-    const params = normalizeSendParams(rawParams);
-    const lossCheck = assessOrderLoss({
-      base: params.base,
-      quote: params.quote,
-      trade_dir: params.trade_dir,
-      price: params.price,
-      price_porc: params.price_porc,
-      price_min: params.price_min,
-      follow_target: params.follow_target,
-      original_price: params.original_price,
-    });
 
-    if (lossCheck.hasLoss && pendingLossStep < LOSS_SEND_CONFIRM_STEPS) {
-      const nextStep = pendingLossStep + 1;
-      setLossSendConfirm({ signature: sendFormSignature, step: nextStep });
-      setFeedback({
-        ok: false,
-        data: {
-          error: nextStep < LOSS_SEND_CONFIRM_STEPS
-            ? `Operação com ${lossCheck.label}. Clique em Enviar novamente para confirmar (${nextStep}/${LOSS_SEND_CONFIRM_STEPS}).`
-            : `Última confirmação: ${lossCheck.label}. Clique em Enviar mais uma vez para enviar com perda.`,
-          lossConfirm: { step: nextStep, total: LOSS_SEND_CONFIRM_STEPS, label: lossCheck.label },
-        },
+      setOrderSendNotice({ ok: true, message: 'Enviando ordem…' });
+      const result = await run('send_order', {
+        ...params,
+        confirm_loss: lossCheck.hasLoss,
       });
-      return;
-    }
-
-    const result = await run('send_order', {
-      ...params,
-      confirm_loss: lossCheck.hasLoss,
-    });
-    setLossSendConfirm({ signature: sendFormSignature, step: 0 });
-    if (result?.ok) {
-      const dealer = activeDealers.find((d) => d.pid === pid);
-      saveSentOrderToRegistry(pid, dealer?.wallet_name, params, result.data?.order);
-      onBumpOrderRegistry();
+      setLossSendConfirm({ signature: sendFormSignature, step: 0 });
       const summary = [
         describeSendOrderResult(result),
         params.normalizeNote,
       ].filter(Boolean).join('\n');
-      setFeedback({
-        ...result,
-        data: { ...result.data, summary },
-      });
-    }
-    if (result?.data?.send_result?.text === 'pending_approval') {
-      onPendingApproval?.();
+      setOrderSendNotice({ ok: !!result?.ok, message: summary || 'Sem resposta do envio.' });
+      if (result?.ok) {
+        const dealer = activeDealers.find((d) => String(d.pid) === String(pid));
+        saveSentOrderToRegistry(live.pid, dealer?.wallet_name, params, result.data?.order);
+        onBumpOrderRegistry();
+        setFeedback({
+          ...result,
+          data: { ...result.data, summary },
+        });
+      } else if (result?.data?.error && !result?.data?.summary) {
+        setFeedback({
+          ...result,
+          data: { ...result.data, summary: result.data.error },
+        });
+      }
+      if (result?.data?.send_result?.text === 'pending_approval') {
+        onPendingApproval?.();
+      }
+    } catch (err) {
+      reportOrderSend(false, err?.message || 'Falha ao enviar a ordem.');
     }
   };
 
@@ -1293,6 +1325,7 @@ const CommandPanel = React.memo(function CommandPanel({
             </div>
           )}
           <Button
+            type="button"
             className={`dealer-btn-primary mt-3${pendingLossStep > 0 ? ' dealer-btn-loss-confirm' : ''}`}
             disabled={busy || !orderTargetPid}
             variant={pendingLossStep > 0 ? 'warning' : 'primary'}
@@ -1303,6 +1336,15 @@ const CommandPanel = React.memo(function CommandPanel({
               : `Enviar — ${describeTrade(base, quote, tradeDir).pairLabel}`}
             {orderPick && pendingLossStep === 0 && ' (baseado no histórico)'}
           </Button>
+          {orderSendNotice && (
+            <p
+              ref={orderSendNoticeRef}
+              className={`dealer-order-send-notice${orderSendNotice.ok ? ' ok' : ''}`}
+              role="status"
+            >
+              {orderSendNotice.message}
+            </p>
+          )}
           {selectedPid && (
             <button
               className={`dealer-pair-default-save-btn${defaultSaved ? ' saved' : ''}`}
