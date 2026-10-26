@@ -446,7 +446,7 @@ export default function OrderPlacementPanel({
               </a>
             )}
 
-            {found && (
+            {(found || presence.key === 'sem_ativo') && (
               <div className="dealer-placement-book-preview">
                 <div className="dealer-placement-book-col">
                   <div className="dealer-placement-book-title">
@@ -469,7 +469,7 @@ export default function OrderPlacementPanel({
                   <MiniBook
                     orders={book.length ? book : sideOrders}
                     tradeDir={bookTradeDir}
-                    highlightId={order.order_id}
+                    highlightId={found ? order.order_id : null}
                     followRefId={order.follow_ref_order_id}
                     indPrice={canComparePrices ? marketRef?.indPrice : null}
                     baseAsset={market?.marketBase || order.base}
